@@ -16,19 +16,20 @@ final class MedicationStore {
         didSet { save() }
     }
 
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let storage: any DoseLogStorage
     @ObservationIgnored private let calendar: Calendar
-    private static let storageKey = "takenDoses"
     /// Older records are dropped on launch; only today's matter.
     private static let keepDays = 14
 
+    /// - Parameter now: when the store is created; records older than `keepDays` before it are dropped.
     init(medications: [Medication] = SampleMedications.all,
-         defaults: UserDefaults = .standard,
-         calendar: Calendar = .current) {
+         storage: any DoseLogStorage = UserDefaultsDoseLogStorage(),
+         calendar: Calendar = .current,
+         now: Date = Date()) {
         self.medications = medications
-        self.defaults = defaults
+        self.storage = storage
         self.calendar = calendar
-        self.takenLog = Self.load(from: defaults, calendar: calendar)
+        self.takenLog = Self.recent(storage.load(), now: now, calendar: calendar)
     }
 
     // MARK: Reading
@@ -101,14 +102,11 @@ final class MedicationStore {
     }
 
     private func save() {
-        defaults.set(takenLog.mapValues(\.timeIntervalSince1970), forKey: Self.storageKey)
+        storage.save(takenLog)
     }
 
-    private static func load(from defaults: UserDefaults, calendar: Calendar) -> [String: Date] {
-        let stored = defaults.dictionary(forKey: storageKey) as? [String: Double] ?? [:]
-        let cutoff = calendar.date(byAdding: .day, value: -keepDays, to: Date()) ?? .distantPast
-        return stored
-            .mapValues { Date(timeIntervalSince1970: $0) }
-            .filter { $0.value >= cutoff }
+    private static func recent(_ log: [String: Date], now: Date, calendar: Calendar) -> [String: Date] {
+        let cutoff = calendar.date(byAdding: .day, value: -keepDays, to: now) ?? .distantPast
+        return log.filter { $0.value >= cutoff }
     }
 }
