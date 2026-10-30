@@ -37,7 +37,7 @@ struct ScanArrow: View {
 
 /// The arrow's path, drawn in one continuous stroke (line, loop, sweep, then the head)
 /// so trimming it looks like a pen drawing it.
-struct ScanArrowShape: Shape {
+nonisolated struct ScanArrowShape: Shape {
     func path(in rect: CGRect) -> Path {
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
             CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
