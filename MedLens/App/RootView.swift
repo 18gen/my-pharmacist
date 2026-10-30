@@ -22,7 +22,7 @@ struct RootView: View {
         NavigationStack {
             GeometryReader { proxy in
                 ZStack(alignment: .bottom) {
-                    Color.white.ignoresSafeArea()
+                    Palette.background.ignoresSafeArea()
 
                     if !isScanning {
                         HomeView(store: store, onShowMedications: { showingMedications = true })

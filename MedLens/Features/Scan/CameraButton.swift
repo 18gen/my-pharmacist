@@ -32,7 +32,7 @@ struct CameraButton: View {
                 if !isScanning {
                     Text("Scan Pills")
                         .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color(white: 0.1))
+                        .foregroundStyle(Palette.textProminent)
                         .transition(Self.hintTransition)
                 }
 

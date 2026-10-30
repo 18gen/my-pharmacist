@@ -25,15 +25,8 @@ struct HomeHeader: View {
 
             Spacer(minLength: 8)
 
-            Button(action: onShowMedications) {
-                Image(systemName: "cross.vial.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.black)
-                    .frame(width: GlassButton.size, height: GlassButton.size)
-                    .modifier(GlassButtonBackground(shape: Circle()))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("My medications")
+            GlassIconButton(systemName: "cross.vial.fill", accessibilityLabel: "My medications",
+                            action: onShowMedications)
         }
     }
 
@@ -41,7 +34,7 @@ struct HomeHeader: View {
         // Full words ("Wednesday, October 14") are easier to read than abbreviations.
         Text(now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
             .font(.title2.weight(.semibold))
-            .foregroundStyle(Color(white: 0.25))
+            .foregroundStyle(Palette.textSubtitle)
             .lineLimit(2)
             .minimumScaleFactor(0.8)
     }
@@ -53,7 +46,7 @@ struct HomeHeader: View {
             Text(Self.clockText(now, use24Hour: use24Hour))
                 .font(.system(size: timeSize, weight: .bold))
                 .monospacedDigit()
-                .foregroundStyle(.black)
+                .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 // A quick cross-fade between "6:33 AM" and "06:33".
@@ -66,7 +59,7 @@ struct HomeHeader: View {
 
     /// "6:33 AM", or "06:33" / "18:33" in 24-hour time regardless of the phone's region.
     static func clockText(_ date: Date, use24Hour: Bool) -> String {
-        guard use24Hour else { return date.formatted(date: .omitted, time: .shortened) }
+        guard use24Hour else { return date.shortTime }
         let style = Date.VerbatimFormatStyle(
             format: "\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
             timeZone: .current,

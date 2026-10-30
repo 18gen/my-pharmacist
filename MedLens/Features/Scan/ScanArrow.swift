@@ -16,7 +16,7 @@ struct ScanArrow: View {
     var body: some View {
         ScanArrowShape()
             .trim(from: 0, to: reduceMotion ? 1 : progress)
-            .stroke(Color(white: 0.15), style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+            .stroke(Palette.drawing, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
             .offset(x: isNudged ? 4 : 0, y: isNudged ? 1 : 0)
             .task {
                 guard !reduceMotion else { return }

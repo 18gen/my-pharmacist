@@ -20,7 +20,7 @@ struct TodayCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Today")
                     .font(.title2.weight(.bold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Palette.textPrimary)
                 Spacer()
                 if allDone {
                     Label("All done", systemImage: "checkmark.circle.fill")
@@ -29,7 +29,7 @@ struct TodayCard: View {
                 } else if !items.isEmpty {
                     Text("\(takenCount) of \(items.count) taken")
                         .font(.headline)
-                        .foregroundStyle(Color(white: 0.4))
+                        .foregroundStyle(Palette.textTertiary)
                 }
             }
             .accessibilityElement(children: .combine)
@@ -37,7 +37,7 @@ struct TodayCard: View {
             if items.isEmpty {
                 Text("No medications scheduled today.")
                     .font(.body)
-                    .foregroundStyle(Color(white: 0.4))
+                    .foregroundStyle(Palette.textTertiary)
             } else {
                 // Plain list when it fits; scrolls when it doesn't.
                 ViewThatFits(in: .vertical) {
@@ -47,8 +47,7 @@ struct TodayCard: View {
                 }
             }
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(white: 0.96)))
+        .cardBackground()
         .animation(.spring(duration: 0.45), value: items.map { "\($0.dose.id)|\($0.state)" })
         .sensoryFeedback(.impact(weight: .light), trigger: takenCount)
         .confirmationDialog(
@@ -65,7 +64,7 @@ struct TodayCard: View {
 
     private var uncheckTitle: String {
         guard let dose = doseToUncheck else { return "" }
-        return "Mark \(dose.medication.displayName) (\(dose.scheduled.formatted(date: .omitted, time: .shortened))) as not taken?"
+        return "Mark \(dose.medication.displayName) (\(dose.scheduled.shortTime)) as not taken?"
     }
 
     @ViewBuilder
@@ -97,7 +96,7 @@ extension TodayCard {
     fileprivate func sectionHeader(_ title: String, isFirst: Bool) -> some View {
         Text(title)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Color(white: 0.45))
+            .foregroundStyle(Palette.textMuted)
             .padding(.top, isFirst ? 0 : 14)
             .padding(.bottom, 2)
             .accessibilityAddTraits(.isHeader)

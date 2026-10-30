@@ -18,7 +18,7 @@ struct DoseRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var timeText: String {
-        dose.scheduled.formatted(date: .omitted, time: .shortened)
+        dose.scheduled.shortTime
     }
 
     var body: some View {
@@ -29,7 +29,7 @@ struct DoseRow: View {
                 VStack(spacing: 2) {
                     Image(systemName: state.isTaken ? "checkmark.square.fill" : "square")
                         .font(.system(size: checkboxSize))
-                        .foregroundStyle(state.isTaken ? Palette.taken : Color(white: 0.3))
+                        .foregroundStyle(state.isTaken ? Palette.taken : Palette.controlInactive)
                         .contentTransition(.symbolEffect(.replace))
                         .frame(height: checkboxSize + 6)
                     DoseStatusText(state: state, scheduled: dose.scheduled, now: now)
@@ -47,12 +47,12 @@ struct DoseRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(dose.medication.name)
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Palette.textPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                 Text("\(dose.medication.strength) · \(timeText)")
                     .font(.body)
-                    .foregroundStyle(Color(white: 0.35))
+                    .foregroundStyle(Palette.textSecondary)
             }
 
             Spacer(minLength: 0)
@@ -78,14 +78,14 @@ private struct DoseStatusText: View {
     var body: some View {
         switch state {
         case .upcoming:
-            label("\(Self.duration(scheduled.timeIntervalSince(now)))", color: Color(white: 0.4))
+            label("\(Self.duration(scheduled.timeIntervalSince(now)))", color: Palette.textTertiary)
         case .due:
             label("Now", color: Palette.due, weight: .bold)
         case .late:
             label("\(Self.duration(now.timeIntervalSince(scheduled))) late", color: Palette.late, weight: .bold)
         case .taken(let time):
             // The "Taken" section header says what this time means.
-            label(time.formatted(date: .omitted, time: .shortened), color: Palette.taken, weight: .bold)
+            label(time.shortTime, color: Palette.taken, weight: .bold)
         }
     }
 
@@ -114,7 +114,7 @@ private struct DoseStatusText: View {
         case .upcoming: return "Not taken. Due in \(spoken(scheduled.timeIntervalSince(now)))"
         case .due: return "Not taken. Due now"
         case .late: return "Not taken. \(spoken(now.timeIntervalSince(scheduled))) late"
-        case .taken(let time): return "Taken at \(time.formatted(date: .omitted, time: .shortened))"
+        case .taken(let time): return "Taken at \(time.shortTime)"
         }
     }
 }

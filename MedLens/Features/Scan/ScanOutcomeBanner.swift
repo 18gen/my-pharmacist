@@ -22,10 +22,10 @@ struct ScanOutcomeBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(content.title)
                     .font(.headline)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Palette.textPrimary)
                 Text(content.message)
                     .font(.subheadline)
-                    .foregroundStyle(Color(white: 0.3))
+                    .foregroundStyle(Palette.textBody)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
@@ -36,7 +36,7 @@ struct ScanOutcomeBanner: View {
                 Button("Undo", action: onUndo)
                     .font(.headline)
                     .buttonStyle(.bordered)
-                    .tint(.black)
+                    .tint(Palette.textPrimary)
                     .accessibilityHint("Marks this dose as not taken")
             }
         }
@@ -55,7 +55,7 @@ struct ScanOutcomeBanner: View {
     }
 
     private static func content(for outcome: ScanOutcome) -> (icon: String, color: Color, title: String, message: String) {
-        func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
+        func time(_ date: Date) -> String { date.shortTime }
 
         switch outcome {
         case .checked(let dose):
@@ -72,15 +72,15 @@ struct ScanOutcomeBanner: View {
                     "Not time yet",
                     "Next \(next.medication.displayName) dose is at \(time(next.scheduled)).")
         case .notScheduledToday(let medication):
-            return ("info.circle.fill", Color(white: 0.45),
+            return ("info.circle.fill", Palette.textMuted,
                     "No dose to take now",
                     "\(medication.displayName) has no more doses today.")
         case .notOnList(let scannedName):
-            return ("questionmark.circle.fill", Color(white: 0.45),
+            return ("questionmark.circle.fill", Palette.textMuted,
                     "Not on your list",
                     "\(scannedName) isn't one of your medications.")
         case .unsure:
-            return ("questionmark.circle.fill", Color(white: 0.45),
+            return ("questionmark.circle.fill", Palette.textMuted,
                     "Not sure which medication",
                     "Check the label and try again.")
         }

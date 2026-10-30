@@ -11,7 +11,7 @@ struct PillImage: View {
     var size: CGFloat = 48
 
     var body: some View {
-        let color = Palette.tint(medication.tint)
+        let color = medication.tint.color
         Image(systemName: medication.symbol)
             .font(.system(size: size * 0.45, weight: .semibold))
             .foregroundStyle(color)

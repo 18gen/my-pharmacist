@@ -1,18 +1,12 @@
 //
-//  GlassButton.swift
+//  GlassButtonBackground.swift
 //  MedLens
 //
 
 import SwiftUI
 
-enum GlassButton {
-    /// Height of the app's glass buttons (the system uses 44pt).
-    static let size: CGFloat = 56
-}
-
 /// The Liquid Glass look iOS uses for bar buttons (like the back button) on iOS 26 and
-/// later; a plain grey fill on earlier versions. Buttons using it are 56pt tall — larger
-/// than the system's 44pt so they are easier to see and tap.
+/// later; a plain grey fill on earlier versions.
 struct GlassButtonBackground<S: Shape>: ViewModifier {
     let shape: S
 
@@ -24,7 +18,7 @@ struct GlassButtonBackground<S: Shape>: ViewModifier {
         } else {
             content
                 .contentShape(shape)
-                .background(shape.fill(Color(white: 0.94)))
+                .background(shape.fill(Palette.glassFallbackFill))
         }
     }
 }
