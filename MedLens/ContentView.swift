@@ -142,7 +142,7 @@ struct CameraButton: View {
         Button(action: action) {
             VStack(spacing: 28) {
                 if !isScanning {
-                    Text("Scan Label")
+                    Text("Scan Pills")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(Color(white: 0.1))
                         .transition(Self.hintTransition)
