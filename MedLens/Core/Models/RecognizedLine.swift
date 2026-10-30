@@ -14,3 +14,11 @@ nonisolated struct RecognizedLine: Sendable, Equatable {
     let box: CGRect
     var role: Role = .other
 }
+
+/// Everything read from one camera frame.
+nonisolated struct RecognizedFrame: Sendable, Equatable {
+    /// Top of the label first.
+    let lines: [RecognizedLine]
+    /// Upright size of the frame the boxes are measured against.
+    let size: CGSize
+}

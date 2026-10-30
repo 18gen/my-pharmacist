@@ -4,22 +4,36 @@
 //
 
 import AVFoundation
-import Vision
 
-/// Owns the capture session and runs Vision text recognition on video frames.
+/// Owns the capture session and hands a few video frames a second to the text recognizer.
 /// Lives off the main actor: all camera work happens on its own queues.
+///
+/// `@unchecked Sendable` is safe because each mutable property is only touched on one
+/// queue: `isConfigured` and `device` on `sessionQueue`, `lastScan` on `videoQueue`.
+/// Everything else is immutable, and the stream's continuation is thread-safe.
 nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
 
-    /// Called on a background queue with the recognized lines (top to bottom) and the
-    /// upright frame size. Set before calling `start()`.
-    var onText: (@Sendable ([RecognizedLine], CGSize) -> Void)?
+    /// Text read from the camera while it runs. Only the newest frame waits to be read,
+    /// so a slow reader skips frames instead of falling behind the camera.
+    let frames: AsyncStream<RecognizedFrame>
+    private let framesContinuation: AsyncStream<RecognizedFrame>.Continuation
+    private let recognizer = VisionTextRecognizer()
 
     private let sessionQueue = DispatchQueue(label: "MedLens.session")
     private let videoQueue = DispatchQueue(label: "MedLens.video")
     private var isConfigured = false
     private var device: AVCaptureDevice?
     private var lastScan = Date.distantPast
+
+    override init() {
+        (frames, framesContinuation) = AsyncStream.makeStream(of: RecognizedFrame.self, bufferingPolicy: .bufferingNewest(1))
+        super.init()
+    }
+
+    deinit {
+        framesContinuation.finish()
+    }
 
     /// Configures (once) and starts the camera. Returns false if no camera is available.
     func start() async -> Bool {
@@ -123,28 +137,8 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
         guard now.timeIntervalSince(lastScan) > 0.3 else { return }
         lastScan = now
 
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        // Language correction could "fix" a drug name into a different word, so it is off.
-        request.usesLanguageCorrection = false
-
-        // Back camera frames arrive rotated; `.right` makes them upright for a portrait phone.
-        let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .right)
-        try? handler.perform([request])
-
-        let lines = (request.results ?? [])
-            .sorted { $0.boundingBox.midY > $1.boundingBox.midY }   // top of label first
-            .compactMap { observation -> RecognizedLine? in
-                // Drop text Vision is unsure about instead of guessing; it is not boxed either.
-                guard let best = observation.topCandidates(1).first, best.confidence >= 0.5 else { return nil }
-                return RecognizedLine(text: best.string, box: observation.boundingBox)
-            }
-
-        // Frames arrive landscape; rotated upright (`.right`) width and height swap.
-        var frameSize = CGSize.zero
-        if let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
-            frameSize = CGSize(width: CVPixelBufferGetHeight(buffer), height: CVPixelBufferGetWidth(buffer))
-        }
-        onText?(lines, frameSize)
+        // Recognition runs right here on the video queue; frames that arrive meanwhile
+        // are dropped (`alwaysDiscardsLateVideoFrames`).
+        framesContinuation.yield(recognizer.recognize(sampleBuffer))
     }
 }
