@@ -6,11 +6,27 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A1B2C3D4E5F6000000000007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F8808C67307F67FE0062871B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F8808C6E307F67FE0062871B;
+			remoteInfo = MedLens;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		A1B2C3D4E5F6000000000001 /* MedLensTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MedLensTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F8808C6F307F67FE0062871B /* MedLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MedLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A1B2C3D4E5F6000000000002 /* MedLensTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MedLensTests;
+			sourceTree = "<group>";
+		};
 		F8808C71307F67FE0062871B /* MedLens */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MedLens;
@@ -19,6 +35,11 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A1B2C3D4E5F6000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 		F8808C6C307F67FE0062871B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -31,6 +52,7 @@
 			isa = PBXGroup;
 			children = (
 				F8808C71307F67FE0062871B /* MedLens */,
+				A1B2C3D4E5F6000000000002 /* MedLensTests */,
 				F8808C70307F67FE0062871B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,6 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				F8808C6F307F67FE0062871B /* MedLens.app */,
+				A1B2C3D4E5F6000000000001 /* MedLensTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -46,6 +69,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A1B2C3D4E5F6000000000006 /* MedLensTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D4E5F6000000000011 /* Build configuration list for PBXNativeTarget "MedLensTests" */;
+			buildPhases = (
+				A1B2C3D4E5F6000000000003 /* Sources */,
+				A1B2C3D4E5F6000000000004 /* Frameworks */,
+				A1B2C3D4E5F6000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1B2C3D4E5F6000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1B2C3D4E5F6000000000002 /* MedLensTests */,
+			);
+			name = MedLensTests;
+			productName = MedLensTests;
+			productReference = A1B2C3D4E5F6000000000001 /* MedLensTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		F8808C6E307F67FE0062871B /* MedLens */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F8808C7C307F68000062871B /* Build configuration list for PBXNativeTarget "MedLens" */;
@@ -74,6 +118,10 @@
 				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
+					A1B2C3D4E5F6000000000006 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = F8808C6E307F67FE0062871B;
+					};
 					F8808C6E307F67FE0062871B = {
 						CreatedOnToolsVersion = 27.0;
 					};
@@ -94,11 +142,17 @@
 			projectRoot = "";
 			targets = (
 				F8808C6E307F67FE0062871B /* MedLens */,
+				A1B2C3D4E5F6000000000006 /* MedLensTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A1B2C3D4E5F6000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 		F8808C6D307F67FE0062871B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -107,6 +161,11 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A1B2C3D4E5F6000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		F8808C6B307F67FE0062871B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -114,7 +173,59 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		A1B2C3D4E5F6000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F8808C6E307F67FE0062871B /* MedLens */;
+			targetProxy = A1B2C3D4E5F6000000000007 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		A1B2C3D4E5F6000000000009 /* Debug configuration for PBXNativeTarget "MedLensTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F4X59UTGAL;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.genichihashi.MedLensTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MedLens.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MedLens";
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6000000000010 /* Release configuration for PBXNativeTarget "MedLensTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F4X59UTGAL;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.genichihashi.MedLensTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MedLens.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MedLens";
+			};
+			name = Release;
+		};
 		F8808C7A307F68000062871B /* Debug configuration for PBXProject "MedLens" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -305,6 +416,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A1B2C3D4E5F6000000000011 /* Build configuration list for PBXNativeTarget "MedLensTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6000000000009 /* Debug configuration for PBXNativeTarget "MedLensTests" */,
+				A1B2C3D4E5F6000000000010 /* Release configuration for PBXNativeTarget "MedLensTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
 		F8808C6A307F67FE0062871B /* Build configuration list for PBXProject "MedLens" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
