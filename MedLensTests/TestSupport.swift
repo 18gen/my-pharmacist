@@ -22,6 +22,14 @@ enum TestClock {
     }
 }
 
+/// A private defaults domain per test so nothing touches the app's real data.
+func isolatedDefaults() -> UserDefaults {
+    let name = "MedLensTests.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: name)!
+    defaults.removePersistentDomain(forName: name)
+    return defaults
+}
+
 extension SampleMedications {
     static var metformin: Medication { all.first { $0.id == "metformin-500" }! }
     static var lisinopril: Medication { all.first { $0.id == "lisinopril-10" }! }

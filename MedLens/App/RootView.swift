@@ -7,16 +7,16 @@ import SwiftUI
 
 /// The whole app: today's medications above one camera button. Tapping it grows the
 /// button's black circle into the live camera view; the same button then closes it.
+/// What a scan does is decided by `ScanFlow`; this view only lays out and animates.
 struct RootView: View {
-    @State private var isScanning = false
-    @State private var model = ScannerModel()
-    @State private var store = MedicationStore()
+    @State private var store: MedicationStore
+    @State private var scan: ScanFlow
     @State private var showingMedications = false
-    /// What the latest scan did, shown in the camera view.
-    @State private var scanOutcome: ScanOutcome?
-    /// Medications already handled while the camera is open, so slightly different reads
-    /// of the same bottle ("500 MG" / "500MG") don't count it twice.
-    @State private var handledMedicationIDs: Set<String> = []
+
+    init(store: MedicationStore = MedicationStore()) {
+        _store = State(initialValue: store)
+        _scan = State(initialValue: ScanFlow(store: store))
+    }
 
     var body: some View {
         NavigationStack {
@@ -24,7 +24,7 @@ struct RootView: View {
                 ZStack(alignment: .bottom) {
                     Palette.background.ignoresSafeArea()
 
-                    if !isScanning {
+                    if !scan.isOpen {
                         HomeView(store: store, onShowMedications: { showingMedications = true })
                             .padding(.horizontal, 16)
                             .padding(.top, 8)
@@ -34,43 +34,38 @@ struct RootView: View {
                             .transition(CameraButton.hintTransition)
                     }
 
-                    if isScanning {
-                        ScanResultView(model: model)
+                    if scan.isOpen {
+                        ScanResultView(model: scan.scanner)
                             .frame(maxHeight: .infinity, alignment: .top)
                             .transition(.opacity)
                     }
 
                     CameraLens(
-                        model: model,
-                        isOpen: isScanning,
+                        model: scan.scanner,
+                        isOpen: scan.isOpen,
                         openSize: ScanLayout.openLensSize(in: proxy.size),
-                        outcome: scanOutcome,
-                        onUndo: undoLastCheck
+                        outcome: scan.outcome,
+                        onUndo: scan.undo
                     )
 
-                    CameraButton(isScanning: isScanning) {
-                        setScanning(!isScanning)
+                    CameraButton(isScanning: scan.isOpen) {
+                        setScanning(!scan.isOpen)
                     }
                 }
             }
-            .onChange(of: model.medicationName) { _, name in
-                guard isScanning, let name else { return }
-                handleScan(of: name)
+            .onChange(of: scan.scanner.medicationName) { _, name in
+                guard let name, let outcome = scan.handleConfirmedName(name) else { return }
+                AccessibilityNotification.Announcement(outcome.announcement).post()
             }
             // After a successful check, close the camera so the ticked row is visible.
-            .task(id: scanOutcome) {
-                guard isScanning, case .checked = scanOutcome else { return }
-                do { try await Task.sleep(for: .seconds(1.6)) } catch { return }
+            .task(id: scan.outcome) {
+                guard scan.shouldAutoClose else { return }
+                do { try await Task.sleep(for: ScanFlow.autoCloseDelay) } catch { return }
                 setScanning(false)
             }
-            .sensoryFeedback(trigger: scanOutcome) { scanOutcome?.feedback }
-            .task(id: isScanning) {
-                if isScanning {
-                    model.reset()
-                    await model.start()
-                } else {
-                    model.stop()
-                }
+            .sensoryFeedback(trigger: scan.outcome) { scan.outcome?.feedback }
+            .task(id: scan.isOpen) {
+                await scan.syncCamera()
             }
             // Home has its own header instead of a navigation bar.
             .toolbar(.hidden, for: .navigationBar)
@@ -81,29 +76,9 @@ struct RootView: View {
     }
 
     private func setScanning(_ open: Bool) {
-        scanOutcome = nil
-        handledMedicationIDs = []
         withAnimation(.spring(duration: 0.5, bounce: 0.15)) {
-            isScanning = open
+            scan.setOpen(open)
         }
-    }
-
-    private func handleScan(of name: String) {
-        if case .match(let medication) = MedicationMatcher.match(scannedName: name, in: store.medications) {
-            guard !handledMedicationIDs.contains(medication.id) else { return }
-            handledMedicationIDs.insert(medication.id)
-        }
-        let outcome = store.recordScan(scannedName: name)
-        scanOutcome = outcome
-        AccessibilityNotification.Announcement(outcome.announcement).post()
-    }
-
-    private func undoLastCheck() {
-        if case .checked(let dose) = scanOutcome {
-            store.markNotTaken(dose)
-        }
-        // Cancels the automatic close too.
-        scanOutcome = nil
     }
 }
 

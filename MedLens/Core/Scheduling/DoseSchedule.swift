@@ -39,6 +39,19 @@ nonisolated enum DoseSchedule {
         return items.filter { $0.state.isPending } + items.filter { $0.state.isTaken }
     }
 
+    /// Decides what a scan should do now, given which medication the label matched.
+    static func scanOutcome(for match: MedicationMatcher.Result, scannedName: String,
+                            dayDoses: [Dose], takenAt: [String: Date], now: Date) -> ScanOutcome {
+        switch match {
+        case .match(let medication):
+            return scanOutcome(for: medication, dayDoses: dayDoses, takenAt: takenAt, now: now)
+        case .none:
+            return .notOnList(scannedName: scannedName)
+        case .ambiguous:
+            return .unsure(scannedName: scannedName)
+        }
+    }
+
     /// Decides what a scan of `medication` should do now. Never checks more than one dose.
     /// If several untaken doses could fit, it checks the one closest to now, so the dose
     /// that is currently due is never left looking untaken.
