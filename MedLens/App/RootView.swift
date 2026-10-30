@@ -1,15 +1,13 @@
 //
-//  ContentView.swift
+//  RootView.swift
 //  MedLens
-//
-//  Created by Gen Ichihashi on 2026-10-14.
 //
 
 import SwiftUI
 
 /// The whole app: today's medications above one camera button. Tapping it grows the
 /// button's black circle into the live camera view; the same button then closes it.
-struct ContentView: View {
+struct RootView: View {
     @State private var isScanning = false
     @State private var model = ScannerModel()
     @State private var store = MedicationStore()
@@ -117,70 +115,6 @@ struct ContentView: View {
     }
 }
 
-/// One button in one place: a camera icon on the home screen, an X on the camera screen.
-/// On the home screen a "Scan Label" hint and a hand-drawn arrow point to it; they are
-/// part of the same button, so tapping the hint opens the camera too.
-struct CameraButton: View {
-    static let size: CGFloat = 72
-    /// Distance from the physical bottom of the screen: the camera view's 10pt edge gap
-    /// plus 24pt inside it, so the button sits at the same spot on both screens.
-    static let bottomInset: CGFloat = 34
-
-    /// Height at the bottom of the home screen used by the hint and button.
-    static let homeReservedHeight: CGFloat = 170
-
-    /// Leave quickly as the camera grows; return once it has shrunk back.
-    static let hintTransition = AnyTransition.asymmetric(
-        insertion: .opacity.animation(.easeIn(duration: 0.25).delay(0.3)),
-        removal: .opacity.animation(.easeOut(duration: 0.12))
-    )
-
-    let isScanning: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 28) {
-                if !isScanning {
-                    Text("Scan Pills")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color(white: 0.1))
-                        .transition(Self.hintTransition)
-                }
-
-                Image(systemName: isScanning ? "xmark" : "camera.fill")
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(isScanning ? .black : .white)
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(width: Self.size, height: Self.size)
-                    .background {
-                        if isScanning {
-                            Circle()
-                                .fill(.white)
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                    }
-                    // The arrow curls from under the text into the button's left side.
-                    .overlay(alignment: .leading) {
-                        if !isScanning {
-                            ScanArrow()
-                                .frame(width: 56, height: 78)
-                                .offset(x: -62, y: -24)
-                                .transition(Self.hintTransition)
-                        }
-                    }
-            }
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel(isScanning ? "Close camera" : "Scan Label")
-        .accessibilityHint(isScanning ? "" : "Opens the camera to read your prescription label")
-        // A light tap of vibration each time the camera opens or closes.
-        .sensoryFeedback(.impact(weight: .light), trigger: isScanning)
-        .padding(.bottom, Self.bottomInset)
-        .ignoresSafeArea(edges: .bottom)
-    }
-}
-
 #Preview {
-    ContentView()
+    RootView()
 }
