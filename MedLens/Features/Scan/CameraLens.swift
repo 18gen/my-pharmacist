@@ -58,20 +58,20 @@ struct CameraLens: View {
                     }
                     .padding(.horizontal, 12)
                     // Sit just above the close button.
-                    .padding(.bottom, CameraButton.size + 24 + 14)
+                    .padding(.bottom, ScanLayout.bannerBottomPadding)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .id(outcome)
                 }
             }
         }
         .animation(.spring(duration: 0.4), value: outcome)
-        .frame(width: isOpen ? openSize.width : CameraButton.size,
-               height: isOpen ? openSize.height : CameraButton.size)
-        // Open: radius roughly follows the screen's rounded corners at a 10pt inset.
+        .frame(width: isOpen ? openSize.width : ScanLayout.buttonSize,
+               height: isOpen ? openSize.height : ScanLayout.buttonSize)
         // Closed: half the size, i.e. a circle.
-        .clipShape(RoundedRectangle(cornerRadius: isOpen ? 44 : CameraButton.size / 2, style: .continuous))
-        // Open: same 10pt gap from the bottom as from the sides.
-        .padding(.bottom, isOpen ? 10 : CameraButton.bottomInset)
+        .clipShape(RoundedRectangle(cornerRadius: isOpen ? ScanLayout.lensCornerRadius : ScanLayout.buttonSize / 2,
+                                    style: .continuous))
+        // Open: same gap from the bottom as from the sides.
+        .padding(.bottom, isOpen ? ScanLayout.lensEdgeGap : ScanLayout.buttonBottomInset)
         .ignoresSafeArea(edges: .bottom)
         .accessibilityHidden(!isOpen)
         // Hide the focus square a moment after each tap.

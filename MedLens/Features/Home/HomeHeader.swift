@@ -43,7 +43,7 @@ struct HomeHeader: View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { use24Hour.toggle() }
         } label: {
-            Text(Self.clockText(now, use24Hour: use24Hour))
+            Text(now.clockText(use24Hour: use24Hour))
                 .font(.system(size: timeSize, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(Palette.textPrimary)
@@ -55,16 +55,5 @@ struct HomeHeader: View {
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: use24Hour)
         .accessibilityHint(use24Hour ? "Double tap to show AM and PM" : "Double tap to show 24-hour time")
-    }
-
-    /// "6:33 AM", or "06:33" / "18:33" in 24-hour time regardless of the phone's region.
-    static func clockText(_ date: Date, use24Hour: Bool) -> String {
-        guard use24Hour else { return date.shortTime }
-        let style = Date.VerbatimFormatStyle(
-            format: "\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
-            timeZone: .current,
-            calendar: .current
-        )
-        return date.formatted(style)
     }
 }

@@ -48,7 +48,7 @@ struct TodayCard: View {
             }
         }
         .cardBackground()
-        .animation(.spring(duration: 0.45), value: items.map { "\($0.dose.id)|\($0.state)" })
+        .animation(.spring(duration: 0.45), value: items)
         .sensoryFeedback(.impact(weight: .light), trigger: takenCount)
         .confirmationDialog(
             uncheckTitle,
@@ -68,11 +68,11 @@ struct TodayCard: View {
     }
 
     @ViewBuilder
-    private func rows(_ items: [(dose: Dose, state: DoseState)]) -> some View {
+    private func rows(_ items: [ScheduledDose]) -> some View {
         let firstTakenIndex = items.firstIndex { $0.state.isTaken }
 
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.dose.id) { index, item in
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 if index == firstTakenIndex {
                     sectionHeader("Taken", isFirst: index == 0)
                 } else if index > 0 {

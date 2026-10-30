@@ -34,9 +34,9 @@ nonisolated enum DoseSchedule {
     }
 
     /// Today's list: doses still to take first (earliest on top), then taken ones.
-    static func ordered(_ dayDoses: [Dose], takenAt: [String: Date], now: Date) -> [(dose: Dose, state: DoseState)] {
-        let withStates = dayDoses.map { (dose: $0, state: state(of: $0, takenAt: takenAt, now: now)) }
-        return withStates.filter { $0.state.isPending } + withStates.filter { $0.state.isTaken }
+    static func ordered(_ dayDoses: [Dose], takenAt: [String: Date], now: Date) -> [ScheduledDose] {
+        let items = withStates(dayDoses, takenAt: takenAt, now: now)
+        return items.filter { $0.state.isPending } + items.filter { $0.state.isTaken }
     }
 
     /// Decides what a scan of `medication` should do now. Never checks more than one dose.
@@ -46,7 +46,7 @@ nonisolated enum DoseSchedule {
         let doses = dayDoses.filter { $0.medication.id == medication.id }
         guard !doses.isEmpty else { return .notScheduledToday(medication) }
 
-        let states = doses.map { (dose: $0, state: state(of: $0, takenAt: takenAt, now: now)) }
+        let states = withStates(doses, takenAt: takenAt, now: now)
 
         // The latest pending dose that is due, late, or at most `earlyWindow` away.
         let checkable = states.filter {
@@ -65,5 +65,9 @@ nonisolated enum DoseSchedule {
             return .tooEarly(next: next)
         }
         return .notScheduledToday(medication)
+    }
+
+    private static func withStates(_ doses: [Dose], takenAt: [String: Date], now: Date) -> [ScheduledDose] {
+        doses.map { ScheduledDose(dose: $0, state: state(of: $0, takenAt: takenAt, now: now)) }
     }
 }

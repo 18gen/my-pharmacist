@@ -23,7 +23,7 @@ struct DoseRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Checkbox with its status underneath ("in 2 hr" → "Taken 7:55 AM"),
+            // Checkbox with its status underneath ("2 hr" → "7:55 AM"),
             // tappable as one large target.
             Button(action: onToggle) {
                 VStack(spacing: 2) {
@@ -62,36 +62,22 @@ struct DoseRow: View {
         // VoiceOver: one element per dose, double-tap toggles.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(dose.medication.displayName), \(timeText)")
-        .accessibilityValue(DoseStatusText.spokenStatus(state: state, scheduled: dose.scheduled, now: now))
+        .accessibilityValue(DoseStatusFormatter.spokenStatus(state: state, scheduled: dose.scheduled, now: now))
         .accessibilityHint(state.isTaken ? "Double tap to mark as not taken" : "Double tap to mark as taken")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { onToggle() }
     }
 }
 
-/// "in 2 hr", "Now", "1 hr late", or the time it was taken ("8:02 AM").
+/// The dose's status under its checkbox, coloured by state; wording from `DoseStatusFormatter`.
 private struct DoseStatusText: View {
     let state: DoseState
     let scheduled: Date
     let now: Date
 
     var body: some View {
-        switch state {
-        case .upcoming:
-            label("\(Self.duration(scheduled.timeIntervalSince(now)))", color: Palette.textTertiary)
-        case .due:
-            label("Now", color: Palette.due, weight: .bold)
-        case .late:
-            label("\(Self.duration(now.timeIntervalSince(scheduled))) late", color: Palette.late, weight: .bold)
-        case .taken(let time):
-            // The "Taken" section header says what this time means.
-            label(time.shortTime, color: Palette.taken, weight: .bold)
-        }
-    }
-
-    private func label(_ text: String, color: Color, weight: Font.Weight = .semibold) -> some View {
-        Text(text)
-            .font(.subheadline.weight(weight))
+        Text(DoseStatusFormatter.shortStatus(state: state, scheduled: scheduled, now: now))
+            .font(.subheadline.weight(state == .upcoming ? .semibold : .bold))
             .foregroundStyle(color)
             .multilineTextAlignment(.center)
             .lineLimit(2)
@@ -99,22 +85,12 @@ private struct DoseStatusText: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Rounded to whole minutes under an hour, otherwise whole hours.
-    static func duration(_ seconds: TimeInterval) -> String {
-        let minutes = Int((seconds / 60).rounded())
-        if minutes < 60 { return "\(max(minutes, 1)) min" }
-        return "\(Int((Double(minutes) / 60).rounded())) hr"
-    }
-
-    static func spokenStatus(state: DoseState, scheduled: Date, now: Date) -> String {
-        func spoken(_ seconds: TimeInterval) -> String {
-            duration(seconds).replacingOccurrences(of: "hr", with: "hours").replacingOccurrences(of: "min", with: "minutes")
-        }
+    private var color: Color {
         switch state {
-        case .upcoming: return "Not taken. Due in \(spoken(scheduled.timeIntervalSince(now)))"
-        case .due: return "Not taken. Due now"
-        case .late: return "Not taken. \(spoken(now.timeIntervalSince(scheduled))) late"
-        case .taken(let time): return "Taken at \(time.shortTime)"
+        case .upcoming: return Palette.textTertiary
+        case .due: return Palette.due
+        case .late: return Palette.late
+        case .taken: return Palette.taken
         }
     }
 }

@@ -38,7 +38,7 @@ final class MedicationStore {
     }
 
     /// Today's doses in display order (pending first, earliest on top) with their states.
-    func todayList(now: Date) -> [(dose: Dose, state: DoseState)] {
+    func todayList(now: Date) -> [ScheduledDose] {
         let doses = doses(on: now)
         return DoseSchedule.ordered(doses, takenAt: takenTimes(on: now), now: now)
     }

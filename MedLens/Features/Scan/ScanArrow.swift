@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// Hand-drawn style arrow that curls down from under "Scan Label", makes a small loop,
+/// Hand-drawn style arrow that curls down from under "Scan Pills", makes a small loop,
 /// and sweeps right toward the camera button. It draws itself in when it appears, then
 /// nudges toward the button every few seconds. With Reduce Motion it is simply shown.
 struct ScanArrow: View {

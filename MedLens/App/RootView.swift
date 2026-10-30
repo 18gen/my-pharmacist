@@ -28,8 +28,8 @@ struct RootView: View {
                         HomeView(store: store, onShowMedications: { showingMedications = true })
                             .padding(.horizontal, 16)
                             .padding(.top, 8)
-                            // Keep clear of the "Scan Label" hint and button.
-                            .padding(.bottom, CameraButton.homeReservedHeight)
+                            // Keep clear of the "Scan Pills" hint and button.
+                            .padding(.bottom, ScanLayout.homeReservedHeight)
                             .frame(maxHeight: .infinity, alignment: .top)
                             .transition(CameraButton.hintTransition)
                     }
@@ -43,8 +43,7 @@ struct RootView: View {
                     CameraLens(
                         model: model,
                         isOpen: isScanning,
-                        // 10pt from each side; about 80% of the screen height.
-                        openSize: CGSize(width: proxy.size.width - 20, height: proxy.size.height * 0.8),
+                        openSize: ScanLayout.openLensSize(in: proxy.size),
                         outcome: scanOutcome,
                         onUndo: undoLastCheck
                     )
@@ -64,14 +63,7 @@ struct RootView: View {
                 do { try await Task.sleep(for: .seconds(1.6)) } catch { return }
                 setScanning(false)
             }
-            .sensoryFeedback(trigger: scanOutcome) {
-                switch scanOutcome {
-                case .checked: return .success
-                case .alreadyTaken, .tooEarly: return .warning
-                case .notOnList, .unsure, .notScheduledToday: return .error
-                case nil: return nil
-                }
-            }
+            .sensoryFeedback(trigger: scanOutcome) { scanOutcome?.feedback }
             .task(id: isScanning) {
                 if isScanning {
                     model.reset()
@@ -103,7 +95,7 @@ struct RootView: View {
         }
         let outcome = store.recordScan(scannedName: name)
         scanOutcome = outcome
-        AccessibilityNotification.Announcement(ScanOutcomeBanner.announcement(for: outcome)).post()
+        AccessibilityNotification.Announcement(outcome.announcement).post()
     }
 
     private func undoLastCheck() {

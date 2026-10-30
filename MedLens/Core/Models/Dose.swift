@@ -21,6 +21,14 @@ nonisolated struct Dose: Identifiable, Hashable, Sendable {
     }
 }
 
+/// A dose together with where it stands, as listed on the home screen.
+nonisolated struct ScheduledDose: Identifiable, Hashable, Sendable {
+    let dose: Dose
+    let state: DoseState
+
+    var id: String { dose.id }
+}
+
 /// Where a dose stands right now.
 nonisolated enum DoseState: Hashable, Sendable {
     /// More than `dueWindow` before its time.
