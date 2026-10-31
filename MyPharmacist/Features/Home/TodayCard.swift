@@ -5,11 +5,13 @@
 
 import SwiftUI
 
-/// Today's doses: still to take first, then a "Taken" section. Tapping a row toggles it.
+/// Today's doses still to take, then taken doses folded into a "Taken" toggle so the
+/// list only shows what is left. Tapping a row checks or unchecks it.
 struct TodayCard: View {
     let store: MedicationStore
     let now: Date
     @State private var doseToUncheck: Dose?
+    @State private var showsTaken = false
 
     var body: some View {
         let items = store.todayList(now: now)
@@ -49,6 +51,7 @@ struct TodayCard: View {
         }
         .cardBackground()
         .animation(.spring(duration: 0.45), value: items)
+        .animation(.spring(duration: 0.4), value: showsTaken)
         .sensoryFeedback(.impact(weight: .light), trigger: takenCount)
         .confirmationDialog(
             uncheckTitle,
@@ -69,36 +72,38 @@ struct TodayCard: View {
 
     @ViewBuilder
     private func rows(_ items: [ScheduledDose]) -> some View {
-        let firstTakenIndex = items.firstIndex { $0.state.isTaken }
+        let toTake = items.filter { !$0.state.isTaken }
+        let taken = items.filter { $0.state.isTaken }
 
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                if index == firstTakenIndex {
-                    sectionHeader("Taken", isFirst: index == 0)
-                } else if index > 0 {
-                    Divider()
-                }
+            doseRows(toTake)
 
-                DoseRow(dose: item.dose, state: item.state, now: now) {
-                    if item.state.isTaken {
-                        // Unchecking could lead to a second dose, so ask first.
-                        doseToUncheck = item.dose
-                    } else {
-                        store.markTaken(item.dose)
-                    }
+            if !taken.isEmpty {
+                // With nothing left to take, the header's "All done" says it already.
+                TakenDosesToggle(doses: taken.map(\.dose), isExpanded: $showsTaken)
+                    .padding(.top, toTake.isEmpty ? 0 : 10)
+                if showsTaken {
+                    doseRows(taken)
+                        .padding(.top, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }
     }
-}
 
-extension TodayCard {
-    fileprivate func sectionHeader(_ title: String, isFirst: Bool) -> some View {
-        Text(title)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Palette.textMuted)
-            .padding(.top, isFirst ? 0 : 14)
-            .padding(.bottom, 2)
-            .accessibilityAddTraits(.isHeader)
+    private func doseRows(_ items: [ScheduledDose]) -> some View {
+        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            if index > 0 {
+                Divider()
+            }
+            DoseRow(dose: item.dose, state: item.state, now: now) {
+                if item.state.isTaken {
+                    // Unchecking could lead to a second dose, so ask first.
+                    doseToUncheck = item.dose
+                } else {
+                    store.markTaken(item.dose)
+                }
+            }
+        }
     }
 }
