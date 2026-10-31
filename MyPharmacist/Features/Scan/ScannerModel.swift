@@ -7,7 +7,8 @@ import AVFoundation
 import Observation
 
 /// Runs the camera, reads each frame's text, and publishes the medication name and
-/// frequency once they have been read the same way several frames in a row.
+/// frequency once they have been read the same way several frames in a row. Also
+/// publishes whether the picture is good enough to recognize pills in.
 @Observable
 final class ScannerModel {
     private(set) var medicationName: String?
@@ -17,11 +18,17 @@ final class ScannerModel {
     private(set) var lines: [RecognizedLine] = []
     /// Upright size of the camera frames the boxes are measured against.
     private(set) var frameSize: CGSize = .zero
+    /// Whether the picture is good enough yet, or what to fix first.
+    private(set) var captureStatus: QualityGate.Status = .checking
+    /// The latest frame's quality measurements, for tuning the thresholds.
+    private(set) var latestQuality: FrameQuality?
 
     @ObservationIgnored private let camera = CameraSession()
     @ObservationIgnored private var nameReading = StableReading()
     @ObservationIgnored private var frequencyReading = StableReading()
+    @ObservationIgnored private var qualityGate = QualityGate()
     @ObservationIgnored private var readingTask: Task<Void, Never>?
+    @ObservationIgnored private var qualityTask: Task<Void, Never>?
 
     var session: AVCaptureSession { camera.session }
 
@@ -53,6 +60,9 @@ final class ScannerModel {
         lines = []
         nameReading = StableReading()
         frequencyReading = StableReading()
+        captureStatus = .checking
+        latestQuality = nil
+        qualityGate = QualityGate()
     }
 
     /// Reads frames for as long as the model exists. The camera's stream is single-use, so
@@ -60,13 +70,29 @@ final class ScannerModel {
     private func startReading() {
         guard readingTask == nil else { return }
         let frames = camera.frames
-        // `self` is weak so the loop never keeps the model alive; the stream ends when the
+        let quality = camera.quality
+        // `self` is weak so the loops never keep the model alive; the streams end when the
         // camera (owned by the model) goes away.
         readingTask = Task { [weak self] in
             for await frame in frames {
                 guard let self else { return }
                 self.read(frame)
             }
+        }
+        qualityTask = Task { [weak self] in
+            for await frameQuality in quality {
+                guard let self else { return }
+                self.judge(frameQuality)
+            }
+        }
+    }
+
+    private func judge(_ quality: FrameQuality) {
+        latestQuality = quality
+        let status = qualityGate.update(quality)
+        // Only assign changes, so views showing the status don't redraw ten times a second.
+        if status != captureStatus {
+            captureStatus = status
         }
     }
 

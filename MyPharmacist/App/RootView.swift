@@ -12,6 +12,7 @@ struct RootView: View {
     @State private var store: MedicationStore
     @State private var scan: ScanFlow
     @State private var showingMedications = false
+    @State private var lastHintAnnouncement = Date.distantPast
 
     init(store: MedicationStore = MedicationStore()) {
         _store = State(initialValue: store)
@@ -57,6 +58,12 @@ struct RootView: View {
                 guard let name, let outcome = scan.handleConfirmedName(name) else { return }
                 AccessibilityNotification.Announcement(outcome.announcement).post()
             }
+            .onChange(of: scan.scanner.captureStatus) { _, status in
+                announce(status)
+            }
+            .sensoryFeedback(.impact(weight: .light), trigger: scan.scanner.captureStatus) { _, status in
+                status == .ready
+            }
             // After a successful check, close the camera so the ticked row is visible.
             .task(id: scan.outcome) {
                 guard scan.shouldAutoClose else { return }
@@ -73,6 +80,15 @@ struct RootView: View {
                 MedicationsPage(medications: store.medications)
             }
         }
+    }
+
+    /// Speaks camera hints for VoiceOver, at most every few seconds so they don't drown
+    /// out everything else while the hand moves.
+    private func announce(_ status: QualityGate.Status) {
+        guard let text = status.presentation?.text,
+              Date().timeIntervalSince(lastHintAnnouncement) > 2.5 else { return }
+        lastHintAnnouncement = Date()
+        AccessibilityNotification.Announcement(text).post()
     }
 
     private func setScanning(_ open: Bool) {

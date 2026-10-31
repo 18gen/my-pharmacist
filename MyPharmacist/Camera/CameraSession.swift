@@ -5,11 +5,13 @@
 
 import AVFoundation
 
-/// Owns the capture session and hands a few video frames a second to the text recognizer.
+/// Owns the capture session, checks the picture quality of about ten frames a second,
+/// and hands a few frames a second to the text recognizer.
 /// Lives off the main actor: all camera work happens on its own queues.
 ///
 /// `@unchecked Sendable` is safe because each mutable property is only touched on one
-/// queue: `isConfigured` and `device` on `sessionQueue`, `lastScan` on `videoQueue`.
+/// queue: `isConfigured` and `device` on `sessionQueue`; `lastScan`, `lastQualityCheck`
+/// and `qualityAnalyzer` on `videoQueue`.
 /// Everything else is immutable, and the stream's continuation is thread-safe.
 nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
@@ -20,24 +22,34 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
     private let framesContinuation: AsyncStream<RecognizedFrame>.Continuation
     private let recognizer = VisionTextRecognizer()
 
+    /// Picture quality (light, glare, movement, sharpness) while the camera runs, newest only.
+    let quality: AsyncStream<FrameQuality>
+    private let qualityContinuation: AsyncStream<FrameQuality>.Continuation
+    private var qualityAnalyzer = FrameQualityAnalyzer()
+
     private let sessionQueue = DispatchQueue(label: "MyPharmacist.session")
     private let videoQueue = DispatchQueue(label: "MyPharmacist.video")
     private var isConfigured = false
     private var device: AVCaptureDevice?
     private var lastScan = Date.distantPast
+    private var lastQualityCheck = Date.distantPast
 
     override init() {
         (frames, framesContinuation) = AsyncStream.makeStream(of: RecognizedFrame.self, bufferingPolicy: .bufferingNewest(1))
+        (quality, qualityContinuation) = AsyncStream.makeStream(of: FrameQuality.self, bufferingPolicy: .bufferingNewest(1))
         super.init()
     }
 
     deinit {
         framesContinuation.finish()
+        qualityContinuation.finish()
     }
 
     /// Configures (once) and starts the camera. Returns false if no camera is available.
     func start() async -> Bool {
-        await withCheckedContinuation { continuation in
+        // Forget the last session's frames, so movement and sharpness start fresh.
+        videoQueue.async { self.qualityAnalyzer = FrameQualityAnalyzer() }
+        return await withCheckedContinuation { continuation in
             sessionQueue.async {
                 if !self.isConfigured {
                     self.isConfigured = self.configure()
@@ -109,6 +121,10 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
         session.sessionPreset = .high
         let output = AVCaptureVideoDataOutput()
         output.alwaysDiscardsLateVideoFrames = true
+        // Full-range brightness (0–255) for the quality checks; Vision reads either range.
+        if output.availableVideoPixelFormatTypes.contains(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
+            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+        }
         output.setSampleBufferDelegate(self, queue: videoQueue)
         guard session.canAddInput(input), session.canAddOutput(output) else {
             session.commitConfiguration()
@@ -132,13 +148,33 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        // A few reads per second is plenty and saves battery.
         let now = Date()
+        if now.timeIntervalSince(lastQualityCheck) > 0.1 {
+            lastQualityCheck = now
+            checkQuality(of: sampleBuffer, from: connection)
+        }
+
+        // A few reads per second is plenty and saves battery.
         guard now.timeIntervalSince(lastScan) > 0.3 else { return }
         lastScan = now
 
         // Recognition runs right here on the video queue; frames that arrive meanwhile
         // are dropped (`alwaysDiscardsLateVideoFrames`).
         framesContinuation.yield(recognizer.recognize(sampleBuffer))
+    }
+
+    private func checkQuality(of sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+              let image = LumaSampler.sample(buffer) else { return }
+        // The device comes from the frame's own connection rather than `device`, which
+        // belongs to `sessionQueue`.
+        var camera = CameraState()
+        if let device = (connection.inputPorts.first?.input as? AVCaptureDeviceInput)?.device {
+            camera.isAdjustingFocus = device.isAdjustingFocus
+            camera.exposureOffset = device.exposureTargetOffset
+            let maxISO = device.activeFormat.maxISO
+            camera.isoFraction = maxISO > 0 ? device.iso / maxISO : 0
+        }
+        qualityContinuation.yield(qualityAnalyzer.analyze(image, camera: camera))
     }
 }

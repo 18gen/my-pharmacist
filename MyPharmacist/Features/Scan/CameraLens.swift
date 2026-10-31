@@ -49,6 +49,17 @@ struct CameraLens: View {
                         .multilineTextAlignment(.center)
                         .padding(32)
                         .transition(.opacity)
+                } else {
+                    VStack(spacing: 6) {
+                        CaptureHint(status: model.captureStatus)
+                        #if DEBUG
+                        QualityReadout(model: model)
+                        #endif
+                        Spacer()
+                    }
+                    .padding(.top, 16)
+                    .padding(.horizontal, 12)
+                    .animation(.easeInOut(duration: 0.2), value: model.captureStatus)
                 }
 
                 if let outcome {
