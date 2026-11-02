@@ -11,14 +11,11 @@ nonisolated struct Medication: Identifiable, Hashable, Sendable {
     let name: String
     let strength: String
     let doseTimes: [DoseTime]
-    /// Placeholder picture until real photos exist: an SF Symbol and a colour.
-    let symbol: String
-    let tint: PillTint
+    /// What the tablet looks like, for people: "Pink oval · XELODA / 500".
+    var appearance: String = ""
+    /// Asset names of reference photos of the tablet, both sides. The first is the one
+    /// shown in lists; all of them are compared against scanned pills.
+    var photos: [String] = []
 
     var displayName: String { "\(name) \(strength)" }
-}
-
-/// Colours for the placeholder pill pictures.
-nonisolated enum PillTint: String, Hashable, Sendable {
-    case blue, orange, pink, green, purple
 }

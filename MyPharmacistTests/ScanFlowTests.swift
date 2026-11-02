@@ -14,7 +14,7 @@ struct ScanFlowTests {
     private let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date())!
 
     init() {
-        store = MedicationStore(storage: InMemoryDoseLogStorage())
+        store = MedicationStore(medications: TestMedications.all, storage: InMemoryDoseLogStorage())
         flow = ScanFlow(store: store)
     }
 

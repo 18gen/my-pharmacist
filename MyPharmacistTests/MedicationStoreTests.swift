@@ -12,7 +12,7 @@ struct MedicationStoreTests {
     private let morning = TestClock.at(8)
 
     private func makeStore(_ storage: any DoseLogStorage = InMemoryDoseLogStorage()) -> MedicationStore {
-        MedicationStore(storage: storage, calendar: TestClock.calendar, now: morning)
+        MedicationStore(medications: TestMedications.all, storage: storage, calendar: TestClock.calendar, now: morning)
     }
 
     @Test func scanningARegisteredLabelMarksTheDoseTaken() {

@@ -53,7 +53,7 @@ struct ClockTextTests {
 
 @MainActor
 struct ScanOutcomePresentationTests {
-    private let dose = Dose(medication: SampleMedications.metformin, time: DoseTime(8), day: TestClock.day, calendar: TestClock.calendar)
+    private let dose = Dose(medication: TestMedications.metformin, time: DoseTime(8), day: TestClock.day, calendar: TestClock.calendar)
 
     @Test func checkedNamesTheMedication() {
         let outcome = ScanOutcome.checked(dose)

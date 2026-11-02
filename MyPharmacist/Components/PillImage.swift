@@ -5,18 +5,27 @@
 
 import SwiftUI
 
-/// Placeholder medication picture: a coloured pill symbol on a soft tile.
+/// A medication's reference photo on a white tile, so the person can see which tablet
+/// it is. Falls back to a plain pill symbol if the medication has no photo.
 struct PillImage: View {
     let medication: Medication
     var size: CGFloat = 48
 
     var body: some View {
-        let color = medication.tint.color
-        Image(systemName: medication.symbol)
-            .font(.system(size: size * 0.45, weight: .semibold))
-            .foregroundStyle(color)
-            .frame(width: size, height: size)
-            .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(color.opacity(0.15)))
-            .accessibilityHidden(true)
+        Group {
+            if let photo = medication.photos.first {
+                Image(photo)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.08)
+            } else {
+                Image(systemName: "pill.fill")
+                    .font(.system(size: size * 0.45, weight: .semibold))
+                    .foregroundStyle(Palette.textMuted)
+            }
+        }
+        .frame(width: size, height: size)
+        .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(Palette.background))
+        .accessibilityHidden(true)
     }
 }

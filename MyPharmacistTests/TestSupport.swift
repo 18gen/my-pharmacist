@@ -30,7 +30,13 @@ func isolatedDefaults() -> UserDefaults {
     return defaults
 }
 
-extension SampleMedications {
-    static var metformin: Medication { all.first { $0.id == "metformin-500" }! }
-    static var lisinopril: Medication { all.first { $0.id == "lisinopril-10" }! }
+/// Fixed medications for tests, so tests don't change when the app's mock data does.
+enum TestMedications {
+    static let metformin = Medication(id: "metformin-500", name: "Metformin", strength: "500 mg",
+                                      doseTimes: [DoseTime(8), DoseTime(18)])
+    static let lisinopril = Medication(id: "lisinopril-10", name: "Lisinopril", strength: "10 mg",
+                                       doseTimes: [DoseTime(8)])
+    static let atorvastatin = Medication(id: "atorvastatin-20", name: "Atorvastatin", strength: "20 mg",
+                                         doseTimes: [DoseTime(21)])
+    static let all = [metformin, lisinopril, atorvastatin]
 }

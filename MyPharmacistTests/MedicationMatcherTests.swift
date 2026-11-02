@@ -7,11 +7,11 @@ import Testing
 @testable import MyPharmacist
 
 struct MedicationMatcherTests {
-    private let medications = SampleMedications.all
+    private let medications = TestMedications.all
 
     @Test(arguments: ["METFORMIN HCL 500MG", "Metformin 500 mg", "metformin 500.0 mg"])
     func matchesTheRegisteredMedication(_ scanned: String) {
-        #expect(MedicationMatcher.match(scannedName: scanned, in: medications) == .match(SampleMedications.metformin))
+        #expect(MedicationMatcher.match(scannedName: scanned, in: medications) == .match(TestMedications.metformin))
     }
 
     @Test(arguments: [
@@ -26,7 +26,7 @@ struct MedicationMatcherTests {
 
     @Test func twoFittingMedicationsAreAmbiguous() {
         let copy = Medication(id: "metformin-500-b", name: "Metformin", strength: "500 mg",
-                              doseTimes: [DoseTime(12)], symbol: "pill.fill", tint: .green)
+                              doseTimes: [DoseTime(12)])
         #expect(MedicationMatcher.match(scannedName: "METFORMIN 500 MG", in: medications + [copy]) == .ambiguous)
     }
 
