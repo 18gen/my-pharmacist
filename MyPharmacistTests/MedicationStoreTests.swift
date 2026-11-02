@@ -15,21 +15,12 @@ struct MedicationStoreTests {
         MedicationStore(medications: TestMedications.all, storage: storage, calendar: TestClock.calendar, now: morning)
     }
 
-    @Test func scanningARegisteredLabelMarksTheDoseTaken() {
+    @Test func checkingPillsUsesTodaysSchedule() {
         let store = makeStore()
-        let outcome = store.recordScan(scannedName: "METFORMIN HCL 500 MG", now: morning)
-
-        guard case .checked(let dose) = outcome else {
-            Issue.record("Expected a checked dose, got \(outcome)")
-            return
-        }
-        #expect(dose.id == "metformin-500@8:00")
-        #expect(store.todayList(now: morning).first { $0.id == dose.id }?.state == .taken(at: morning))
-    }
-
-    @Test func unknownAndAmbiguousLabelsChangeNothing() {
-        let store = makeStore()
-        #expect(store.recordScan(scannedName: "IBUPROFEN 200 MG", now: morning) == .notOnList(scannedName: "IBUPROFEN 200 MG"))
+        let check = store.check([TestMedications.metformin, nil], now: morning)
+        #expect(check.verdicts == [.take(store.doses(on: morning).first { $0.id == "metformin-500@8:00" }!), .unidentified])
+        #expect(check.missing.map(\.id) == ["lisinopril-10@8:00"])
+        // Checking alone changes nothing.
         #expect(!store.todayList(now: morning).contains { $0.state.isTaken })
     }
 

@@ -3,6 +3,7 @@
 //  MyPharmacistTests
 //
 
+import CoreGraphics
 import Foundation
 @testable import MyPharmacist
 
@@ -39,4 +40,13 @@ enum TestMedications {
     static let atorvastatin = Medication(id: "atorvastatin-20", name: "Atorvastatin", strength: "20 mg",
                                          doseTimes: [DoseTime(21)])
     static let all = [metformin, lisinopril, atorvastatin]
+}
+
+/// A tiny solid image, for code that needs a photo or a pill cut-out but not its pixels.
+func testImage(width: Int = 4, height: Int = 4) -> CGImage {
+    let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    context.setFillColor(gray: 0.5, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    return context.makeImage()!
 }

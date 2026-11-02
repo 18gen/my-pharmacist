@@ -54,30 +54,10 @@ final class MedicationStore {
         takenLog[key(for: dose)] = nil
     }
 
-    /// Which registered medication a name read from a label refers to.
-    func match(scannedName: String) -> MedicationMatcher.Result {
-        MedicationMatcher.match(scannedName: scannedName, in: medications)
-    }
-
-    /// Handles a medication name confirmed by the scanner: finds the medication, decides
-    /// which dose (if any) it counts for, and marks that dose taken.
-    func recordScan(scannedName: String, now: Date = Date()) -> ScanOutcome {
-        recordScan(match(scannedName: scannedName), scannedName: scannedName, now: now)
-    }
-
-    /// Same as `recordScan(scannedName:now:)` for a name that has already been matched.
-    func recordScan(_ match: MedicationMatcher.Result, scannedName: String, now: Date = Date()) -> ScanOutcome {
-        let outcome = DoseSchedule.scanOutcome(
-            for: match,
-            scannedName: scannedName,
-            dayDoses: doses(on: now),
-            takenAt: takenTimes(on: now),
-            now: now
-        )
-        if case .checked(let dose) = outcome {
-            markTaken(dose, at: now)
-        }
-        return outcome
+    /// Decides which of the pills in a photo to take now, given what each was recognized as.
+    func check(_ identities: [Medication?], now: Date = Date()) -> PillSetCheck {
+        PillSetVerifier.check(identities, medications: medications, dayDoses: doses(on: now),
+                              takenAt: takenTimes(on: now), now: now)
     }
 
     // MARK: Storage

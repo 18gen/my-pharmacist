@@ -17,8 +17,8 @@ enum ScanLayout {
     static let buttonBottomInset: CGFloat = lensEdgeGap + buttonGapInLens
     /// Roughly follows the screen's rounded corners at the 10pt inset.
     static let lensCornerRadius: CGFloat = 44
-    /// Space below the outcome banner inside the camera view: just above the close button.
-    static let bannerBottomPadding: CGFloat = buttonSize + buttonGapInLens + 14
+    /// Space below the content inside the camera view, so it ends just above the close button.
+    static let contentBottomPadding: CGFloat = buttonSize + buttonGapInLens
     /// Height at the bottom of the home screen used by the "Scan Pills" hint and button.
     static let homeReservedHeight: CGFloat = 170
 

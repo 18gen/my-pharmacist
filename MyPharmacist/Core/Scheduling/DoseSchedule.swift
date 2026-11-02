@@ -9,7 +9,7 @@ import Foundation
 nonisolated enum DoseSchedule {
     /// "Now" means within 15 minutes either side of the dose time.
     static let dueWindow: TimeInterval = 15 * 60
-    /// A scan may check a dose up to 1 hour before its time.
+    /// A pill may count for a dose up to 1 hour before its time.
     static let earlyWindow: TimeInterval = 60 * 60
 
     /// All of the given medications' doses on `day`, in time order.
@@ -39,23 +39,10 @@ nonisolated enum DoseSchedule {
         return items.filter { $0.state.isPending } + items.filter { $0.state.isTaken }
     }
 
-    /// Decides what a scan should do now, given which medication the label matched.
-    static func scanOutcome(for match: MedicationMatcher.Result, scannedName: String,
-                            dayDoses: [Dose], takenAt: [String: Date], now: Date) -> ScanOutcome {
-        switch match {
-        case .match(let medication):
-            return scanOutcome(for: medication, dayDoses: dayDoses, takenAt: takenAt, now: now)
-        case .none:
-            return .notOnList(scannedName: scannedName)
-        case .ambiguous:
-            return .unsure(scannedName: scannedName)
-        }
-    }
-
-    /// Decides what a scan of `medication` should do now. Never checks more than one dose.
-    /// If several untaken doses could fit, it checks the one closest to now, so the dose
+    /// Decides what a pill of `medication` counts for now. Never more than one dose.
+    /// If several untaken doses could fit, it picks the one closest to now, so the dose
     /// that is currently due is never left looking untaken.
-    static func scanOutcome(for medication: Medication, dayDoses: [Dose], takenAt: [String: Date], now: Date) -> ScanOutcome {
+    static func decision(for medication: Medication, dayDoses: [Dose], takenAt: [String: Date], now: Date) -> DoseDecision {
         let doses = dayDoses.filter { $0.medication.id == medication.id }
         guard !doses.isEmpty else { return .notScheduledToday(medication) }
 
@@ -66,7 +53,7 @@ nonisolated enum DoseSchedule {
             $0.state.isPending && $0.dose.scheduled <= now.addingTimeInterval(earlyWindow)
         }
         if let dose = checkable.last?.dose {
-            return .checked(dose)
+            return .take(dose)
         }
 
         let next = states.first { $0.state.isPending }?.dose

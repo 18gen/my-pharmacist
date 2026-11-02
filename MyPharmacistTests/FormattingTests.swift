@@ -52,25 +52,31 @@ struct ClockTextTests {
 }
 
 @MainActor
-struct ScanOutcomePresentationTests {
+struct PillVerdictPresentationTests {
     private let dose = Dose(medication: TestMedications.metformin, time: DoseTime(8), day: TestClock.day, calendar: TestClock.calendar)
 
-    @Test func checkedNamesTheMedication() {
-        let outcome = ScanOutcome.checked(dose)
-        #expect(outcome.presentation.title == "Checked: Metformin 500 mg")
-        #expect(outcome.announcement == "Checked: Metformin 500 mg. \(dose.scheduled.shortTime) dose marked as taken.")
-        #expect(outcome.feedback == .success)
+    @Test func takeNamesTheDoseTime() {
+        let content = PillVerdict.take(dose).presentation
+        #expect(content.title == "Take now")
+        #expect(content.detail == "\(dose.scheduled.shortTime) dose")
+        #expect(content.color == Palette.taken)
+    }
+
+    @Test func everyOtherVerdictIsRed() {
+        let verdicts: [PillVerdict] = [
+            .alreadyTaken(dose, at: dose.scheduled, next: nil),
+            .tooEarly(next: dose),
+            .notScheduledToday(TestMedications.metformin),
+            .extra(TestMedications.metformin),
+            .unidentified,
+        ]
+        for verdict in verdicts {
+            #expect(verdict.presentation.color == Palette.danger)
+        }
     }
 
     @Test func alreadyTakenWithoutANextDose() {
-        let outcome = ScanOutcome.alreadyTaken(dose, at: dose.scheduled, next: nil)
-        #expect(outcome.presentation.message.hasSuffix("No more doses today."))
-        #expect(outcome.feedback == .warning)
-    }
-
-    @Test func notOnListIsAnError() {
-        let outcome = ScanOutcome.notOnList(scannedName: "IBUPROFEN 200 MG")
-        #expect(outcome.presentation.message == "IBUPROFEN 200 MG isn't one of your medications.")
-        #expect(outcome.feedback == .error)
+        let detail = PillVerdict.alreadyTaken(dose, at: dose.scheduled, next: nil).presentation.detail
+        #expect(detail == "Already taken at \(dose.scheduled.shortTime).")
     }
 }

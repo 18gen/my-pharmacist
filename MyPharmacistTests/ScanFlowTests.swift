@@ -3,6 +3,7 @@
 //  MyPharmacistTests
 //
 
+import CoreGraphics
 import Foundation
 import Testing
 @testable import MyPharmacist
@@ -18,60 +19,54 @@ struct ScanFlowTests {
         flow = ScanFlow(store: store)
     }
 
-    @Test func scansAreIgnoredWhileTheCameraIsClosed() {
-        #expect(flow.handleConfirmedName("METFORMIN 500 MG", now: morning) == nil)
+    private func pill(_ medication: Medication?, x: Double = 0.1) -> AnalyzedPill {
+        AnalyzedPill(box: CGRect(x: x, y: 0.4, width: 0.1, height: 0.1), crop: testImage(),
+                     match: PillMatch(medicationID: medication?.id, distance: 0.2))
+    }
+
+    private var result: PillScanResult? {
+        if case .results(let result) = flow.phase { result } else { nil }
+    }
+
+    @Test func pillsAreNumberedAndJudged() throws {
+        flow.setOpen(true)
+        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin), pill(nil, x: 0.5)], now: morning)
+
+        let result = try #require(result)
+        #expect(result.pills.map(\.id) == [1, 2])
+        #expect(result.pills[0].verdict.isTake)
+        #expect(result.pills[1].verdict == .unidentified)
+        #expect(result.missing.map(\.medication) == [TestMedications.lisinopril])
+        #expect(result.summary == "1 to take · 1 not to take · 1 missing")
+    }
+
+    @Test func nothingIsTakenUntilConfirmed() {
+        flow.setOpen(true)
+        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin), pill(TestMedications.lisinopril, x: 0.5)], now: morning)
         #expect(!store.todayList(now: morning).contains { $0.state.isTaken })
+
+        #expect(flow.confirmTaken(now: morning) == 2)
+        #expect(store.todayList(now: morning).filter { $0.state.isTaken }.count == 2)
     }
 
-    @Test func aMatchingScanChecksTheDoseAndAutoCloses() {
+    @Test func onlyTakeNowPillsAreConfirmed() {
         flow.setOpen(true)
-        let outcome = flow.handleConfirmedName("METFORMIN 500 MG", now: morning)
-
-        guard case .checked(let dose) = outcome else {
-            Issue.record("Expected a checked dose, got \(String(describing: outcome))")
-            return
-        }
-        #expect(flow.outcome == outcome)
-        #expect(flow.shouldAutoClose)
-        #expect(store.todayList(now: morning).first { $0.id == dose.id }?.state == .taken(at: morning))
+        flow.showResults(photo: testImage(), pills: [pill(TestMedications.atorvastatin), pill(TestMedications.lisinopril, x: 0.5)], now: morning)
+        #expect(flow.confirmTaken(now: morning) == 1)
+        #expect(store.todayList(now: morning).filter { $0.state.isTaken }.map(\.dose.medication) == [TestMedications.lisinopril])
     }
 
-    @Test func aSecondReadOfTheSameBottleIsIgnored() {
+    @Test func aPhotoWithNoPills() {
         flow.setOpen(true)
-        let first = flow.handleConfirmedName("METFORMIN 500 MG", now: morning)
-        #expect(flow.handleConfirmedName("METFORMIN 500MG", now: morning) == nil)
-        // Still the first outcome, not "Already taken".
-        #expect(flow.outcome == first)
+        flow.showResults(photo: testImage(), pills: [], now: morning)
+        #expect(flow.phase.step == .noPills)
+        #expect(flow.confirmTaken(now: morning) == 0)
     }
 
-    @Test func reopeningStartsAFreshSession() {
+    @Test func closingStartsTheNextSessionFresh() {
         flow.setOpen(true)
-        flow.handleConfirmedName("METFORMIN 500 MG", now: morning)
+        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin)], now: morning)
         flow.setOpen(false)
-        #expect(flow.outcome == nil)
-
-        flow.setOpen(true)
-        let outcome = flow.handleConfirmedName("METFORMIN 500 MG", now: morning.addingTimeInterval(60))
-        guard case .alreadyTaken = outcome else {
-            Issue.record("Expected already taken, got \(String(describing: outcome))")
-            return
-        }
-        #expect(!flow.shouldAutoClose)
-    }
-
-    @Test func undoUnchecksTheDose() {
-        flow.setOpen(true)
-        flow.handleConfirmedName("METFORMIN 500 MG", now: morning)
-        flow.undo()
-
-        #expect(flow.outcome == nil)
-        #expect(!flow.shouldAutoClose)
-        #expect(!store.todayList(now: morning).contains { $0.state.isTaken })
-    }
-
-    @Test func unknownLabelsAreReportedEveryTime() {
-        flow.setOpen(true)
-        #expect(flow.handleConfirmedName("IBUPROFEN 200 MG", now: morning) == .notOnList(scannedName: "IBUPROFEN 200 MG"))
-        #expect(flow.handleConfirmedName("IBUPROFEN 200 MG", now: morning) == .notOnList(scannedName: "IBUPROFEN 200 MG"))
+        #expect(flow.phase.step == .aiming)
     }
 }

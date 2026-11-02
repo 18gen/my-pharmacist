@@ -13,6 +13,8 @@ enum Palette {
     static let taken = Color(red: 0.10, green: 0.50, blue: 0.22)
     static let due = Color(red: 0.0, green: 0.40, blue: 0.85)
     static let late = Color(red: 0.78, green: 0.32, blue: 0.0)
+    /// A pill not to take now.
+    static let danger = Color(red: 0.80, green: 0.10, blue: 0.12)
 
     // MARK: Text, darkest first
 

@@ -52,8 +52,8 @@ struct CameraButton: View {
             }
             .contentShape(Rectangle())
         }
-        .accessibilityLabel(isScanning ? "Close camera" : "Scan Label")
-        .accessibilityHint(isScanning ? "" : "Opens the camera to read your prescription label")
+        .accessibilityLabel(isScanning ? "Close camera" : "Scan pills")
+        .accessibilityHint(isScanning ? "" : "Opens the camera to check the pills you're about to take")
         // A light tap of vibration each time the camera opens or closes.
         .sensoryFeedback(.impact(weight: .light), trigger: isScanning)
         .padding(.bottom, ScanLayout.buttonBottomInset)
