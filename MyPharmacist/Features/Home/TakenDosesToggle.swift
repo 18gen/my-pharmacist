@@ -5,8 +5,8 @@
 
 import SwiftUI
 
-/// The collapsed "Taken" group at the bottom of today's list: a peek at the taken
-/// medications' pictures and how many there are. Tapping shows or hides those rows.
+/// The header row of the "Taken" card: a peek at the taken medications' pictures and
+/// how many there are. Tapping shows or hides those rows.
 struct TakenDosesToggle: View {
     let doses: [Dose]
     @Binding var isExpanded: Bool
@@ -30,8 +30,9 @@ struct TakenDosesToggle: View {
                     ForEach(previews) { medication in
                         PillImage(medication: medication, size: pillSize)
                             .background(
+                                // A ring in the card's colour separates the overlapping pictures.
                                 RoundedRectangle(cornerRadius: pillSize * 0.25 + 2, style: .continuous)
-                                    .fill(Palette.background)
+                                    .fill(Palette.cardFill)
                                     .padding(-2)
                             )
                     }
@@ -52,10 +53,7 @@ struct TakenDosesToggle: View {
                     .foregroundStyle(Palette.textMuted)
                     .rotationEffect(.degrees(isExpanded ? 180 : 0))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.background))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)

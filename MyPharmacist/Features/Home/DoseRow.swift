@@ -94,3 +94,23 @@ private struct DoseStatusText: View {
         }
     }
 }
+
+/// Doses one under another, with dividers between them.
+struct DoseRowList: View {
+    let items: [ScheduledDose]
+    let now: Date
+    let onToggle: (ScheduledDose) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if index > 0 {
+                    Divider()
+                }
+                DoseRow(dose: item.dose, state: item.state, now: now) {
+                    onToggle(item)
+                }
+            }
+        }
+    }
+}

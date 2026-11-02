@@ -29,7 +29,6 @@ struct RootView: View {
 
                     if !scan.isOpen {
                         HomeView(store: store, onShowMedications: { showingMedications = true })
-                            .padding(.horizontal, 16)
                             .padding(.top, 8)
                             // Keep clear of the "Scan Pills" hint and button.
                             .padding(.bottom, ScanLayout.homeReservedHeight)
