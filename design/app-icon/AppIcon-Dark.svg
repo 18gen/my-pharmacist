@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<!-- My Pharmacist app icon (AppIcon-Dark): a tablet under a magnifying glass, lens centred on the icon.
+     The glyph is drawn around (468, 468) and scaled 1.15x about the icon centre, to read well at home-screen size. -->
+<rect width="1024" height="1024" fill="#0F2253"/>
+<g transform="translate(512 512) scale(1.15) translate(-468 -468)">
+<line x1="680" y1="680" x2="762" y2="762" stroke="#8DB3FF" stroke-width="96" stroke-linecap="butt"/><circle cx="762" cy="762" r="48" fill="#8DB3FF"/>
+<circle cx="468" cy="468" r="290" fill="none" stroke="#8DB3FF" stroke-width="58"/>
+<g transform="rotate(-15 468 468)">
+<ellipse cx="468" cy="502" rx="180" ry="118" fill="#5C86E8"/><rect x="288" y="440" width="360" height="62" fill="#5C86E8"/>
+<ellipse cx="468" cy="440" rx="180" ry="118" fill="#E6EEFF"/>
+<rect x="338" y="429" width="260" height="22" rx="11" fill="#0F2253"/>
+</g>
+</g></svg>
