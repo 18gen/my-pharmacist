@@ -24,14 +24,6 @@ nonisolated enum SampleMedications {
             photos: photos("capecitabine-500")
         ),
         Medication(
-            id: "ondansetron-8",
-            name: "Ondansetron",
-            strength: "8 mg",
-            doseTimes: [DoseTime(8), DoseTime(20)],
-            appearance: "Yellow oval · 131",          // NDC 62756-131-01
-            photos: photos("ondansetron-8")
-        ),
-        Medication(
             id: "dexamethasone-4",
             name: "Dexamethasone",
             strength: "4 mg",

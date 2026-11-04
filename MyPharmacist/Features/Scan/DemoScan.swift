@@ -13,16 +13,16 @@ import UIKit
 enum DemoScan {
     static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }
 
-    /// Three of the morning pills, a second capecitabine, and a white pill not on the
-    /// list; dexamethasone is left out so it shows as missing.
+    /// Two of the three morning pills, a second capecitabine, and a white pill not on the
+    /// list; dexamethasone is left out so it shows as missing. In reading order, because
+    /// the results number the pills in the order given.
     static func show(in flow: ScanFlow) {
         let size = CGSize(width: 1080, height: 1440)
         let placed: [(photo: String?, id: String?, rect: CGRect)] = [
             ("capecitabine-500-2", "capecitabine-500", CGRect(x: 120, y: 300, width: 300, height: 300)),
-            ("ondansetron-8-2", "ondansetron-8", CGRect(x: 620, y: 320, width: 280, height: 280)),
-            ("allopurinol-300-1", "allopurinol-300", CGRect(x: 150, y: 820, width: 260, height: 260)),
-            ("capecitabine-500-1", "capecitabine-500", CGRect(x: 600, y: 800, width: 300, height: 300)),
-            (nil, nil, CGRect(x: 470, y: 1140, width: 140, height: 140)),
+            ("allopurinol-300-1", "allopurinol-300", CGRect(x: 640, y: 320, width: 260, height: 260)),
+            ("capecitabine-500-1", "capecitabine-500", CGRect(x: 150, y: 820, width: 300, height: 300)),
+            (nil, nil, CGRect(x: 680, y: 900, width: 140, height: 140)),
         ]
         let renderer = UIGraphicsImageRenderer(size: size, format: { let f = UIGraphicsImageRendererFormat(); f.scale = 1; return f }())
         func pillImage(_ name: String?, side: CGFloat) -> UIImage {
