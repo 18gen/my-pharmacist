@@ -32,37 +32,41 @@ struct PillScanResult {
     var notToTakeCount: Int { pills.count - dosesToTake.count }
 }
 
-/// One scanning session, from opening the camera to closing it: wait for a good
-/// picture, take one photo, find and recognize each pill in it, and show which to take.
+/// One scanning session, from opening the camera to closing it. There is no shutter:
+/// 1. wait until the camera picture has been good for a moment, then take a photo;
+/// 2. find the pills in it, and if there are none, go back to the camera and try again;
+/// 3. cut out each pill and recognize it on its own, then show which to take.
 /// Nothing is marked taken until the person confirms.
 @Observable
 final class ScanFlow {
     enum Phase {
-        /// Live camera with picture-quality hints.
+        /// Live camera with picture-quality hints (step 1).
         case aiming
-        /// Photo being taken and checked.
-        case checking(CGImage?)
+        /// Photo being taken (nil) or searched for pills (step 2).
+        case finding(CGImage?)
+        /// Pills found at these boxes (normalized, top-left origin); each being checked (step 3).
+        case verifying(CGImage, boxes: [CGRect])
         case results(PillScanResult)
-        /// The photo had no separate pill-sized objects in it.
-        case noPills(CGImage)
 
         /// The phase without its data, for animations and haptics.
         var step: Step {
             switch self {
             case .aiming: .aiming
-            case .checking: .checking
+            case .finding: .finding
+            case .verifying: .verifying
             case .results: .results
-            case .noPills: .noPills
             }
         }
     }
 
     enum Step: Hashable {
-        case aiming, checking, results, noPills
+        case aiming, finding, verifying, results
     }
 
     private(set) var isOpen = false
     private(set) var phase: Phase = .aiming
+    /// The last photo had no pills in it; shown as a hint while aiming again.
+    private(set) var foundNoPills = false
     let scanner: ScannerModel
 
     @ObservationIgnored private let store: MedicationStore
@@ -80,41 +84,70 @@ final class ScanFlow {
         checkTask?.cancel()
         checkTask = nil
         phase = .aiming
+        foundNoPills = false
         isOpen = open
     }
 
-    /// Takes the photo by itself as soon as the picture has been good for a moment.
+    /// Step 1 passed: the picture has been good for a moment, so take the photo.
     func captureStatusChanged(_ status: QualityGate.Status) {
         if status == .ready {
             capture()
         }
     }
 
-    /// Takes the photo and checks the pills in it. Ignored unless the camera is aiming.
-    func capture() {
+    /// Takes the photo, finds the pills in it and checks each one. Ignored unless aiming.
+    private func capture() {
         guard isOpen, case .aiming = phase else { return }
-        phase = .checking(nil)
+        phase = .finding(nil)
         checkTask = Task { [weak self] in
             guard let self else { return }
-            guard let photo = await self.scanner.capturePhoto() else {
-                // The camera couldn't take it; go back to aiming and let it try again.
-                if case .checking = self.phase { self.phase = .aiming }
+            guard let photo = await scanner.capturePhoto(), !Task.isCancelled else {
+                // The camera couldn't take it; aim again and let the next good moment retry.
+                aimAgain()
                 return
             }
-            self.phase = .checking(photo)
-            self.scanner.stop()
-            let pills = await self.analyzer.analyze(photo)
+            phase = .finding(photo)
+
+            // Step 2: are there pills at all? The camera keeps running meanwhile, so
+            // going back to aiming is instant.
+            let found = await analyzer.findPills(in: photo)
             guard !Task.isCancelled else { return }
-            self.showResults(photo: photo, pills: pills)
+            guard !found.isEmpty else {
+                noPillsFound()
+                return
+            }
+
+            // Step 3: check each pill's cut-out.
+            foundNoPills = false
+            scanner.stop()
+            phase = .verifying(photo, boxes: found.map(\.box))
+            let pills = await analyzer.identify(found)
+            guard !Task.isCancelled else { return }
+            showResults(photo: photo, pills: pills)
         }
+    }
+
+    /// Back to the live camera with the "no pills" hint; the next good moment retries.
+    private func noPillsFound() {
+        foundNoPills = true
+        aimAgain()
+    }
+
+    /// Back to aiming from a photo that didn't lead to results. The quality check starts
+    /// over, so another photo is only taken once the picture has been good again.
+    private func aimAgain() {
+        guard isOpen else { return }
+        phase = .aiming
+        scanner.reset()
     }
 
     /// Turns the analyzed pills into verdicts against today's schedule.
     func showResults(photo: CGImage, pills: [AnalyzedPill], now: Date = Date()) {
         guard !pills.isEmpty else {
-            phase = .noPills(photo)
+            noPillsFound()
             return
         }
+        foundNoPills = false
         let identities = pills.map { pill in store.medications.first { $0.id == pill.match.medicationID } }
         let check = store.check(identities, now: now)
         let scanned = pills.indices.map { index in
@@ -129,6 +162,7 @@ final class ScanFlow {
         checkTask?.cancel()
         checkTask = nil
         phase = .aiming
+        foundNoPills = false
         scanner.reset()
         await scanner.start()
     }

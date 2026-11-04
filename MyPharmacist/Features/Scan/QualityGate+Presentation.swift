@@ -10,6 +10,18 @@ struct CaptureHintPresentation {
     let icon: String
     let color: Color
     let text: String
+
+    static let noPills = CaptureHintPresentation(
+        icon: "questionmark.circle", color: Palette.late,
+        text: "No pills found. Spread them apart in view"
+    )
+
+    /// What to show while aiming: a picture problem first (step 1), then that the last
+    /// photo had no pills in it (step 2), then the picture's status.
+    static func hint(for status: QualityGate.Status, foundNoPills: Bool) -> CaptureHintPresentation? {
+        if case .needs = status { return status.presentation }
+        return foundNoPills ? noPills : status.presentation
+    }
 }
 
 extension QualityGate.Status {

@@ -56,11 +56,23 @@ struct ScanFlowTests {
         #expect(store.todayList(now: morning).filter { $0.state.isTaken }.map(\.dose.medication) == [TestMedications.lisinopril])
     }
 
-    @Test func aPhotoWithNoPills() {
+    @Test func aPhotoWithNoPillsGoesBackToAiming() {
         flow.setOpen(true)
         flow.showResults(photo: testImage(), pills: [], now: morning)
-        #expect(flow.phase.step == .noPills)
+        #expect(flow.phase.step == .aiming)
+        #expect(flow.foundNoPills)
         #expect(flow.confirmTaken(now: morning) == 0)
+
+        // Finding pills next time clears the hint.
+        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin)], now: morning)
+        #expect(flow.phase.step == .results)
+        #expect(!flow.foundNoPills)
+    }
+
+    @Test func aPictureProblemOutranksTheNoPillsHint() {
+        #expect(CaptureHintPresentation.hint(for: .needs(.moving), foundNoPills: true)?.text == QualityIssue.moving.hint)
+        #expect(CaptureHintPresentation.hint(for: .ready, foundNoPills: true)?.text == CaptureHintPresentation.noPills.text)
+        #expect(CaptureHintPresentation.hint(for: .checking, foundNoPills: false) == nil)
     }
 
     @Test func closingStartsTheNextSessionFresh() {

@@ -28,8 +28,14 @@ actor PillPhotoAnalyzer {
         self.medications = medications
     }
 
-    func analyze(_ photo: CGImage) -> [AnalyzedPill] {
-        guard let pills = try? PillFinder.find(in: photo) else { return [] }
+    /// Step 2 of a scan: the separate pill-sized objects in the photo, each cut out.
+    /// Empty when there are none (or Vision can't run, as in the Simulator).
+    func findPills(in photo: CGImage) -> [FoundPill] {
+        (try? PillFinder.find(in: photo)) ?? []
+    }
+
+    /// Step 3 of a scan: recognizes each cut-out on its own, in the order given.
+    func identify(_ pills: [FoundPill]) -> [AnalyzedPill] {
         let references = loadReferences()
         return pills.map { pill in
             var distances: [String: Float] = [:]

@@ -8,7 +8,7 @@ import SwiftUI
 /// One black shape that is the camera button's circle when closed and grows into the
 /// rounded scan view when open. Being a single view, it animates size and corner radius
 /// smoothly instead of cross-fading between two shapes. Inside: the live camera while
-/// aiming, then the photo being checked, then the results.
+/// aiming, then the photo while its pills are found and checked, then the results.
 struct CameraLens: View {
     let scan: ScanFlow
     let isOpen: Bool
@@ -52,26 +52,27 @@ struct CameraLens: View {
     @ViewBuilder
     private var content: some View {
         switch scan.phase {
-        case .aiming, .checking(nil):
+        case .aiming, .finding(nil):
             liveCamera
-        case .checking(let photo?):
+        case .finding(let photo?):
             frozen(photo) {
-                ProgressView("Checking pills…")
+                ProgressView("Finding pills…")
                     .tint(.white)
                     .foregroundStyle(.white)
                     .font(.headline)
             }
+        case .verifying(let photo, let boxes):
+            FoundPillsView(photo: photo, boxes: boxes)
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
+                .padding(.bottom, ScanLayout.contentBottomPadding)
+                .transition(.opacity)
         case .results(let result):
             PillResultsView(result: result, onConfirm: onConfirm, onScanAgain: scanAgain)
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
                 .padding(.bottom, ScanLayout.contentBottomPadding)
                 .transition(.opacity)
-        case .noPills(let photo):
-            frozen(photo) {
-                ScanActionButtons(takeCount: 0, onConfirm: {}, onScanAgain: scanAgain)
-                    .frame(maxWidth: 220)
-            }
         }
     }
 
@@ -99,17 +100,19 @@ struct CameraLens: View {
                     .transition(.opacity)
             } else {
                 VStack(spacing: 6) {
-                    CaptureHint(status: model.captureStatus)
+                    // The photo is taken by itself once the picture has been good for a
+                    // moment, so there is no shutter button.
+                    CaptureHint(status: model.captureStatus, foundNoPills: scan.foundNoPills)
                     #if DEBUG
                     QualityReadout(model: model)
                     #endif
                     Spacer()
-                    ShutterButton(isBusy: scan.phase.step == .checking, action: scan.capture)
                 }
                 .padding(.top, 16)
                 .padding(.horizontal, 12)
                 .padding(.bottom, ScanLayout.contentBottomPadding)
                 .animation(.easeInOut(duration: 0.2), value: model.captureStatus)
+                .animation(.easeInOut(duration: 0.2), value: scan.foundNoPills)
             }
         }
     }
@@ -130,27 +133,5 @@ struct CameraLens: View {
 
     private func scanAgain() {
         Task { await scan.scanAgain() }
-    }
-}
-
-/// Takes the photo now instead of waiting for the picture to be judged good: the photo
-/// is also taken by itself once it is.
-private struct ShutterButton: View {
-    let isBusy: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label("Take photo", systemImage: "camera.shutter.button")
-                .font(.headline)
-                .foregroundStyle(Palette.textPrimary)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .background(Capsule().fill(.white))
-        }
-        .buttonStyle(.plain)
-        .disabled(isBusy)
-        .opacity(isBusy ? 0.5 : 1)
-        .accessibilityHint("The photo is also taken by itself once the picture looks good")
     }
 }

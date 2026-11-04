@@ -32,22 +32,20 @@ struct ScanHeader: View {
     private var title: String {
         switch phase {
         case .aiming: "Show the pills you're about to take"
-        case .checking: "Checking your pills…"
+        case .finding: "Looking for pills…"
+        case .verifying: "Checking each pill…"
         case .results(let result): result.summary
-        case .noPills: "No pills found"
         }
     }
 
     private var subtitle: String? {
         switch phase {
         case .aiming:
-            "Spread them apart in your hand or on a plain surface."
-        case .checking:
+            "Spread them apart in your hand or on a plain surface. The photo is taken by itself."
+        case .finding, .verifying:
             nil
         case .results(let result):
             result.isAllClear ? nil : "Put back any pill marked in red."
-        case .noPills:
-            "Spread the pills apart on a plain surface and try again."
         }
     }
 }

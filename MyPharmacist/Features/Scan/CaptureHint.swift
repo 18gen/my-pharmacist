@@ -6,12 +6,15 @@
 import SwiftUI
 
 /// The one thing to fix about the camera picture (or that it looks good), shown at the
-/// top of the camera view. Icon and text, so it never relies on colour alone.
+/// top of the camera view. Icon and text, so it never relies on colour alone. A picture
+/// problem comes first; after that, that the last photo had no pills in it.
 struct CaptureHint: View {
     let status: QualityGate.Status
+    /// The last photo had no pills in it.
+    var foundNoPills = false
 
     var body: some View {
-        if let content = status.presentation {
+        if let content = CaptureHintPresentation.hint(for: status, foundNoPills: foundNoPills) {
             HStack(spacing: 8) {
                 Image(systemName: content.icon)
                     .font(.system(size: 18, weight: .semibold))
@@ -30,7 +33,7 @@ struct CaptureHint: View {
             )
             .accessibilityElement(children: .combine)
             .transition(.opacity)
-            .id(status)
+            .id(content.text)
         }
     }
 }
