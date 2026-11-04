@@ -14,7 +14,10 @@ struct HomeView: View {
     let onShowMedications: () -> Void
 
     private static let fadeHeight: CGFloat = 24
+    /// The space at the very end of the scrolling content.
+    private static let pageEndID = "homePageEnd"
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showsTaken = false
     @State private var doseToUncheck: Dose?
 
@@ -29,31 +32,38 @@ struct HomeView: View {
                 HomeHeader(now: context.date, onShowMedications: onShowMedications)
                     .padding(.horizontal, 16)
 
-                ScrollView {
-                    VStack(spacing: 12) {
-                        TodayCard(toTake: toTake, totalCount: items.count, now: context.date) { item in
-                            store.markTaken(item.dose)
-                        }
-                        if !taken.isEmpty {
-                            TakenCard(taken: taken, now: context.date, isExpanded: $showsTaken) { item in
-                                // Unchecking could lead to a second dose, so ask first.
-                                doseToUncheck = item.dose
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            VStack(spacing: 12) {
+                                TodayCard(toTake: toTake, totalCount: items.count, now: context.date) { item in
+                                    store.markTaken(item.dose)
+                                }
+                                if !taken.isEmpty {
+                                    TakenCard(taken: taken, now: context.date, isExpanded: $showsTaken,
+                                              onOpened: { scrollToPageEnd(proxy) }) { item in
+                                        // Unchecking could lead to a second dose, so ask first.
+                                        doseToUncheck = item.dose
+                                    }
+                                    .transition(.opacity)
+                                }
                             }
-                            .transition(.opacity)
+                            .padding(.horizontal, 16)
+                            // The end of the page: room to scroll the last card clear of
+                            // the fade, and where opening "Taken" scrolls to.
+                            Color.clear
+                                .frame(height: Self.fadeHeight)
+                                .id(Self.pageEndID)
                         }
+                        .animation(.spring(duration: 0.45), value: items)
                     }
-                    .padding(.horizontal, 16)
-                    // Room to scroll the last card clear of the fade.
-                    .padding(.bottom, Self.fadeHeight)
-                    .animation(.spring(duration: 0.45), value: items)
-                    .animation(.spring(duration: 0.4), value: showsTaken)
-                }
-                // Fade out above the "Scan Pills" button instead of cutting off sharply.
-                .mask {
-                    VStack(spacing: 0) {
-                        Color.black
-                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                            .frame(height: Self.fadeHeight)
+                    // Fade out above the "Scan Pills" button instead of cutting off sharply.
+                    .mask {
+                        VStack(spacing: 0) {
+                            Color.black
+                            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                .frame(height: Self.fadeHeight)
+                        }
                     }
                 }
             }
@@ -71,8 +81,17 @@ struct HomeView: View {
         }
     }
 
+    /// Scrolls to the end of the page, so the rows of a just-opened "Taken" card are in
+    /// view. Closing the card leaves the scroll position alone.
+    private func scrollToPageEnd(_ proxy: ScrollViewProxy) {
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
+            proxy.scrollTo(Self.pageEndID, anchor: .bottom)
+        }
+    }
+
     private var uncheckTitle: String {
         guard let dose = doseToUncheck else { return "" }
         return "Mark \(dose.medication.displayName) (\(dose.scheduled.shortTime)) as not taken?"
     }
 }
+

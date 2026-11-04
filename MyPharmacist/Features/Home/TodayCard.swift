@@ -55,16 +55,24 @@ struct TakenCard: View {
     let taken: [ScheduledDose]
     let now: Date
     @Binding var isExpanded: Bool
+    /// Called once the rows have finished opening.
+    let onOpened: () -> Void
     let onUncheck: (ScheduledDose) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TakenDosesToggle(doses: taken.map(\.dose), isExpanded: $isExpanded)
-            if isExpanded {
+            TakenDosesToggle(doses: taken.map(\.dose), isExpanded: $isExpanded, onOpened: onOpened)
+            // Opens like a drawer: the rows stay where they are and the card's bottom edge
+            // moves to show or hide them. Nothing fades or slides over the header or the
+            // "Today" card, and the page resizes along with the card instead of jumping.
+            DrawerLayout(openFraction: isExpanded ? 1 : 0) {
                 DoseRowList(items: taken, now: now, onToggle: onUncheck)
                     .padding(.top, 8)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            .clipped()
+            // Hidden rows can't be tapped or reached with VoiceOver.
+            .allowsHitTesting(isExpanded)
+            .accessibilityHidden(!isExpanded)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()

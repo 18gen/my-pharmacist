@@ -10,6 +10,8 @@ import SwiftUI
 struct TakenDosesToggle: View {
     let doses: [Dose]
     @Binding var isExpanded: Bool
+    /// Called once opening has finished animating, so the page can scroll to the new rows.
+    let onOpened: () -> Void
 
     /// At most this many pictures overlap in the peek.
     private static let maxPreviews = 3
@@ -22,9 +24,7 @@ struct TakenDosesToggle: View {
     }
 
     var body: some View {
-        Button {
-            withAnimation(.spring(duration: 0.4)) { isExpanded.toggle() }
-        } label: {
+        Button(action: toggle) {
             HStack(spacing: 12) {
                 HStack(spacing: -pillSize * 0.35) {
                     ForEach(previews) { medication in
@@ -61,5 +61,16 @@ struct TakenDosesToggle: View {
         .accessibilityValue(isExpanded ? "Shown" : "Hidden")
         .accessibilityHint(isExpanded ? "Double tap to hide taken doses" : "Double tap to show taken doses")
         .accessibilityAddTraits(.isButton)
+    }
+
+    /// Shows or hides the rows. Opening reports back only once the card has finished
+    /// growing: a scroll started mid-animation aims at where the rows were, not where
+    /// they end up, and doesn't move.
+    private func toggle() {
+        withAnimation(.spring(duration: 0.4)) {
+            isExpanded.toggle()
+        } completion: {
+            if isExpanded { onOpened() }
+        }
     }
 }
