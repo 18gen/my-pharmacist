@@ -53,7 +53,7 @@ struct PillResultsView: View {
     private var nextStep: some View {
         if result.needsRescan {
             VStack(spacing: 4) {
-                PageButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
+                WideButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
                     .accessibilityHint("Put back the pills not to take first")
                 Button("Close", action: onDone)
                     .font(.title3)
@@ -61,7 +61,7 @@ struct PillResultsView: View {
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
         } else {
-            PageButton(title: "Done", systemImage: "checkmark", action: onDone)
+            WideButton(title: "Done", systemImage: "checkmark", action: onDone)
         }
     }
 }
@@ -91,24 +91,5 @@ private struct ResultSection: View {
                 }
             }
         }
-    }
-}
-
-/// The page's main button: full width, large, black like the camera button.
-private struct PageButton: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.title3.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 34)
-        }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.capsule)
-        .controlSize(.large)
-        .tint(Palette.textPrimary)
     }
 }

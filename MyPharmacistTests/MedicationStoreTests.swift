@@ -61,3 +61,95 @@ struct MedicationStoreTests {
         #expect(storage.load() == ["2026-10-14|metformin-500@8:00": morning])
     }
 }
+
+@MainActor
+struct MedicationListTests {
+    private let morning = TestClock.at(8)
+    private let catalog = TestMedications.all + [TestMedications.ondansetron]
+
+    private func makeStore(_ list: InMemoryMedicationListStorage = InMemoryMedicationListStorage()) -> MedicationStore {
+        MedicationStore(medications: catalog, listStorage: list, storage: InMemoryDoseLogStorage(),
+                        calendar: TestClock.calendar, now: morning)
+    }
+
+    @Test func aNewListHasTheWholeCatalogAtItsUsualTimes() {
+        let store = makeStore()
+        #expect(store.medications == catalog)
+        #expect(store.addable.isEmpty)
+    }
+
+    @Test func removedMedicationsCanBeAddedBackAndTheListIsSaved() {
+        let list = InMemoryMedicationListStorage()
+        let store = makeStore(list)
+        store.remove(TestMedications.lisinopril.id)
+        #expect(!store.medications.contains(TestMedications.lisinopril))
+        #expect(store.addable == [TestMedications.lisinopril])
+
+        store.add(MedicationPlan(medicationID: TestMedications.lisinopril.id, doseTimes: [DoseTime(9)], isAsNeeded: false))
+        #expect(store.medications.last?.id == TestMedications.lisinopril.id)
+        #expect(store.medications.last?.doseTimes == [DoseTime(9)])
+
+        // A store reading the same saved list sees the same medications.
+        #expect(makeStore(list).medications == store.medications)
+    }
+
+    @Test func anEmptiedListStaysEmpty() {
+        let list = InMemoryMedicationListStorage()
+        let store = makeStore(list)
+        for medication in catalog { store.remove(medication.id) }
+        #expect(makeStore(list).medications.isEmpty)
+    }
+
+    @Test func changingTheTimesMovesTheDoses() {
+        let store = makeStore()
+        store.update(MedicationPlan(medicationID: TestMedications.metformin.id,
+                                    doseTimes: [DoseTime(21), DoseTime(7, 30), DoseTime(21)], isAsNeeded: false))
+        // In order, each once.
+        #expect(store.plan(for: TestMedications.metformin.id)?.doseTimes == [DoseTime(7, 30), DoseTime(21)])
+        #expect(store.doses(on: morning).filter { $0.medication.id == TestMedications.metformin.id }.map(\.id)
+                == ["metformin-500@7:30", "metformin-500@21:00"])
+    }
+
+    @Test func setTimesWithNoneAreIgnored() {
+        let store = makeStore()
+        store.update(MedicationPlan(medicationID: TestMedications.metformin.id, doseTimes: [], isAsNeeded: false))
+        #expect(store.plan(for: TestMedications.metformin.id)?.doseTimes == [DoseTime(8), DoseTime(18)])
+    }
+
+    @Test func onlyWhenNeededKeepsTheTimesForLater() {
+        let store = makeStore()
+        let times = [DoseTime(8), DoseTime(18)]
+        store.update(MedicationPlan(medicationID: TestMedications.metformin.id, doseTimes: times, isAsNeeded: true))
+        let asNeeded = store.medications.first { $0.id == TestMedications.metformin.id }
+        #expect(asNeeded?.doseTimes == [])
+        #expect(asNeeded?.asNeeded == MedicationStore.defaultAsNeeded)
+        #expect(store.asNeededMedications.map(\.id).contains(TestMedications.metformin.id))
+
+        store.update(MedicationPlan(medicationID: TestMedications.metformin.id, doseTimes: times, isAsNeeded: false))
+        #expect(store.medications.first { $0.id == TestMedications.metformin.id }?.doseTimes == times)
+    }
+
+    @Test func anAsNeededMedicationKeepsItsOwnWords() {
+        let store = makeStore()
+        #expect(store.medications.first { $0.id == TestMedications.ondansetron.id }?.asNeeded == "Only when you feel sick")
+        // Switched to set times, it starts with a morning dose.
+        #expect(store.plan(for: TestMedications.ondansetron.id)?.doseTimes == [DoseTime(8)])
+    }
+
+    @Test func restoringBringsBackTheWholeCatalog() {
+        let store = makeStore()
+        store.remove(TestMedications.metformin.id)
+        store.update(MedicationPlan(medicationID: TestMedications.lisinopril.id, doseTimes: [DoseTime(10)], isAsNeeded: false))
+        store.restoreSampleList()
+        #expect(store.medications == catalog)
+    }
+
+    @Test func userDefaultsListStorageRoundTrips() {
+        let storage = UserDefaultsMedicationListStorage(defaults: isolatedDefaults())
+        #expect(storage.load() == nil)
+        let plans = [MedicationPlan(medicationID: "metformin-500", doseTimes: [DoseTime(8), DoseTime(18, 30)], isAsNeeded: false)]
+        storage.save(plans)
+        #expect(storage.load() == plans)
+    }
+}
+

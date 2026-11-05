@@ -21,7 +21,7 @@ enum ScanLayout {
     /// button is hidden there, so the page's own buttons take its place.
     static let pageBottomPadding: CGFloat = 24
     /// Height at the bottom of the home screen used by the "Scan Pills" hint and button.
-    static let homeReservedHeight: CGFloat = 170
+    static let homeReservedHeight: CGFloat = 130
 
     /// The open camera view: 10pt from each side and about 80% of the screen height.
     static func openLensSize(in container: CGSize) -> CGSize {

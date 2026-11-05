@@ -76,7 +76,9 @@ final class ScanFlow {
     let scanner: ScannerModel
 
     @ObservationIgnored private let store: MedicationStore
-    @ObservationIgnored private let analyzer: PillPhotoAnalyzer
+    @ObservationIgnored private var analyzer: PillPhotoAnalyzer
+    /// The medications `analyzer` compares against, by ID.
+    @ObservationIgnored private var analyzedMedicationIDs: [String]
     @ObservationIgnored private var checkTask: Task<Void, Never>?
     /// Doses this session recorded as scanned, so a retake can replace them.
     @ObservationIgnored private var recordedThisSession: [Dose] = []
@@ -85,6 +87,7 @@ final class ScanFlow {
         self.store = store
         self.scanner = scanner
         self.analyzer = PillPhotoAnalyzer(medications: store.medications)
+        self.analyzedMedicationIDs = store.medications.map(\.id)
     }
 
     /// Closing ends the session; opening starts the next one fresh. The phase is reset on
@@ -96,9 +99,19 @@ final class ScanFlow {
         if open {
             phase = .aiming
             foundNoPills = false
+            refreshAnalyzer()
         }
         recordedThisSession = []
         isOpen = open
+    }
+
+    /// Pills are compared only with the medications on the list, which may have changed on
+    /// the My Medications page since the last scan: a removed one is then "Unknown".
+    private func refreshAnalyzer() {
+        let ids = store.medications.map(\.id)
+        guard ids != analyzedMedicationIDs else { return }
+        analyzer = PillPhotoAnalyzer(medications: store.medications)
+        analyzedMedicationIDs = ids
     }
 
     /// Step 1 passed: the picture has been good for a moment, so take the photo.

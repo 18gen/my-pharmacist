@@ -9,6 +9,8 @@ import SwiftUI
 /// for, and its daily times or, for one taken only when needed, when that is.
 struct MedicationRow: View {
     let medication: Medication
+    /// The row opens a page, so it shows a chevron.
+    var opensPage = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -36,8 +38,16 @@ struct MedicationRow: View {
                 }
             }
             Spacer(minLength: 0)
+            if opensPage {
+                Image(systemName: "chevron.right")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Palette.textMuted)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.vertical, 12)
+        // The whole row is the tap target, not just its text and picture.
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 

@@ -6,7 +6,7 @@
 import Foundation
 
 /// A time of day, independent of date.
-nonisolated struct DoseTime: Hashable, Comparable, Sendable {
+nonisolated struct DoseTime: Hashable, Comparable, Codable, Sendable {
     let hour: Int
     let minute: Int
 

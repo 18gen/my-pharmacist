@@ -24,7 +24,7 @@ struct CameraButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 28) {
+            VStack(spacing: 15) {
                 if !isScanning {
                     Text("Scan Pills")
                         .font(.title2.weight(.semibold))

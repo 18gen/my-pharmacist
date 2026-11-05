@@ -11,22 +11,23 @@ import SwiftUI
 struct RootView: View {
     @State private var store: MedicationStore
     @State private var scan: ScanFlow
-    @State private var showingMedications = false
+    /// The pages pushed over the home screen, in order.
+    @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
 
-    init(store: MedicationStore = MedicationStore()) {
+    init(store: MedicationStore = MedicationStore(listStorage: UserDefaultsMedicationListStorage())) {
         _store = State(initialValue: store)
         _scan = State(initialValue: ScanFlow(store: store))
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             GeometryReader { proxy in
                 ZStack(alignment: .bottom) {
                     Palette.background.ignoresSafeArea()
 
                     if !scan.isOpen {
-                        HomeView(store: store, onShowMedications: { showingMedications = true })
+                        HomeView(store: store, onShowMedications: showMedications)
                             .padding(.top, 8)
                             // Keep clear of the "Scan Pills" hint and button.
                             .padding(.bottom, ScanLayout.homeReservedHeight)
@@ -90,8 +91,20 @@ struct RootView: View {
             #endif
             // Home has its own header instead of a navigation bar.
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(isPresented: $showingMedications) {
-                MedicationsPage(medications: store.medications)
+            // Every page pushed over the home screen is declared here, once, and opened by
+            // adding to `path`. A page shown by a flag (`navigationDestination(isPresented:)`)
+            // can't share a stack with pages pushed by value: pushing a medication's page from
+            // My Medications then showed My Medications again, or an empty page.
+            .navigationDestination(for: AppRoute.self) { route in
+                switch route {
+                case .medications:
+                    MedicationsPage(store: store)
+                case .medication(let id):
+                    if let entry = store.catalogEntry(id) {
+                        MedicationEditor(store: store, entry: entry, mode: .edit,
+                                         onRemoved: { path.removeAll { $0 == route } })
+                    }
+                }
             }
         }
     }
@@ -103,6 +116,13 @@ struct RootView: View {
               Date().timeIntervalSince(lastHintAnnouncement) > 2.5 else { return }
         lastHintAnnouncement = Date()
         AccessibilityNotification.Announcement(text).post()
+    }
+
+    /// Opens My Medications; ignored if a page is already open, so a quick second tap
+    /// doesn't push it twice.
+    private func showMedications() {
+        guard path.isEmpty else { return }
+        path.append(.medications)
     }
 
     private func setScanning(_ open: Bool) {

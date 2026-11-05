@@ -25,7 +25,7 @@ struct HomeHeader: View {
 
             Spacer(minLength: 8)
 
-            GlassIconButton(systemName: "cross.vial.fill", accessibilityLabel: "My medications",
+            GlassIconButton(systemName: "pills.fill", accessibilityLabel: "My medications",
                             action: onShowMedications)
         }
     }

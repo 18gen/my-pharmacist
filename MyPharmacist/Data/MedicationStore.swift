@@ -6,10 +6,29 @@
 import Foundation
 import Observation
 
-/// The registered medications and which doses have been scanned, saved on the device.
+/// The person's medications and which doses have been scanned, saved on the device.
 /// There is no "taken": the app only knows a dose's pill was scanned and judged OK to take.
+///
+/// Medications are chosen from a catalog of the ones the app has reference photos for, so
+/// every medication on the list can be recognized in a scan. The list keeps only which
+/// ones and when; the rest comes from the catalog.
 @Observable
 final class MedicationStore {
+    /// What a medication taken only when needed says when its catalog entry doesn't.
+    static let defaultAsNeeded = "Only when needed"
+
+    /// Every medication that can be on the list, with the times each usually starts with.
+    let catalog: [Medication]
+
+    /// The person's list, in their order: which medications, and when.
+    private(set) var plans: [MedicationPlan] {
+        didSet {
+            listStorage.save(plans)
+            medications = Self.resolve(plans, catalog: catalog)
+        }
+    }
+
+    /// The list as full medications, for the schedule, the home screen and scanning.
     private(set) var medications: [Medication]
 
     /// When each dose was scanned, keyed by "<day>|<Dose.id>", e.g. "2026-10-14|metformin-500@8:00".
@@ -18,16 +37,25 @@ final class MedicationStore {
     }
 
     @ObservationIgnored private let storage: any DoseLogStorage
+    @ObservationIgnored private let listStorage: any MedicationListStorage
     @ObservationIgnored private let calendar: Calendar
     /// Older records are dropped on launch; only today's matter.
     private static let keepDays = 14
 
-    /// - Parameter now: when the store is created; records older than `keepDays` before it are dropped.
+    /// - Parameters:
+    ///   - medications: The catalog. A list that was never saved starts with all of it.
+    ///   - listStorage: In memory unless given, so tests never touch the app's saved list.
+    ///   - now: When the store is created; records older than `keepDays` before it are dropped.
     init(medications: [Medication] = SampleMedications.all,
+         listStorage: any MedicationListStorage = InMemoryMedicationListStorage(),
          storage: any DoseLogStorage = UserDefaultsDoseLogStorage(),
          calendar: Calendar = .current,
          now: Date = Date()) {
-        self.medications = medications
+        let plans = listStorage.load() ?? medications.map(MedicationPlan.init(preset:))
+        self.catalog = medications
+        self.plans = plans
+        self.medications = Self.resolve(plans, catalog: medications)
+        self.listStorage = listStorage
         self.storage = storage
         self.calendar = calendar
         self.scanLog = Self.recent(storage.load(), now: now, calendar: calendar)
@@ -55,6 +83,51 @@ final class MedicationStore {
         return DoseSchedule.ordered(doses, scannedAt: scanTimes(on: now), now: now)
     }
 
+    // MARK: The medication list
+
+    /// Catalog medications not on the list yet.
+    var addable: [Medication] {
+        catalog.filter { medication in !plans.contains { $0.medicationID == medication.id } }
+    }
+
+    func plan(for medicationID: String) -> MedicationPlan? {
+        plans.first { $0.medicationID == medicationID }
+    }
+
+    func catalogEntry(_ medicationID: String) -> Medication? {
+        catalog.first { $0.id == medicationID }
+    }
+
+    /// Adds a catalog medication at the end of the list. Ignored if it's already on it, not
+    /// in the catalog, or set to times with none.
+    func add(_ plan: MedicationPlan) {
+        guard plan.isAsNeeded || !plan.orderedTimes.isEmpty,
+              self.plan(for: plan.medicationID) == nil,
+              catalogEntry(plan.medicationID) != nil else { return }
+        plans.append(Self.tidy(plan))
+    }
+
+    /// Replaces a medication's times or switches it to only when needed. A plan with set
+    /// times but none at all is ignored, so a medication never silently stops being due.
+    func update(_ plan: MedicationPlan) {
+        guard plan.isAsNeeded || !plan.orderedTimes.isEmpty,
+              let index = plans.firstIndex(where: { $0.medicationID == plan.medicationID }) else { return }
+        let tidied = Self.tidy(plan)
+        if plans[index] != tidied {
+            plans[index] = tidied
+        }
+    }
+
+    /// Takes a medication off the list. Its scan records stay, but nothing reads them.
+    func remove(_ medicationID: String) {
+        plans.removeAll { $0.medicationID == medicationID }
+    }
+
+    /// Back to the whole catalog at its usual times, for starting a demo over.
+    func restoreSampleList() {
+        plans = catalog.map(MedicationPlan.init(preset:))
+    }
+
     // MARK: Changing
 
     /// Records that these doses' pills were scanned, OK to take, at `time`.
@@ -77,6 +150,31 @@ final class MedicationStore {
     }
 
     // MARK: Storage
+
+    private static func tidy(_ plan: MedicationPlan) -> MedicationPlan {
+        var plan = plan
+        plan.doseTimes = plan.orderedTimes
+        return plan
+    }
+
+    /// The list as medications: each catalog entry with the plan's times, or none and its
+    /// "only when" line when taken only when needed. Plans for medications no longer in the
+    /// catalog are left out.
+    private static func resolve(_ plans: [MedicationPlan], catalog: [Medication]) -> [Medication] {
+        plans.compactMap { plan in
+            guard let entry = catalog.first(where: { $0.id == plan.medicationID }) else { return nil }
+            return Medication(
+                id: entry.id,
+                name: entry.name,
+                strength: entry.strength,
+                doseTimes: plan.isAsNeeded ? [] : plan.orderedTimes,
+                appearance: entry.appearance,
+                photos: entry.photos,
+                purpose: entry.purpose,
+                asNeeded: plan.isAsNeeded ? (entry.asNeeded ?? defaultAsNeeded) : nil
+            )
+        }
+    }
 
     /// The given day's scan times keyed by `Dose.id`.
     private func scanTimes(on day: Date) -> [String: Date] {
