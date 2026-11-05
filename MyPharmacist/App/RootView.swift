@@ -13,8 +13,6 @@ struct RootView: View {
     @State private var scan: ScanFlow
     @State private var showingMedications = false
     @State private var lastHintAnnouncement = Date.distantPast
-    /// Counts confirmations, to play the success vibration.
-    @State private var confirmations = 0
 
     init(store: MedicationStore = MedicationStore()) {
         _store = State(initialValue: store)
@@ -37,7 +35,9 @@ struct RootView: View {
                     }
 
                     if scan.isOpen {
-                        ScanHeader(phase: scan.phase)
+                        ScanHeader(scan: scan)
+                            .frame(height: ScanLayout.headerHeight(in: proxy.size,
+                                                                   bottomSafeArea: proxy.safeAreaInsets.bottom))
                             .frame(maxHeight: .infinity, alignment: .top)
                             .transition(.opacity)
                     }
@@ -46,10 +46,12 @@ struct RootView: View {
                         scan: scan,
                         isOpen: scan.isOpen,
                         openSize: ScanLayout.openLensSize(in: proxy.size),
-                        onConfirm: confirmTaken
+                        onDone: { setScanning(false) }
                     )
 
-                    CameraButton(isScanning: scan.isOpen) {
+                    CameraButton(isScanning: scan.isOpen,
+                                 isOnPage: scan.isOpen && scan.phase.step.isPage,
+                                 isHidden: scan.isOpen && scan.phase.step == .results) {
                         setScanning(!scan.isOpen)
                     }
                 }
@@ -63,18 +65,17 @@ struct RootView: View {
             }
             // The retry after a photo without pills is otherwise only shown, not spoken.
             .onChange(of: scan.foundNoPills) { _, foundNone in
-                if foundNone { AccessibilityNotification.Announcement(CaptureHintPresentation.noPills.text).post() }
+                if foundNone { AccessibilityNotification.Announcement(ScanInstruction.noPills).post() }
             }
             .onChange(of: scan.phase.step) { _, step in
                 guard step == .results, case .results(let result) = scan.phase else { return }
                 AccessibilityNotification.Announcement(result.summary).post()
             }
-            // Success when every pill is right to take; a warning when any isn't.
+            // Success when every pill is OK to take and nothing is missing; a warning otherwise.
             .sensoryFeedback(trigger: scan.phase.step) { _, step in
                 guard step == .results, case .results(let result) = scan.phase else { return nil }
                 return result.isAllClear ? .success : .warning
             }
-            .sensoryFeedback(.success, trigger: confirmations)
             .task(id: scan.isOpen) {
                 #if DEBUG
                 // The demo shows results without the camera.
@@ -95,18 +96,10 @@ struct RootView: View {
         }
     }
 
-    /// Records the "Take now" pills as taken and closes the camera so the ticked rows show.
-    private func confirmTaken() {
-        let count = scan.confirmTaken()
-        confirmations += 1
-        AccessibilityNotification.Announcement(count == 1 ? "Marked 1 dose as taken" : "Marked \(count) doses as taken").post()
-        setScanning(false)
-    }
-
-    /// Speaks camera hints for VoiceOver, at most every few seconds so they don't drown
-    /// out everything else while the hand moves.
+    /// Speaks what to fix about the camera picture for VoiceOver, at most every few
+    /// seconds so it doesn't drown out everything else while the hand moves.
     private func announce(_ status: QualityGate.Status) {
-        guard scan.phase.step == .aiming, let text = status.presentation?.text,
+        guard scan.phase.step == .aiming, case .needs(let issue) = status, let text = issue.fix,
               Date().timeIntervalSince(lastHintAnnouncement) > 2.5 else { return }
         lastHintAnnouncement = Date()
         AccessibilityNotification.Announcement(text).post()

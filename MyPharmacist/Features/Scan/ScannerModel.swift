@@ -13,8 +13,6 @@ final class ScannerModel {
     private(set) var cameraMessage: String?
     /// Whether the picture is good enough yet, or what to fix first.
     private(set) var captureStatus: QualityGate.Status = .checking
-    /// The latest frame's quality measurements, for tuning the thresholds.
-    private(set) var latestQuality: FrameQuality?
 
     @ObservationIgnored private let camera = CameraSession()
     @ObservationIgnored private var qualityGate = QualityGate()
@@ -51,7 +49,6 @@ final class ScannerModel {
     func reset() {
         cameraMessage = nil
         captureStatus = .checking
-        latestQuality = nil
         qualityGate = QualityGate()
     }
 
@@ -71,7 +68,6 @@ final class ScannerModel {
     }
 
     private func judge(_ quality: FrameQuality) {
-        latestQuality = quality
         let status = qualityGate.update(quality)
         // Only assign changes, so views showing the status don't redraw ten times a second.
         if status != captureStatus {

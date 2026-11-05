@@ -28,57 +28,114 @@ struct ScanFlowTests {
         if case .results(let result) = flow.phase { result } else { nil }
     }
 
+    private var scannedDoses: [Dose] {
+        store.todayList(now: morning).filter { $0.state.isScanned }.map(\.dose)
+    }
+
     @Test func pillsAreNumberedAndJudged() throws {
         flow.setOpen(true)
-        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin), pill(nil, x: 0.5)], now: morning)
+        flow.showResults([pill(TestMedications.metformin), pill(nil, x: 0.5)], photo: testImage(), now: morning)
 
         let result = try #require(result)
         #expect(result.pills.map(\.id) == [1, 2])
         #expect(result.pills[0].verdict.isTake)
         #expect(result.pills[1].verdict == .unidentified)
         #expect(result.missing.map(\.medication) == [TestMedications.lisinopril])
-        #expect(result.summary == "1 to take · 1 not to take · 1 missing")
+        #expect(result.summary == "Put back 1 pill")
+        #expect(result.needsRescan)
     }
 
-    @Test func nothingIsTakenUntilConfirmed() {
+    @Test func theMostSeriousLinesComeFirst() throws {
         flow.setOpen(true)
-        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin), pill(TestMedications.lisinopril, x: 0.5)], now: morning)
-        #expect(!store.todayList(now: morning).contains { $0.state.isTaken })
-
-        #expect(flow.confirmTaken(now: morning) == 2)
-        #expect(store.todayList(now: morning).filter { $0.state.isTaken }.count == 2)
+        // OK, not yet (atorvastatin is for the evening), unknown; lisinopril is missing.
+        flow.showResults([pill(TestMedications.metformin), pill(TestMedications.atorvastatin, x: 0.3), pill(nil, x: 0.6)], photo: testImage(), now: morning)
+        let result = try #require(result)
+        #expect(result.groups.map(\.level) == [.unknown, .dontTake, .caution, .ok])
+        #expect(result.groups.map(\.lines.count) == [1, 1, 1, 1])
     }
 
-    @Test func onlyTakeNowPillsAreConfirmed() {
+    @Test func pillsThatAreOKToTakeAreRecordedAsScanned() throws {
         flow.setOpen(true)
-        flow.showResults(photo: testImage(), pills: [pill(TestMedications.atorvastatin), pill(TestMedications.lisinopril, x: 0.5)], now: morning)
-        #expect(flow.confirmTaken(now: morning) == 1)
-        #expect(store.todayList(now: morning).filter { $0.state.isTaken }.map(\.dose.medication) == [TestMedications.lisinopril])
+        flow.showResults([pill(TestMedications.metformin), pill(TestMedications.lisinopril, x: 0.5)], photo: testImage(), now: morning)
+        #expect(scannedDoses.map(\.medication) == [TestMedications.lisinopril, TestMedications.metformin])
+        let result = try #require(result)
+        #expect(result.summary == "OK to take all 2")
+        #expect(result.isAllClear)
+        #expect(!result.needsRescan)
+    }
+
+    @Test func onlyPillsThatAreOKToTakeAreRecorded() {
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.atorvastatin), pill(TestMedications.lisinopril, x: 0.5)], photo: testImage(), now: morning)
+        #expect(scannedDoses.map(\.medication) == [TestMedications.lisinopril])
+    }
+
+    @Test func scanningAgainReplacesTheSessionsRecord() throws {
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.metformin), pill(nil, x: 0.5)], photo: testImage(), now: morning)
+        // The unknown pill was put back and the rest scanned again: still OK to take,
+        // not "scanned already".
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning.addingTimeInterval(60))
+        let result = try #require(result)
+        #expect(result.pills[0].verdict.isTake)
+        #expect(scannedDoses.map(\.medication) == [TestMedications.metformin])
+    }
+
+    @Test func aPillScannedInAnEarlierSessionMayHaveBeenTaken() throws {
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
+        flow.setOpen(false)
+
+        flow.setOpen(true)
+        let later = morning.addingTimeInterval(30 * 60)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: later)
+        let result = try #require(result)
+        #expect(result.pills[0].verdict.level == .dontTake)
+        if case .alreadyScanned(_, let time, _) = result.pills[0].verdict {
+            #expect(time == morning)
+        } else {
+            Issue.record("Expected the pill to be already scanned, got \(result.pills[0].verdict)")
+        }
+    }
+
+    @Test func theDemoRecordsNothing() {
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning, records: false)
+        #expect(flow.phase.step == .results)
+        #expect(scannedDoses.isEmpty)
     }
 
     @Test func aPhotoWithNoPillsGoesBackToAiming() {
         flow.setOpen(true)
-        flow.showResults(photo: testImage(), pills: [], now: morning)
+        flow.showResults([], photo: testImage(), now: morning)
         #expect(flow.phase.step == .aiming)
         #expect(flow.foundNoPills)
-        #expect(flow.confirmTaken(now: morning) == 0)
+        #expect(scannedDoses.isEmpty)
 
         // Finding pills next time clears the hint.
-        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin)], now: morning)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
         #expect(flow.phase.step == .results)
         #expect(!flow.foundNoPills)
     }
 
-    @Test func aPictureProblemOutranksTheNoPillsHint() {
-        #expect(CaptureHintPresentation.hint(for: .needs(.moving), foundNoPills: true)?.text == QualityIssue.moving.hint)
-        #expect(CaptureHintPresentation.hint(for: .ready, foundNoPills: true)?.text == CaptureHintPresentation.noPills.text)
-        #expect(CaptureHintPresentation.hint(for: .checking, foundNoPills: false) == nil)
+    @Test func theInstructionIsTheOneThingToDoNow() {
+        #expect(ScanInstruction.whileAiming(status: .checking, foundNoPills: false) == ScanInstruction.aim)
+        // A picture problem outranks the last photo having no pills.
+        #expect(ScanInstruction.whileAiming(status: .needs(.moving), foundNoPills: true) == "Hold still")
+        #expect(ScanInstruction.whileAiming(status: .ready, foundNoPills: true) == ScanInstruction.noPills)
+        // Focusing is the camera's job, so it doesn't ask the person to do anything.
+        #expect(ScanInstruction.whileAiming(status: .needs(.focusing), foundNoPills: false) == ScanInstruction.aim)
     }
 
-    @Test func closingStartsTheNextSessionFresh() {
+    @Test func openingAgainStartsTheNextSessionFresh() {
         flow.setOpen(true)
-        flow.showResults(photo: testImage(), pills: [pill(TestMedications.metformin)], now: morning)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
         flow.setOpen(false)
+        // Still showing the results while the view closes.
+        #expect(flow.phase.step == .results)
+
+        flow.setOpen(true)
         #expect(flow.phase.step == .aiming)
+        #expect(!flow.foundNoPills)
     }
 }

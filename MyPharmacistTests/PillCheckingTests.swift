@@ -16,8 +16,8 @@ struct PillSetVerifierTests {
         Dose(medication: medication, time: DoseTime(hour), day: TestClock.day, calendar: TestClock.calendar)
     }
 
-    private func check(_ identities: [Medication?], takenAt: [String: Date] = [:], at hour: Int) -> PillSetCheck {
-        PillSetVerifier.check(identities, medications: medications, dayDoses: dayDoses, takenAt: takenAt, now: TestClock.at(hour))
+    private func check(_ identities: [Medication?], scannedAt: [String: Date] = [:], at hour: Int) -> PillSetCheck {
+        PillSetVerifier.check(identities, medications: medications, dayDoses: dayDoses, scannedAt: scannedAt, now: TestClock.at(hour))
     }
 
     @Test func theMorningPillsAreAllToTake() {
@@ -48,10 +48,24 @@ struct PillSetVerifierTests {
         #expect(result.missing == [dose(TestMedications.lisinopril, at: 8)])
     }
 
-    @Test func alreadyTakenDosesAreNotMissing() {
+    @Test func anAsNeededPillIsLeftToThePerson() {
+        let result = PillSetVerifier.check([TestMedications.ondansetron], medications: medications + [TestMedications.ondansetron],
+                                           dayDoses: dayDoses, scannedAt: [:], now: TestClock.at(8))
+        #expect(result.verdicts == [.asNeeded(TestMedications.ondansetron)])
+        #expect(result.dosesToTake.isEmpty)
+    }
+
+    @Test func anAsNeededMedicationIsNeverMissing() {
+        let result = PillSetVerifier.check([TestMedications.metformin, TestMedications.lisinopril],
+                                           medications: medications + [TestMedications.ondansetron],
+                                           dayDoses: dayDoses, scannedAt: [:], now: TestClock.at(8))
+        #expect(result.missing.isEmpty)
+    }
+
+    @Test func alreadyScannedDosesAreNotMissing() {
         let lisinopril = dose(TestMedications.lisinopril, at: 8)
-        let result = check([TestMedications.lisinopril], takenAt: [lisinopril.id: TestClock.at(8)], at: 9)
-        #expect(result.verdicts == [.alreadyTaken(lisinopril, at: TestClock.at(8), next: nil)])
+        let result = check([TestMedications.lisinopril], scannedAt: [lisinopril.id: TestClock.at(8)], at: 9)
+        #expect(result.verdicts == [.alreadyScanned(lisinopril, at: TestClock.at(8), next: nil)])
         #expect(result.missing == [dose(TestMedications.metformin, at: 8)])
     }
 }
@@ -98,3 +112,32 @@ struct InstanceBoxesTests {
         #expect(InstanceBoxes.readingOrder(boxes) == [2, 0, 1, 3])
     }
 }
+
+struct PhotoFramingTests {
+    private let photo = CGSize(width: 1000, height: 2000)
+
+    @Test func theRegionHoldsEveryBoxAndTakesTheStripsShape() {
+        let boxes = [CGRect(x: 0.2, y: 0.4, width: 0.1, height: 0.05), CGRect(x: 0.6, y: 0.45, width: 0.1, height: 0.05)]
+        let region = PhotoFraming.region(around: boxes, imageSize: photo, aspect: 2)
+        for box in boxes {
+            let pixels = CGRect(x: box.minX * 1000, y: box.minY * 2000, width: box.width * 1000, height: box.height * 2000)
+            #expect(region.contains(pixels))
+        }
+        #expect(abs(region.width / region.height - 2) < 0.01)
+        #expect(CGRect(origin: .zero, size: photo).contains(region))
+    }
+
+    @Test func boxesAreNeverCutOffWhenThePhotoIsTooNarrowForTheShape() {
+        // Pills from top to bottom of a tall photo can't fit a wide strip: keep them all.
+        let boxes = [CGRect(x: 0.4, y: 0.05, width: 0.1, height: 0.05), CGRect(x: 0.4, y: 0.9, width: 0.1, height: 0.05)]
+        let region = PhotoFraming.region(around: boxes, imageSize: photo, aspect: 2)
+        #expect(region.minY <= 0.05 * 2000)
+        #expect(region.maxY >= 0.95 * 2000)
+        #expect(region.width <= 1000)
+    }
+
+    @Test func noBoxesShowsTheWholePhoto() {
+        #expect(PhotoFraming.region(around: [], imageSize: photo, aspect: 2) == CGRect(origin: .zero, size: photo))
+    }
+}
+

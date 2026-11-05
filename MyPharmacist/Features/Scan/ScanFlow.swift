@@ -7,11 +7,12 @@ import CoreGraphics
 import Foundation
 import Observation
 
-/// One pill in the results: its number, where it is in the photo, the cut-out, what it
-/// was recognized as and whether to take it.
+/// One pill in the results: where it is in the photo, its cut-out, what it was
+/// recognized as and whether to take it.
 struct ScannedPill: Identifiable {
-    /// 1, 2, 3… in reading order, matching the numbers drawn on the photo.
+    /// 1, 2, 3… in reading order.
     let id: Int
+    /// Normalized 0–1, origin at the top left of the photo.
     let box: CGRect
     let crop: CGImage
     let medication: Medication?
@@ -19,7 +20,7 @@ struct ScannedPill: Identifiable {
     let match: PillMatch
 }
 
-/// Everything found in one photo.
+/// Everything found in one photo. The photo stays in memory only while the results show.
 struct PillScanResult {
     let photo: CGImage
     let pills: [ScannedPill]
@@ -35,8 +36,10 @@ struct PillScanResult {
 /// One scanning session, from opening the camera to closing it. There is no shutter:
 /// 1. wait until the camera picture has been good for a moment, then take a photo;
 /// 2. find the pills in it, and if there are none, go back to the camera and try again;
-/// 3. cut out each pill and recognize it on its own, then show which to take.
-/// Nothing is marked taken until the person confirms.
+/// 3. turn the camera off, cut out each pill and recognize it on its own, then show the
+///    results on a page of their own.
+/// The doses whose pills are OK to take are recorded as scanned as soon as the results
+/// show; there is no "taken" to confirm. A retake in the same session replaces that record.
 @Observable
 final class ScanFlow {
     enum Phase {
@@ -44,8 +47,8 @@ final class ScanFlow {
         case aiming
         /// Photo being taken (nil) or searched for pills (step 2).
         case finding(CGImage?)
-        /// Pills found at these boxes (normalized, top-left origin); each being checked (step 3).
-        case verifying(CGImage, boxes: [CGRect])
+        /// This many pills found; the camera is off and each is being checked (step 3).
+        case checking(count: Int)
         case results(PillScanResult)
 
         /// The phase without its data, for animations and haptics.
@@ -53,14 +56,17 @@ final class ScanFlow {
             switch self {
             case .aiming: .aiming
             case .finding: .finding
-            case .verifying: .verifying
+            case .checking: .checking
             case .results: .results
             }
         }
     }
 
     enum Step: Hashable {
-        case aiming, finding, verifying, results
+        case aiming, finding, checking, results
+
+        /// The camera is done and the scan view has become the results page.
+        var isPage: Bool { self == .checking || self == .results }
     }
 
     private(set) var isOpen = false
@@ -72,6 +78,8 @@ final class ScanFlow {
     @ObservationIgnored private let store: MedicationStore
     @ObservationIgnored private let analyzer: PillPhotoAnalyzer
     @ObservationIgnored private var checkTask: Task<Void, Never>?
+    /// Doses this session recorded as scanned, so a retake can replace them.
+    @ObservationIgnored private var recordedThisSession: [Dose] = []
 
     init(store: MedicationStore, scanner: ScannerModel = ScannerModel()) {
         self.store = store
@@ -79,12 +87,17 @@ final class ScanFlow {
         self.analyzer = PillPhotoAnalyzer(medications: store.medications)
     }
 
-    /// Opening or closing always starts the next session fresh.
+    /// Closing ends the session; opening starts the next one fresh. The phase is reset on
+    /// opening, not closing, so the closing view keeps showing what it showed (the results,
+    /// say) while it shrinks away, instead of switching to the camera on the way out.
     func setOpen(_ open: Bool) {
         checkTask?.cancel()
         checkTask = nil
-        phase = .aiming
-        foundNoPills = false
+        if open {
+            phase = .aiming
+            foundNoPills = false
+        }
+        recordedThisSession = []
         isOpen = open
     }
 
@@ -117,13 +130,13 @@ final class ScanFlow {
                 return
             }
 
-            // Step 3: check each pill's cut-out.
+            // Step 3: the camera is done; check each pill's cut-out.
             foundNoPills = false
             scanner.stop()
-            phase = .verifying(photo, boxes: found.map(\.box))
+            phase = .checking(count: found.count)
             let pills = await analyzer.identify(found)
             guard !Task.isCancelled else { return }
-            showResults(photo: photo, pills: pills)
+            showResults(pills, photo: photo)
         }
     }
 
@@ -141,20 +154,33 @@ final class ScanFlow {
         scanner.reset()
     }
 
-    /// Turns the analyzed pills into verdicts against today's schedule.
-    func showResults(photo: CGImage, pills: [AnalyzedPill], now: Date = Date()) {
+    /// Turns the analyzed pills into verdicts against today's schedule and records the
+    /// doses that are OK to take as scanned.
+    /// - Parameter records: false to show results without changing the record (the demo).
+    func showResults(_ pills: [AnalyzedPill], photo: CGImage, now: Date = Date(), records: Bool = true) {
         guard !pills.isEmpty else {
             noPillsFound()
             return
         }
         foundNoPills = false
+        // A retake replaces this session's earlier photo; otherwise the pills scanned a
+        // moment ago would look already scanned.
+        if records {
+            store.removeScans(of: recordedThisSession)
+            recordedThisSession = []
+        }
         let identities = pills.map { pill in store.medications.first { $0.id == pill.match.medicationID } }
         let check = store.check(identities, now: now)
         let scanned = pills.indices.map { index in
-            ScannedPill(id: index + 1, box: pills[index].box, crop: pills[index].crop,
-                        medication: identities[index], verdict: check.verdicts[index], match: pills[index].match)
+            ScannedPill(id: index + 1, box: pills[index].box, crop: pills[index].crop, medication: identities[index],
+                        verdict: check.verdicts[index], match: pills[index].match)
         }
-        phase = .results(PillScanResult(photo: photo, pills: scanned, missing: check.missing))
+        let result = PillScanResult(photo: photo, pills: scanned, missing: check.missing)
+        if records {
+            store.recordScan(of: result.dosesToTake, at: now)
+            recordedThisSession = result.dosesToTake
+        }
+        phase = .results(result)
     }
 
     /// Back to the live camera for another photo.
@@ -165,16 +191,6 @@ final class ScanFlow {
         foundNoPills = false
         scanner.reset()
         await scanner.start()
-    }
-
-    /// Marks the doses of the pills shown as "Take now" as taken. Returns how many.
-    @discardableResult
-    func confirmTaken(now: Date = Date()) -> Int {
-        guard case .results(let result) = phase else { return 0 }
-        for dose in result.dosesToTake {
-            store.markTaken(dose, at: now)
-        }
-        return result.dosesToTake.count
     }
 
     /// Starts or stops the camera to match `isOpen`. Each opening starts from "checking".

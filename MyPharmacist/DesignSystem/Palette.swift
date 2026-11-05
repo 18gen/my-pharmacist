@@ -10,11 +10,21 @@ import SwiftUI
 enum Palette {
     // MARK: Status
 
-    static let taken = Color(red: 0.10, green: 0.50, blue: 0.22)
+    /// OK to take, and a dose that was scanned.
+    static let ok = Color(red: 0.10, green: 0.50, blue: 0.22)
     static let due = Color(red: 0.0, green: 0.40, blue: 0.85)
     static let late = Color(red: 0.78, green: 0.32, blue: 0.0)
     /// A pill not to take now.
     static let danger = Color(red: 0.80, green: 0.10, blue: 0.12)
+    /// For the person to decide. A dark amber, because yellow text can't be read on white;
+    /// the yellow is in `cautionFill`.
+    static let caution = Color(red: 0.58, green: 0.40, blue: 0.0)
+
+    // MARK: Result tints, behind rows outlined in the colour above
+
+    static let okFill = Color(red: 0.93, green: 0.97, blue: 0.93)
+    static let dangerFill = Color(red: 1.0, green: 0.94, blue: 0.94)
+    static let cautionFill = Color(red: 1.0, green: 0.96, blue: 0.82)
 
     // MARK: Text, darkest first
 
@@ -38,8 +48,6 @@ enum Palette {
     static let cardFill = Color(white: 0.96)
     /// Stand-in for Liquid Glass before iOS 26.
     static let glassFallbackFill = Color(white: 0.94)
-    /// An unticked checkbox.
-    static let controlInactive = Color(white: 0.3)
     /// The hand-drawn scan arrow.
     static let drawing = Color(white: 0.15)
 }

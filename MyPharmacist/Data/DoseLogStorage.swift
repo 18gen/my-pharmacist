@@ -5,16 +5,16 @@
 
 import Foundation
 
-/// Where the record of taken doses is kept: when each dose was taken, keyed by
+/// Where the record of scanned doses is kept: when each dose's pill was scanned, keyed by
 /// "<day>|<Dose.id>". `MedicationStore` decides what goes in it; this only loads and saves.
 protocol DoseLogStorage {
     func load() -> [String: Date]
     func save(_ log: [String: Date])
 }
 
-/// Saved on the device in UserDefaults, as seconds since 1970 under "takenDoses".
+/// Saved on the device in UserDefaults, as seconds since 1970 under "scannedDoses".
 struct UserDefaultsDoseLogStorage: DoseLogStorage {
-    private static let key = "takenDoses"
+    private static let key = "scannedDoses"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {

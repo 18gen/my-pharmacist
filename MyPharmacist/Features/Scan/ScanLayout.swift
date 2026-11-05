@@ -17,13 +17,21 @@ enum ScanLayout {
     static let buttonBottomInset: CGFloat = lensEdgeGap + buttonGapInLens
     /// Roughly follows the screen's rounded corners at the 10pt inset.
     static let lensCornerRadius: CGFloat = 44
-    /// Space below the content inside the camera view, so it ends just above the close button.
-    static let contentBottomPadding: CGFloat = buttonSize + buttonGapInLens
+    /// Space below the results page's buttons, clear of the home indicator. The close
+    /// button is hidden there, so the page's own buttons take its place.
+    static let pageBottomPadding: CGFloat = 24
     /// Height at the bottom of the home screen used by the "Scan Pills" hint and button.
     static let homeReservedHeight: CGFloat = 170
 
     /// The open camera view: 10pt from each side and about 80% of the screen height.
     static func openLensSize(in container: CGSize) -> CGSize {
         CGSize(width: container.width - 2 * lensEdgeGap, height: container.height * 0.8)
+    }
+
+    /// The space between the status bar and the top of the open camera view, where the
+    /// scan's one line of text goes. The camera view reaches into the bottom safe area,
+    /// so that is added back.
+    static func headerHeight(in container: CGSize, bottomSafeArea: CGFloat) -> CGFloat {
+        max(0, container.height + bottomSafeArea - openLensSize(in: container).height - lensEdgeGap)
     }
 }

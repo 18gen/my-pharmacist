@@ -5,71 +5,110 @@
 
 import SwiftUI
 
-/// The checked photo with every pill outlined, a row per pill saying what it is and
-/// whether to take it, any missing doses, and the buttons to confirm or scan again.
+/// The results page, once the camera is off: the photo with each pill ringed in its
+/// colour, every pill grouped by what to do with it, most serious first, and one large
+/// button for what comes next. When a pill should go back, that button is "Scan again",
+/// so whatever is taken in the end has been checked as a whole. Tapping a pill's row
+/// picks it out in the photo, for pills that look alike.
 struct PillResultsView: View {
     let result: PillScanResult
-    let onConfirm: () -> Void
+    let onDone: () -> Void
     let onScanAgain: () -> Void
+
+    private static let fadeHeight: CGFloat = 24
+
+    @State private var highlighted: Int?
 
     var body: some View {
         VStack(spacing: 12) {
-            PillPhotoView(photo: result.photo, pills: result.pills)
-                .frame(maxHeight: 220)
+            ResultPhoto(photo: result.photo, pills: result.pills, highlighted: highlighted)
 
-            // Problems first, so a pill not to take is never below the fold; the numbers
-            // still match the photo.
             ScrollView {
-                VStack(spacing: 10) {
-                    ForEach(result.pills.filter { !$0.verdict.isTake }) { pill in
-                        PillResultRow(pill: pill)
-                    }
-                    ForEach(result.missing) { dose in
-                        MissingDoseRow(dose: dose)
-                    }
-                    ForEach(result.pills.filter(\.verdict.isTake)) { pill in
-                        PillResultRow(pill: pill)
+                VStack(alignment: .leading, spacing: 24) {
+                    ForEach(result.groups) { group in
+                        ResultSection(group: group, highlighted: $highlighted)
                     }
                 }
-                // Room for the number badges that stick out of the rows.
-                .padding(.top, 6)
-                .padding(.horizontal, 6)
+                .padding(.top, 8)
+                // Room to scroll the last row clear of the fade.
+                .padding(.bottom, Self.fadeHeight)
             }
             .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
+            // Rows below the buttons fade out instead of being cut off, a hint that
+            // there is more to scroll to.
+            .mask {
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: Self.fadeHeight)
+                }
+            }
 
-            ScanActionButtons(takeCount: result.dosesToTake.count, onConfirm: onConfirm, onScanAgain: onScanAgain)
+            nextStep
+        }
+    }
+
+    @ViewBuilder
+    private var nextStep: some View {
+        if result.needsRescan {
+            VStack(spacing: 4) {
+                PageButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
+                    .accessibilityHint("Put back the pills not to take first")
+                Button("Close", action: onDone)
+                    .font(.title3)
+                    .foregroundStyle(Palette.textPrimary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+        } else {
+            PageButton(title: "Done", systemImage: "checkmark", action: onDone)
         }
     }
 }
 
-/// "Scan again", and "Mark N as taken" when any pill is right to take.
-struct ScanActionButtons: View {
-    let takeCount: Int
-    let onConfirm: () -> Void
-    let onScanAgain: () -> Void
+/// One level's heading and its rows.
+private struct ResultSection: View {
+    let group: ResultGroup
+    @Binding var highlighted: Int?
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button(action: onScanAgain) {
-                Label("Scan again", systemImage: "arrow.counterclockwise")
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(.white)
-
-            if takeCount > 0 {
-                Button(action: onConfirm) {
-                    Label("Mark \(takeCount) taken", systemImage: "checkmark")
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: 10) {
+            Label(group.level.title, systemImage: group.level.icon)
+                .font(.title3.bold())
+                .foregroundStyle(group.level.color)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(group.lines) { line in
+                if case .pill(let pill) = line {
+                    Button {
+                        highlighted = highlighted == pill.id ? nil : pill.id
+                    } label: {
+                        ResultRow(line: line, isHighlighted: highlighted == pill.id)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows this pill in the photo")
+                } else {
+                    ResultRow(line: line)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Palette.taken)
-                .accessibilityHint("Only the pills marked Take now are recorded")
             }
         }
-        .font(.headline)
+    }
+}
+
+/// The page's main button: full width, large, black like the camera button.
+private struct PageButton: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.title3.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 34)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
         .controlSize(.large)
+        .tint(Palette.textPrimary)
     }
 }

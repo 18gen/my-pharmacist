@@ -40,6 +40,9 @@ enum TestMedications {
     static let atorvastatin = Medication(id: "atorvastatin-20", name: "Atorvastatin", strength: "20 mg",
                                          doseTimes: [DoseTime(21)])
     static let all = [metformin, lisinopril, atorvastatin]
+    /// Taken only when needed; not in `all`, so the scheduled tests stay as they are.
+    static let ondansetron = Medication(id: "ondansetron-8", name: "Ondansetron", strength: "8 mg",
+                                        doseTimes: [], asNeeded: "Only when you feel sick")
 }
 
 /// A tiny solid image, for code that needs a photo or a pill cut-out but not its pixels.

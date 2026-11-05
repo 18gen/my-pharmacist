@@ -5,7 +5,8 @@
 
 import SwiftUI
 
-/// One medication on the "My Medications" page: picture, name, strength and daily times.
+/// One medication on the "My Medications" page: picture, name, strength and what it's
+/// for, and its daily times or, for one taken only when needed, when that is.
 struct MedicationRow: View {
     let medication: Medication
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -20,12 +21,19 @@ struct MedicationRow: View {
                 Text(medication.name)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Palette.textPrimary)
-                Text(medication.strength)
+                Text([medication.strength, medication.purpose].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.body)
                     .foregroundStyle(Palette.textSecondary)
-                Label(timesText, systemImage: "clock")
-                    .font(.body)
-                    .foregroundStyle(Palette.textSecondary)
+                if let asNeeded = medication.asNeeded {
+                    // The same caution sign its pill gets in scan results.
+                    Label(asNeeded, systemImage: "exclamationmark.triangle.fill")
+                        .font(.body)
+                        .foregroundStyle(Palette.caution)
+                } else {
+                    Label(timesText, systemImage: "clock")
+                        .font(.body)
+                        .foregroundStyle(Palette.textSecondary)
+                }
             }
             Spacer(minLength: 0)
         }

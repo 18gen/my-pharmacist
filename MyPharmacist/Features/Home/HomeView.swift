@@ -6,27 +6,24 @@
 import SwiftUI
 
 /// Home screen content above the scan button: date and time with the "My Medications"
-/// button, then today's doses still to take and, in a card of its own, the taken ones.
-/// The header stays put; the two cards scroll together beneath it.
+/// button, then one card per time of day ("Morning · 8:00 AM"), earliest first, and the
+/// medications taken only when needed. The header stays put; the cards scroll beneath it.
 struct HomeView: View {
     let store: MedicationStore
     /// Opens the "My Medications" page.
     let onShowMedications: () -> Void
 
     private static let fadeHeight: CGFloat = 24
-    /// The space at the very end of the scrolling content.
-    private static let pageEndID = "homePageEnd"
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showsTaken = false
-    @State private var doseToUncheck: Dose?
+    /// Done times of day the person has opened.
+    @State private var openDoneSlots: Set<DoseTime> = []
 
     var body: some View {
-        // Redraw every minute so the clock and "in 2 hr" labels stay current.
+        // Redraw every minute so the clock and each time of day's status stay current.
         TimelineView(.everyMinute) { context in
-            let items = store.todayList(now: context.date)
-            let toTake = items.filter { !$0.state.isTaken }
-            let taken = items.filter { $0.state.isTaken }
+            let slots = store.todaySlots(now: context.date)
+            let asNeeded = store.asNeededMedications
 
             VStack(alignment: .leading, spacing: 16) {
                 HomeHeader(now: context.date, onShowMedications: onShowMedications)
@@ -34,28 +31,27 @@ struct HomeView: View {
 
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(spacing: 0) {
-                            VStack(spacing: 12) {
-                                TodayCard(toTake: toTake, totalCount: items.count, now: context.date) { item in
-                                    store.markTaken(item.dose)
-                                }
-                                if !taken.isEmpty {
-                                    TakenCard(taken: taken, now: context.date, isExpanded: $showsTaken,
-                                              onOpened: { scrollToPageEnd(proxy) }) { item in
-                                        // Unchecking could lead to a second dose, so ask first.
-                                        doseToUncheck = item.dose
-                                    }
-                                    .transition(.opacity)
-                                }
+                        VStack(spacing: 12) {
+                            if slots.isEmpty {
+                                Text("No medications scheduled today.")
+                                    .font(.body)
+                                    .foregroundStyle(Palette.textTertiary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .cardBackground()
                             }
-                            .padding(.horizontal, 16)
-                            // The end of the page: room to scroll the last card clear of
-                            // the fade, and where opening "Taken" scrolls to.
-                            Color.clear
-                                .frame(height: Self.fadeHeight)
-                                .id(Self.pageEndID)
+                            ForEach(slots) { slot in
+                                DoseSlotCard(slot: slot, isExpanded: isOpen(slot.time),
+                                             onOpened: { scrollIntoView(slot.id, proxy) })
+                                    .id(slot.id)
+                            }
+                            if !asNeeded.isEmpty {
+                                WhenNeededCard(medications: asNeeded)
+                            }
                         }
-                        .animation(.spring(duration: 0.45), value: items)
+                        .padding(.horizontal, 16)
+                        // Room to scroll the last card clear of the fade.
+                        .padding(.bottom, Self.fadeHeight)
+                        .animation(.spring(duration: 0.45), value: slots)
                     }
                     // Fade out above the "Scan Pills" button instead of cutting off sharply.
                     .mask {
@@ -67,31 +63,23 @@ struct HomeView: View {
                     }
                 }
             }
-            .sensoryFeedback(.impact(weight: .light), trigger: taken.count)
         }
-        .confirmationDialog(
-            uncheckTitle,
-            isPresented: Binding(get: { doseToUncheck != nil }, set: { if !$0 { doseToUncheck = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button("Mark as Not Taken", role: .destructive) {
-                if let dose = doseToUncheck { store.markNotTaken(dose) }
+    }
+
+    private func isOpen(_ time: DoseTime) -> Binding<Bool> {
+        Binding(
+            get: { openDoneSlots.contains(time) },
+            set: { open in
+                if open { openDoneSlots.insert(time) } else { openDoneSlots.remove(time) }
             }
-            Button("Cancel", role: .cancel) {}
-        }
+        )
     }
 
-    /// Scrolls to the end of the page, so the rows of a just-opened "Taken" card are in
-    /// view. Closing the card leaves the scroll position alone.
-    private func scrollToPageEnd(_ proxy: ScrollViewProxy) {
+    /// Scrolls just enough to show the whole of a card that has just opened; closing a
+    /// card leaves the scroll position alone.
+    private func scrollIntoView(_ id: DoseTime, _ proxy: ScrollViewProxy) {
         withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
-            proxy.scrollTo(Self.pageEndID, anchor: .bottom)
+            proxy.scrollTo(id, anchor: nil)
         }
-    }
-
-    private var uncheckTitle: String {
-        guard let dose = doseToUncheck else { return "" }
-        return "Mark \(dose.medication.displayName) (\(dose.scheduled.shortTime)) as not taken?"
     }
 }
-

@@ -132,8 +132,24 @@ struct QualityGateTests {
         #expect(gate.update(good) == .ready)
     }
 
+    @Test func noIssueIsShownWhileThePersonIsStillAiming() {
+        var gate = QualityGate()
+        for _ in 0..<gate.quietStart {
+            #expect(gate.update(bad([.moving])) == .checking)
+        }
+        #expect(gate.update(bad([.moving])) == .needs(.moving))
+    }
+
+    @Test func aGoodPictureIsReadyBeforeTheQuietStartEnds() {
+        var gate = QualityGate()
+        for _ in 0..<gate.readyAfter { gate.update(good) }
+        #expect(gate.readyAfter < gate.quietStart)
+        #expect(gate.status == .ready)
+    }
+
     @Test func anIssueShowsOnlyAfterSeveralBadFrames() {
         var gate = QualityGate()
+        gate.quietStart = 0
         #expect(gate.update(bad([.moving])) == .checking)
         #expect(gate.update(bad([.moving])) == .checking)
         #expect(gate.update(bad([.moving, .glare])) == .needs(.glare))
@@ -148,6 +164,7 @@ struct QualityGateTests {
 
     @Test func aFixedIssueStaysUntilThePictureIsGoodForAWhile() {
         var gate = QualityGate()
+        gate.quietStart = 0
         for _ in 0..<gate.issueAfter { gate.update(bad([.tooDark])) }
         for _ in 1..<gate.readyAfter {
             #expect(gate.update(good) == .needs(.tooDark))

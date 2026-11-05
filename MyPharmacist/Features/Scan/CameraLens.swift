@@ -8,13 +8,16 @@ import SwiftUI
 /// One black shape that is the camera button's circle when closed and grows into the
 /// rounded scan view when open. Being a single view, it animates size and corner radius
 /// smoothly instead of cross-fading between two shapes. Inside: the live camera while
-/// aiming, then the photo while its pills are found and checked, then the results.
+/// aiming and the photo for the moment its pills are looked for. Once pills are found
+/// the camera is done: the black turns into the white of the page, and the results
+/// appear on it. The words to go with each step are in `ScanHeader`, above this view.
 struct CameraLens: View {
     let scan: ScanFlow
     let isOpen: Bool
     /// Size of the camera view when open.
     let openSize: CGSize
-    var onConfirm: () -> Void = {}
+    /// Closes the scan from the results page.
+    var onDone: () -> Void = {}
 
     /// Where the user last tapped to focus, shown briefly as a square.
     @State private var focusMark: CGPoint?
@@ -24,10 +27,14 @@ struct CameraLens: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            isOpen && scan.phase.step.isPage ? Palette.background : Color.black
 
             if isOpen {
                 content
+                    // Closing: gone before the shape has shrunk much, so the page's rows
+                    // never squeeze into the small circle.
+                    .transition(.asymmetric(insertion: .opacity,
+                                            removal: .opacity.animation(.easeOut(duration: 0.1))))
             }
         }
         .animation(.spring(duration: 0.4), value: scan.phase.step)
@@ -55,23 +62,16 @@ struct CameraLens: View {
         case .aiming, .finding(nil):
             liveCamera
         case .finding(let photo?):
-            frozen(photo) {
-                ProgressView("Finding pills…")
-                    .tint(.white)
-                    .foregroundStyle(.white)
-                    .font(.headline)
-            }
-        case .verifying(let photo, let boxes):
-            FoundPillsView(photo: photo, boxes: boxes)
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, ScanLayout.contentBottomPadding)
+            // Holding the picture still is the sign that the photo was taken.
+            frozen(photo)
+        case .checking:
+            ProgressView()
+                .controlSize(.large)
                 .transition(.opacity)
         case .results(let result):
-            PillResultsView(result: result, onConfirm: onConfirm, onScanAgain: scanAgain)
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, ScanLayout.contentBottomPadding)
+            PillResultsView(result: result, onDone: onDone, onScanAgain: scanAgain)
+                .padding(.horizontal, 6)
+                .padding(.bottom, ScanLayout.pageBottomPadding)
                 .transition(.opacity)
         }
     }
@@ -91,44 +91,26 @@ struct CameraLens: View {
                     .transition(.scale(scale: 1.4).combined(with: .opacity))
             }
 
-            if let message = model.cameraMessage {
-                Text(message)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(32)
+            // No camera: the header says why; here, just a sign that there is no picture.
+            if model.cameraMessage != nil {
+                Image(systemName: "video.slash")
+                    .font(.system(size: 44, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .accessibilityHidden(true)
                     .transition(.opacity)
-            } else {
-                VStack(spacing: 6) {
-                    // The photo is taken by itself once the picture has been good for a
-                    // moment, so there is no shutter button.
-                    CaptureHint(status: model.captureStatus, foundNoPills: scan.foundNoPills)
-                    #if DEBUG
-                    QualityReadout(model: model)
-                    #endif
-                    Spacer()
-                }
-                .padding(.top, 16)
-                .padding(.horizontal, 12)
-                .padding(.bottom, ScanLayout.contentBottomPadding)
-                .animation(.easeInOut(duration: 0.2), value: model.captureStatus)
-                .animation(.easeInOut(duration: 0.2), value: scan.foundNoPills)
             }
         }
     }
 
-    /// The photo that was taken, dimmed, with something on top of it.
-    private func frozen(_ photo: CGImage, @ViewBuilder overlay: () -> some View) -> some View {
-        ZStack {
-            Image(decorative: photo, scale: 1)
-                .resizable()
-                .scaledToFill()
-                .frame(width: openSize.width, height: openSize.height)
-                .clipped()
-                .overlay(Color.black.opacity(0.45))
-            overlay()
-        }
-        .transition(.opacity)
+    /// The photo that was taken, a little dimmed, while its pills are looked for.
+    private func frozen(_ photo: CGImage) -> some View {
+        Image(decorative: photo, scale: 1)
+            .resizable()
+            .scaledToFill()
+            .frame(width: openSize.width, height: openSize.height)
+            .clipped()
+            .overlay(Color.black.opacity(0.3))
+            .transition(.opacity)
     }
 
     private func scanAgain() {

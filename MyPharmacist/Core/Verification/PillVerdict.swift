@@ -9,13 +9,16 @@ import Foundation
 nonisolated enum PillVerdict: Hashable, Sendable {
     /// The dose this pill counts for, due now.
     case take(Dose)
-    case alreadyTaken(Dose, at: Date, next: Dose?)
+    /// This dose was scanned before, so the pill may have been taken already.
+    case alreadyScanned(Dose, at: Date, next: Dose?)
     case tooEarly(next: Dose)
     case notScheduledToday(Medication)
     /// Another pill of a medication already counted in this photo: one pill per dose.
     case extra(Medication)
     /// Not recognized as one of the person's medications, or too unsure to say.
     case unidentified
+    /// A medication taken only when needed, such as only when feeling sick.
+    case asNeeded(Medication)
 
     var isTake: Bool {
         if case .take = self { return true }
@@ -25,7 +28,7 @@ nonisolated enum PillVerdict: Hashable, Sendable {
     init(_ decision: DoseDecision) {
         switch decision {
         case .take(let dose): self = .take(dose)
-        case .alreadyTaken(let dose, let time, let next): self = .alreadyTaken(dose, at: time, next: next)
+        case .alreadyScanned(let dose, let time, let next): self = .alreadyScanned(dose, at: time, next: next)
         case .tooEarly(let next): self = .tooEarly(next: next)
         case .notScheduledToday(let medication): self = .notScheduledToday(medication)
         }

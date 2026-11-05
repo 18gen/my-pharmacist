@@ -21,7 +21,8 @@ nonisolated enum SampleMedications {
             strength: "500 mg",
             doseTimes: [DoseTime(8), DoseTime(20)],
             appearance: "Pink oval · XELODA / 500",   // NDC 0004-1101-50 (Xeloda)
-            photos: photos("capecitabine-500")
+            photos: photos("capecitabine-500"),
+            purpose: "Cancer treatment"
         ),
         Medication(
             id: "dexamethasone-4",
@@ -29,7 +30,8 @@ nonisolated enum SampleMedications {
             strength: "4 mg",
             doseTimes: [DoseTime(8)],
             appearance: "Green round · 54 892",       // NDC 0054-4184-25
-            photos: photos("dexamethasone-4")
+            photos: photos("dexamethasone-4"),
+            purpose: "Reduces swelling"
         ),
         Medication(
             id: "allopurinol-300",
@@ -37,7 +39,19 @@ nonisolated enum SampleMedications {
             strength: "300 mg",
             doseTimes: [DoseTime(8)],
             appearance: "Orange round · 5544 / DAN DAN", // NDC 0591-5544-01
-            photos: photos("allopurinol-300")
+            photos: photos("allopurinol-300"),
+            purpose: "Lowers uric acid"
+        ),
+        // Taken only when needed, so it is never due and never missing.
+        Medication(
+            id: "ondansetron-8",
+            name: "Ondansetron",
+            strength: "8 mg",
+            doseTimes: [],
+            appearance: "Yellow oval · 131",          // NDC 62756-131-01
+            photos: photos("ondansetron-8"),
+            purpose: "For nausea",
+            asNeeded: "Only when you feel sick"
         ),
     ]
 

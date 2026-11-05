@@ -35,21 +35,23 @@ nonisolated enum DoseState: Hashable, Sendable {
     case upcoming
     /// Within `dueWindow` of its time.
     case due
-    /// More than `dueWindow` past its time and not taken. It stays on the list to take,
+    /// More than `dueWindow` past its time and not scanned. It stays on the list to take,
     /// because the person may still take it later.
     case late
-    case taken(at: Date)
+    /// A scan found this dose's pill, OK to take, at this time. The app can't know
+    /// whether it was swallowed, only that it was scanned.
+    case scanned(at: Date)
 
-    var isTaken: Bool {
-        if case .taken = self { return true }
+    var isScanned: Bool {
+        if case .scanned = self { return true }
         return false
     }
 
-    /// Doses still to take: upcoming, due, or late.
+    /// Doses not scanned yet: upcoming, due, or late.
     var isPending: Bool {
         switch self {
         case .upcoming, .due, .late: return true
-        case .taken: return false
+        case .scanned: return false
         }
     }
 }

@@ -6,13 +6,14 @@
 import Foundation
 import Observation
 
-/// The registered medications and which doses have been taken, saved on the device.
+/// The registered medications and which doses have been scanned, saved on the device.
+/// There is no "taken": the app only knows a dose's pill was scanned and judged OK to take.
 @Observable
 final class MedicationStore {
     private(set) var medications: [Medication]
 
-    /// When each dose was taken, keyed by "<day>|<Dose.id>", e.g. "2026-10-14|metformin-500@8:00".
-    private var takenLog: [String: Date] {
+    /// When each dose was scanned, keyed by "<day>|<Dose.id>", e.g. "2026-10-14|metformin-500@8:00".
+    private var scanLog: [String: Date] {
         didSet { save() }
     }
 
@@ -29,7 +30,7 @@ final class MedicationStore {
         self.medications = medications
         self.storage = storage
         self.calendar = calendar
-        self.takenLog = Self.recent(storage.load(), now: now, calendar: calendar)
+        self.scanLog = Self.recent(storage.load(), now: now, calendar: calendar)
     }
 
     // MARK: Reading
@@ -38,35 +39,50 @@ final class MedicationStore {
         DoseSchedule.doses(for: medications, on: day, calendar: calendar)
     }
 
+    /// Today's doses grouped by time of day, earliest first, each group with where it stands.
+    func todaySlots(now: Date) -> [DoseSlot] {
+        DoseSchedule.slots(doses(on: now), scannedAt: scanTimes(on: now), now: now)
+    }
+
+    /// Medications taken only when needed, which have no place in the day's slots.
+    var asNeededMedications: [Medication] {
+        medications.filter { $0.asNeeded != nil }
+    }
+
     /// Today's doses in display order (pending first, earliest on top) with their states.
     func todayList(now: Date) -> [ScheduledDose] {
         let doses = doses(on: now)
-        return DoseSchedule.ordered(doses, takenAt: takenTimes(on: now), now: now)
+        return DoseSchedule.ordered(doses, scannedAt: scanTimes(on: now), now: now)
     }
 
     // MARK: Changing
 
-    func markTaken(_ dose: Dose, at time: Date = Date()) {
-        takenLog[key(for: dose)] = time
+    /// Records that these doses' pills were scanned, OK to take, at `time`.
+    func recordScan(of doses: [Dose], at time: Date = Date()) {
+        for dose in doses {
+            scanLog[key(for: dose)] = time
+        }
     }
 
-    func markNotTaken(_ dose: Dose) {
-        takenLog[key(for: dose)] = nil
+    func removeScans(of doses: [Dose]) {
+        for dose in doses {
+            scanLog[key(for: dose)] = nil
+        }
     }
 
     /// Decides which of the pills in a photo to take now, given what each was recognized as.
     func check(_ identities: [Medication?], now: Date = Date()) -> PillSetCheck {
         PillSetVerifier.check(identities, medications: medications, dayDoses: doses(on: now),
-                              takenAt: takenTimes(on: now), now: now)
+                              scannedAt: scanTimes(on: now), now: now)
     }
 
     // MARK: Storage
 
-    /// The given day's taken times keyed by `Dose.id`.
-    private func takenTimes(on day: Date) -> [String: Date] {
+    /// The given day's scan times keyed by `Dose.id`.
+    private func scanTimes(on day: Date) -> [String: Date] {
         let prefix = Self.dayKey(day, calendar: calendar) + "|"
         var result: [String: Date] = [:]
-        for (key, time) in takenLog where key.hasPrefix(prefix) {
+        for (key, time) in scanLog where key.hasPrefix(prefix) {
             result[String(key.dropFirst(prefix.count))] = time
         }
         return result
@@ -82,7 +98,7 @@ final class MedicationStore {
     }
 
     private func save() {
-        storage.save(takenLog)
+        storage.save(scanLog)
     }
 
     private static func recent(_ log: [String: Date], now: Date, calendar: Calendar) -> [String: Date] {
