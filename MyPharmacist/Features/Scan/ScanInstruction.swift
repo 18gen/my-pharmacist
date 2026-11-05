@@ -3,25 +3,54 @@
 //  MyPharmacist
 //
 
-/// The words of the one line above the camera view. Each says what to do now, in a few
-/// plain words, without camera terms or numbers.
+/// What the area above the camera view says: a moving picture of what to do and the same
+/// in a few plain words, without camera terms or numbers. The picture carries the meaning
+/// for anyone who doesn't read the words.
 enum ScanInstruction {
-    static let aim = "Point the camera at your pills"
-    static let noPills = "No pills found. Try again"
+    /// One instruction: its words and the picture that shows them.
+    struct Line: Equatable {
+        let text: String
+        let pictogram: ScanPictogram?
+    }
+
+    static let aim = Line(text: "Point the camera at your pills", pictogram: .aim)
+    static let noPills = Line(text: "No pills found. Try again", pictogram: .noPills)
     /// While the photo is taken and searched for pills.
-    static let checking = "Checking your pills…"
+    static let checking = Line(text: "Checking your pills…", pictogram: .checking)
 
     /// Once the pills are found and the camera is off.
-    static func checking(count: Int) -> String {
-        count == 1 ? "Checking 1 pill…" : "Checking \(count) pills…"
+    static func checking(count: Int) -> Line {
+        Line(text: count == 1 ? "Checking 1 pill…" : "Checking \(count) pills…", pictogram: .checking)
     }
 
     /// While aiming: a picture problem first, then that the last photo had no pills in
     /// it, otherwise the plain instruction.
-    static func whileAiming(status: QualityGate.Status, foundNoPills: Bool) -> String {
-        if case .needs(let issue) = status, let fix = issue.fix { return fix }
+    static func whileAiming(status: QualityGate.Status, foundNoPills: Bool) -> Line {
+        if case .needs(let issue) = status, let fix = issue.fix {
+            return Line(text: fix, pictogram: issue.pictogram)
+        }
         return foundNoPills ? noPills : aim
     }
+}
+
+/// The pictures, each a symbol that moves the way the person should.
+enum ScanPictogram: Equatable {
+    /// Pills inside a viewfinder that gently closes in on them.
+    case aim
+    /// The same viewfinder, with the pills fading in and out: none were seen.
+    case noPills
+    /// A raised hand: stop moving.
+    case holdStill
+    /// A light bulb glowing: more light.
+    case moreLight
+    /// A slowly turning sun: out of the bright light.
+    case lessLight
+    /// A phone tilting forward and back.
+    case tilt
+    /// A phone getting smaller: further away.
+    case moveBack
+    /// A magnifying glass looking around.
+    case checking
 }
 
 extension QualityIssue {
@@ -34,6 +63,17 @@ extension QualityIssue {
         case .moving: "Hold still"
         case .focusing: nil
         case .blurry: "Move the phone back a little"
+        }
+    }
+
+    var pictogram: ScanPictogram? {
+        switch self {
+        case .tooDark: .moreLight
+        case .tooBright: .lessLight
+        case .glare: .tilt
+        case .moving: .holdStill
+        case .focusing: nil
+        case .blurry: .moveBack
         }
     }
 }

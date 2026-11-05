@@ -6,21 +6,21 @@
 import SwiftUI
 
 /// One time of day on the home screen, like one compartment of a pill organizer:
-/// "Morning · 8:00 AM" with where it stands, and its medications. The slot to take now
-/// is outlined. Once every dose in it is scanned it folds to its header line, and tapping
-/// that opens it again.
+/// "Morning · 8:00 AM" with where it stands, and its medications. Only the time of day to
+/// take now is open, and outlined; every other one is folded to its header line, which
+/// opens it on a tap.
 struct DoseSlotCard: View {
     let slot: DoseSlot
-    /// Whether a done slot is open; slots still to take are always open.
+    /// Whether a folded slot has been opened; the slot to take now is always open.
     @Binding var isExpanded: Bool
-    /// Called once a done slot has finished opening.
+    /// Called once a folded slot has finished opening.
     let onOpened: () -> Void
 
     private static let cornerRadius: CGFloat = 24
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if slot.status.isDone {
+            if slot.status.isFolded {
                 Button(action: toggle) {
                     SlotHeader(slot: slot, isExpanded: isExpanded)
                         .contentShape(Rectangle())
@@ -36,7 +36,7 @@ struct DoseSlotCard: View {
                 .allowsHitTesting(isExpanded)
                 .accessibilityHidden(!isExpanded)
             } else {
-                SlotHeader(slot: slot, isExpanded: true)
+                SlotHeader(slot: slot, isExpanded: nil)
                 rows.padding(.top, 8)
             }
         }
@@ -65,10 +65,12 @@ struct DoseSlotCard: View {
     }
 }
 
-/// "Morning · 8:00 AM" with the time of day's symbol, and on the right where it stands.
+/// "Morning · 8:00 AM" with the time of day's symbol, and on the right where it stands,
+/// with a chevron when the card folds.
 private struct SlotHeader: View {
     let slot: DoseSlot
-    let isExpanded: Bool
+    /// Nil for a card that is always open.
+    let isExpanded: Bool?
 
     var body: some View {
         // Side by side when it fits; the status under the title at large text sizes.
@@ -77,9 +79,14 @@ private struct SlotHeader: View {
                 title
                 Spacer(minLength: 8)
                 status
+                chevron
             }
             VStack(alignment: .leading, spacing: 4) {
-                title
+                HStack(spacing: 8) {
+                    title
+                    Spacer(minLength: 8)
+                    chevron
+                }
                 status
             }
         }
@@ -121,16 +128,20 @@ private struct SlotHeader: View {
                 .font(.headline)
                 .foregroundStyle(Palette.late)
         case .done(let time):
-            HStack(spacing: 6) {
-                Label("Scanned \(time.shortTime)", systemImage: "checkmark.circle.fill")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ok)
-                Image(systemName: "chevron.down")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Palette.textMuted)
-                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                    .accessibilityHidden(true)
-            }
+            Label("Scanned \(time.shortTime)", systemImage: "checkmark.circle.fill")
+                .font(.headline)
+                .foregroundStyle(Palette.ok)
+        }
+    }
+
+    @ViewBuilder
+    private var chevron: some View {
+        if let isExpanded {
+            Image(systemName: "chevron.down")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.textMuted)
+                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                .accessibilityHidden(true)
         }
     }
 }

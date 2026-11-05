@@ -24,6 +24,20 @@ struct MedicationStoreTests {
         #expect(!store.todayList(now: morning).contains { $0.state.isScanned })
     }
 
+    @Test func aDoseIsDueNowOnlyWhileItsTimeOfDayIsNowAndNotScanned() {
+        let store = makeStore()
+        #expect(store.hasDoseDueNow(now: morning))
+        // 12:00: the morning is past and not scanned, the evening still to come.
+        #expect(!store.hasDoseDueNow(now: TestClock.at(12)))
+        store.recordScan(of: store.doses(on: morning).filter { $0.time == DoseTime(8) }, at: morning)
+        #expect(!store.hasDoseDueNow(now: TestClock.at(8, 30)))
+    }
+
+    @Test func onlyTheTimeOfDayToTakeNowIsOpen() {
+        let slots = makeStore().todaySlots(now: morning)
+        #expect(slots.map(\.status.isFolded) == [false, true, true])
+    }
+
     @Test func scannedDosesAreSavedAndCanBeRemoved() {
         let storage = InMemoryDoseLogStorage()
         let store = makeStore(storage)

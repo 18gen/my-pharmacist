@@ -5,10 +5,10 @@
 
 import SwiftUI
 
-/// Everything the person reads during a scan, in one line above the camera view: what
-/// to do now, that the pills are being checked, or what to do with them. Nothing is
-/// written over the camera picture. A new line fades in only after the old one has faded
-/// out, so two never overlap.
+/// Everything the person reads during a scan, above the camera view: what to do now
+/// (shown as a moving picture and in a few words), that the pills are being checked, or
+/// what to do with them. Nothing is drawn over the camera picture. A new instruction fades
+/// in only after the old one has faded out, so two never overlap.
 struct ScanHeader: View {
     let scan: ScanFlow
 
@@ -18,45 +18,62 @@ struct ScanHeader: View {
     )
 
     var body: some View {
-        let title = title
+        let line = line
         ZStack {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                // The results' line comes with its level's icon: the same one the
-                // page's sections use.
-                if let level {
-                    Image(systemName: level.icon)
-                        .foregroundStyle(level.color)
-                        .accessibilityHidden(true)
+            // The picture above the words when both fit; at large text sizes or on a small
+            // screen, the words alone.
+            ViewThatFits(in: .vertical) {
+                VStack(spacing: 12) {
+                    if let pictogram = line.pictogram {
+                        ScanPictogramView(pictogram: pictogram)
+                    }
+                    words(line.text)
                 }
-                Text(title)
-                    .foregroundStyle(Palette.textPrimary)
+                words(line.text)
             }
-            .font(.title2.bold())
-            .id(title)
+            .id(line.text)
             .transition(Self.lineChange)
         }
-        .multilineTextAlignment(.center)
-        .minimumScaleFactor(0.7)
         .padding(.horizontal, 24)
         // Centred in the space above the camera view.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.2), value: title)
+        .animation(.easeInOut(duration: 0.2), value: line.text)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
 
-    private var title: String {
+    private func words(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // The results' line comes with its level's icon: the same one the page's
+            // sections use.
+            if let level {
+                Image(systemName: level.icon)
+                    .foregroundStyle(level.color)
+                    .accessibilityHidden(true)
+            }
+            Text(text)
+                .foregroundStyle(Palette.textPrimary)
+        }
+        .font(.title2.bold())
+        .multilineTextAlignment(.center)
+        .minimumScaleFactor(0.7)
+    }
+
+    private var line: ScanInstruction.Line {
         switch scan.phase {
         case .aiming:
             // Without a camera there is nothing to aim, only why.
-            scan.scanner.cameraMessage
-                ?? ScanInstruction.whileAiming(status: scan.scanner.captureStatus, foundNoPills: scan.foundNoPills)
+            if let message = scan.scanner.cameraMessage {
+                ScanInstruction.Line(text: message, pictogram: nil)
+            } else {
+                ScanInstruction.whileAiming(status: scan.scanner.captureStatus, foundNoPills: scan.foundNoPills)
+            }
         case .finding:
             ScanInstruction.checking
         case .checking(let count):
             ScanInstruction.checking(count: count)
         case .results(let result):
-            result.summary
+            ScanInstruction.Line(text: result.summary, pictogram: nil)
         }
     }
 

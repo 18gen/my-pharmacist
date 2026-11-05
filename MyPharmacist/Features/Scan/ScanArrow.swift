@@ -9,6 +9,7 @@ import SwiftUI
 /// and sweeps right toward the camera button. It draws itself in when it appears, then
 /// nudges toward the button every few seconds. With Reduce Motion it is simply shown.
 struct ScanArrow: View {
+    var color: Color = Palette.drawing
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: CGFloat = 0
     @State private var isNudged = false
@@ -16,7 +17,7 @@ struct ScanArrow: View {
     var body: some View {
         ScanArrowShape()
             .trim(from: 0, to: reduceMotion ? 1 : progress)
-            .stroke(Palette.drawing, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+            .stroke(color, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
             .offset(x: isNudged ? 4 : 0, y: isNudged ? 1 : 0)
             .task {
                 guard !reduceMotion else { return }

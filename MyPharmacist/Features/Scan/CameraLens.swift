@@ -18,6 +18,8 @@ struct CameraLens: View {
     let openSize: CGSize
     /// Closes the scan from the results page.
     var onDone: () -> Void = {}
+    /// The button's colour while closed: blue when something is due now.
+    var closedColor: Color = .black
 
     /// Where the user last tapped to focus, shown briefly as a square.
     @State private var focusMark: CGPoint?
@@ -27,7 +29,7 @@ struct CameraLens: View {
 
     var body: some View {
         ZStack {
-            isOpen && scan.phase.step.isPage ? Palette.background : Color.black
+            isOpen ? (scan.phase.step.isPage ? Palette.background : Color.black) : closedColor
 
             if isOpen {
                 content

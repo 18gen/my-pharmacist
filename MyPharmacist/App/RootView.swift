@@ -23,37 +23,45 @@ struct RootView: View {
     var body: some View {
         NavigationStack(path: $path) {
             GeometryReader { proxy in
-                ZStack(alignment: .bottom) {
-                    Palette.background.ignoresSafeArea()
+                // Each minute, whether a dose is due now: the scan button turns blue.
+                TimelineView(.everyMinute) { context in
+                    // Not tied to the camera being open: changing together with it, the
+                    // colour's animation would replace the camera's opening spring.
+                    let isDue = store.hasDoseDueNow(now: context.date)
+                    ZStack(alignment: .bottom) {
+                        Palette.background.ignoresSafeArea()
 
-                    if !scan.isOpen {
-                        HomeView(store: store, onShowMedications: showMedications)
-                            .padding(.top, 8)
-                            // Keep clear of the "Scan Pills" hint and button.
-                            .padding(.bottom, ScanLayout.homeReservedHeight)
-                            .frame(maxHeight: .infinity, alignment: .top)
-                            .transition(CameraButton.hintTransition)
-                    }
+                        if !scan.isOpen {
+                            HomeView(store: store, onShowMedications: showMedications)
+                                .padding(.top, 8)
+                                // Keep clear of the "Scan Pills" hint and button.
+                                .padding(.bottom, ScanLayout.homeReservedHeight)
+                                .frame(maxHeight: .infinity, alignment: .top)
+                                .transition(CameraButton.hintTransition)
+                        }
 
-                    if scan.isOpen {
-                        ScanHeader(scan: scan)
-                            .frame(height: ScanLayout.headerHeight(in: proxy.size,
-                                                                   bottomSafeArea: proxy.safeAreaInsets.bottom))
-                            .frame(maxHeight: .infinity, alignment: .top)
-                            .transition(.opacity)
-                    }
+                        if scan.isOpen {
+                            ScanHeader(scan: scan)
+                                .frame(height: ScanLayout.headerHeight(in: proxy.size))
+                                .frame(maxHeight: .infinity, alignment: .top)
+                                .transition(.opacity)
+                        }
 
-                    CameraLens(
-                        scan: scan,
-                        isOpen: scan.isOpen,
-                        openSize: ScanLayout.openLensSize(in: proxy.size),
-                        onDone: { setScanning(false) }
-                    )
+                        CameraLens(
+                            scan: scan,
+                            isOpen: scan.isOpen,
+                            openSize: ScanLayout.openLensSize(in: proxy.size),
+                            onDone: { setScanning(false) },
+                            closedColor: isDue ? Palette.due : .black
+                        )
+                        .animation(.easeInOut(duration: 0.3), value: isDue)
 
-                    CameraButton(isScanning: scan.isOpen,
-                                 isOnPage: scan.isOpen && scan.phase.step.isPage,
-                                 isHidden: scan.isOpen && scan.phase.step == .results) {
-                        setScanning(!scan.isOpen)
+                        CameraButton(isScanning: scan.isOpen,
+                                     isOnPage: scan.isOpen && scan.phase.step.isPage,
+                                     isHidden: scan.isOpen && scan.phase.step == .results,
+                                     isDue: isDue) {
+                            setScanning(!scan.isOpen)
+                        }
                     }
                 }
             }
@@ -66,7 +74,7 @@ struct RootView: View {
             }
             // The retry after a photo without pills is otherwise only shown, not spoken.
             .onChange(of: scan.foundNoPills) { _, foundNone in
-                if foundNone { AccessibilityNotification.Announcement(ScanInstruction.noPills).post() }
+                if foundNone { AccessibilityNotification.Announcement(ScanInstruction.noPills.text).post() }
             }
             .onChange(of: scan.phase.step) { _, step in
                 guard step == .results, case .results(let result) = scan.phase else { return }

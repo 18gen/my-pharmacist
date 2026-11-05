@@ -35,5 +35,9 @@ nonisolated struct DoseSlot: Identifiable, Hashable, Sendable {
             if case .done = self { return true }
             return false
         }
+
+        /// Only the time of day to take now is shown open; every other one folds to its
+        /// header line, so what to take stands out.
+        var isFolded: Bool { self != .now }
     }
 }

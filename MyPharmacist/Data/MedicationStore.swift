@@ -72,6 +72,11 @@ final class MedicationStore {
         DoseSchedule.slots(doses(on: now), scannedAt: scanTimes(on: now), now: now)
     }
 
+    /// Whether a time of day is due now: the scan button turns blue.
+    func hasDoseDueNow(now: Date) -> Bool {
+        todaySlots(now: now).contains { $0.status == .now }
+    }
+
     /// Medications taken only when needed, which have no place in the day's slots.
     var asNeededMedications: [Medication] {
         medications.filter { $0.asNeeded != nil }

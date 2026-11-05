@@ -11,8 +11,8 @@ nonisolated struct PillMatchRule {
     /// Starting points from a synthetic test, not tuned values: on a photo made of the
     /// reference pictures, the right medication measured 0.29–0.44 with the runner-up at
     /// 0.75 or more, while look-alike pills not on the list were 0.68 or more from
-    /// everything. Real camera photos will measure further; retune on device (debug
-    /// builds show each pill's distance under its result).
+    /// everything. Real camera photos will measure further; retune on device (each
+    /// `PillMatch` keeps its distance for that).
     var maximumDistance: Float = 0.6
     /// The best match's distance must be at most this share of the runner-up's.
     var maximumShareOfRunnerUp: Float = 0.8

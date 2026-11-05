@@ -121,10 +121,20 @@ struct ScanFlowTests {
     @Test func theInstructionIsTheOneThingToDoNow() {
         #expect(ScanInstruction.whileAiming(status: .checking, foundNoPills: false) == ScanInstruction.aim)
         // A picture problem outranks the last photo having no pills.
-        #expect(ScanInstruction.whileAiming(status: .needs(.moving), foundNoPills: true) == "Hold still")
+        let holdStill = ScanInstruction.whileAiming(status: .needs(.moving), foundNoPills: true)
+        #expect(holdStill.text == "Hold still")
+        #expect(holdStill.pictogram == .holdStill)
         #expect(ScanInstruction.whileAiming(status: .ready, foundNoPills: true) == ScanInstruction.noPills)
         // Focusing is the camera's job, so it doesn't ask the person to do anything.
         #expect(ScanInstruction.whileAiming(status: .needs(.focusing), foundNoPills: false) == ScanInstruction.aim)
+    }
+
+    @Test func everyThingToFixHasAPictureOfIt() {
+        for issue in QualityIssue.allCases where issue.fix != nil {
+            #expect(issue.pictogram != nil, "\(issue) has words but no picture")
+        }
+        #expect(ScanInstruction.aim.pictogram == .aim)
+        #expect(ScanInstruction.checking(count: 3).pictogram == .checking)
     }
 
     @Test func openingAgainStartsTheNextSessionFresh() {

@@ -7,7 +7,8 @@ import SwiftUI
 
 /// Home screen content above the scan button: date and time with the "My Medications"
 /// button, then one card per time of day ("Morning · 8:00 AM"), earliest first, and the
-/// medications taken only when needed. The header stays put; the cards scroll beneath it.
+/// medications taken only when needed. Only the time of day due now is open; the rest are
+/// folded, so what to take stands out. The header stays put; the cards scroll beneath it.
 struct HomeView: View {
     let store: MedicationStore
     /// Opens the "My Medications" page.
@@ -16,8 +17,13 @@ struct HomeView: View {
     private static let fadeHeight: CGFloat = 24
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Done times of day the person has opened.
-    @State private var openDoneSlots: Set<DoseTime> = []
+    /// Folded times of day the person has opened, each with the status it was opened in:
+    /// when a slot moves on (next → now → scanned) it goes back to how that status shows.
+    @State private var openSlots: Set<String> = []
+    @State private var showsWhenNeeded = false
+
+    /// Scroll target for the "When needed" card.
+    private static let whenNeededID = "whenNeeded"
 
     var body: some View {
         // Redraw every minute so the clock and each time of day's status stay current.
@@ -40,12 +46,14 @@ struct HomeView: View {
                                     .cardBackground()
                             }
                             ForEach(slots) { slot in
-                                DoseSlotCard(slot: slot, isExpanded: isOpen(slot.time),
+                                DoseSlotCard(slot: slot, isExpanded: isOpen(slot),
                                              onOpened: { scrollIntoView(slot.id, proxy) })
                                     .id(slot.id)
                             }
                             if !asNeeded.isEmpty {
-                                WhenNeededCard(medications: asNeeded)
+                                WhenNeededCard(medications: asNeeded, isExpanded: $showsWhenNeeded,
+                                               onOpened: { scrollIntoView(Self.whenNeededID, proxy) })
+                                    .id(Self.whenNeededID)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -66,18 +74,19 @@ struct HomeView: View {
         }
     }
 
-    private func isOpen(_ time: DoseTime) -> Binding<Bool> {
-        Binding(
-            get: { openDoneSlots.contains(time) },
+    private func isOpen(_ slot: DoseSlot) -> Binding<Bool> {
+        let key = "\(slot.time.hour):\(slot.time.minute) \(slot.status)"
+        return Binding(
+            get: { openSlots.contains(key) },
             set: { open in
-                if open { openDoneSlots.insert(time) } else { openDoneSlots.remove(time) }
+                if open { openSlots.insert(key) } else { openSlots.remove(key) }
             }
         )
     }
 
     /// Scrolls just enough to show the whole of a card that has just opened; closing a
     /// card leaves the scroll position alone.
-    private func scrollIntoView(_ id: DoseTime, _ proxy: ScrollViewProxy) {
+    private func scrollIntoView(_ id: some Hashable, _ proxy: ScrollViewProxy) {
         withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
             proxy.scrollTo(id, anchor: nil)
         }

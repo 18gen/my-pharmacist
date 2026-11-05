@@ -29,9 +29,11 @@ enum ScanLayout {
     }
 
     /// The space between the status bar and the top of the open camera view, where the
-    /// scan's one line of text goes. The camera view reaches into the bottom safe area,
-    /// so that is added back.
-    static func headerHeight(in container: CGSize, bottomSafeArea: CGFloat) -> CGFloat {
-        max(0, container.height + bottomSafeArea - openLensSize(in: container).height - lensEdgeGap)
+    /// scan's instruction goes. The camera view ends `lensEdgeGap` above the bottom of the
+    /// safe area (it doesn't reach into the home indicator's strip), so that is all there
+    /// is below it; counting the strip as well made this space too tall, and its centred
+    /// picture and words ran into the camera view.
+    static func headerHeight(in container: CGSize) -> CGFloat {
+        max(0, container.height - openLensSize(in: container).height - lensEdgeGap)
     }
 }
