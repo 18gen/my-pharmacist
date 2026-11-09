@@ -15,12 +15,22 @@ enum ScanInstruction {
 
     static let aim = Line(text: "Point the camera at your pills", pictogram: .aim)
     static let noPills = Line(text: "No pills found", pictogram: .noPills)
+    /// The photo couldn't be searched, so it says nothing about the pills either way.
+    static let cantCheck = Line(text: "Couldn't check this photo", pictogram: .noPills)
     /// While the photo is taken and searched for pills.
     static let checking = Line(text: "Checking your pills…", pictogram: .checking)
 
     /// Once the pills are found and the camera is off.
     static func checking(count: Int) -> Line {
         Line(text: count == 1 ? "Checking 1 pill…" : "Checking \(count) pills…", pictogram: .checking)
+    }
+
+    /// Above a photo that has to be taken again: why.
+    static func retake(_ reason: RetakeReason) -> Line {
+        switch reason {
+        case .noPills: noPills
+        case .cantCheck: cantCheck
+        }
     }
 
     /// While aiming: a picture problem, otherwise the plain instruction.

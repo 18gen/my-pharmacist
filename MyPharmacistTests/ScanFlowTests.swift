@@ -110,8 +110,16 @@ struct ScanFlowTests {
         flow.showResults([], photo: testImage(), now: morning)
         // The photo stays, with no automatic retry; Retake (which starts the camera, so
         // isn't run here) or closing leaves it.
-        #expect(flow.phase.step == .noPills)
+        #expect(flow.phase.step == .retake)
+        if case .retake(_, let reason) = flow.phase {
+            #expect(reason == .noPills)
+        }
         #expect(scannedDoses.isEmpty)
+    }
+
+    @Test func aPhotoThatCouldntBeCheckedIsNotCalledEmpty() {
+        #expect(ScanInstruction.retake(.noPills) == ScanInstruction.noPills)
+        #expect(ScanInstruction.retake(.cantCheck).text != ScanInstruction.noPills.text)
     }
 
     @Test func theInstructionIsTheOneThingToDoNow() {

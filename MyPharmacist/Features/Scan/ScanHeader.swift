@@ -70,8 +70,8 @@ struct ScanHeader: View {
             }
         case .finding:
             ScanInstruction.checking
-        case .noPills:
-            ScanInstruction.noPills
+        case .retake(_, let reason):
+            ScanInstruction.retake(reason)
         case .checking(let count):
             ScanInstruction.checking(count: count)
         case .results(let result):

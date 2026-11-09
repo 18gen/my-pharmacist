@@ -66,7 +66,7 @@ struct CameraLens: View {
         case .finding(let photo?):
             // The camera is off; the photo it took shows in its place.
             frozen(photo)
-        case .noPills(let photo):
+        case .retake(let photo, _):
             frozen(photo)
                 .overlay(alignment: .bottom) {
                     WideButton(title: "Retake", systemImage: "arrow.counterclockwise") {

@@ -34,10 +34,10 @@ actor PillPhotoAnalyzer {
         self.cloud = cloud
     }
 
-    /// Step 2 of a scan: the separate pill-sized objects in the photo, each cut out.
-    /// Empty when there are none (or Vision can't run, as in the Simulator).
-    func findPills(in photo: CGImage) -> [FoundPill] {
-        (try? PillFinder.find(in: photo)) ?? []
+    /// Step 2 of a scan: the separate pill-sized objects in the photo, each cut out, or
+    /// why there are none to check.
+    func findPills(in photo: CGImage) -> PillSearch {
+        PillFinder.find(in: photo)
     }
 
     /// Step 3 of a scan: recognizes each pill, in the order given.
