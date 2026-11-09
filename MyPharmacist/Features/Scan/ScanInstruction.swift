@@ -14,7 +14,7 @@ enum ScanInstruction {
     }
 
     static let aim = Line(text: "Point the camera at your pills", pictogram: .aim)
-    static let noPills = Line(text: "No pills found. Try again", pictogram: .noPills)
+    static let noPills = Line(text: "No pills found", pictogram: .noPills)
     /// While the photo is taken and searched for pills.
     static let checking = Line(text: "Checking your pills…", pictogram: .checking)
 
@@ -23,13 +23,12 @@ enum ScanInstruction {
         Line(text: count == 1 ? "Checking 1 pill…" : "Checking \(count) pills…", pictogram: .checking)
     }
 
-    /// While aiming: a picture problem first, then that the last photo had no pills in
-    /// it, otherwise the plain instruction.
-    static func whileAiming(status: QualityGate.Status, foundNoPills: Bool) -> Line {
+    /// While aiming: a picture problem, otherwise the plain instruction.
+    static func whileAiming(status: QualityGate.Status) -> Line {
         if case .needs(let issue) = status, let fix = issue.fix {
             return Line(text: fix, pictogram: issue.pictogram)
         }
-        return foundNoPills ? noPills : aim
+        return aim
     }
 }
 

@@ -66,10 +66,12 @@ struct ScanHeader: View {
             if let message = scan.scanner.cameraMessage {
                 ScanInstruction.Line(text: message, pictogram: nil)
             } else {
-                ScanInstruction.whileAiming(status: scan.scanner.captureStatus, foundNoPills: scan.foundNoPills)
+                ScanInstruction.whileAiming(status: scan.scanner.captureStatus)
             }
         case .finding:
             ScanInstruction.checking
+        case .noPills:
+            ScanInstruction.noPills
         case .checking(let count):
             ScanInstruction.checking(count: count)
         case .results(let result):

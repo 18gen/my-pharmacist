@@ -64,8 +64,18 @@ struct CameraLens: View {
         case .aiming, .finding(nil):
             liveCamera
         case .finding(let photo?):
-            // Holding the picture still is the sign that the photo was taken.
+            // The camera is off; the photo it took shows in its place.
             frozen(photo)
+        case .noPills(let photo):
+            frozen(photo)
+                .overlay(alignment: .bottom) {
+                    WideButton(title: "Retake", systemImage: "arrow.counterclockwise") {
+                        Task { await scan.retake() }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, ScanLayout.lensButtonBottomPadding)
+                    .accessibilityHint("Opens the camera again")
+                }
         case .checking:
             ProgressView()
                 .controlSize(.large)

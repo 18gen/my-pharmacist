@@ -74,9 +74,10 @@ struct RootView: View {
                 status == .ready
             }
             // The retry after a photo without pills is otherwise only shown, not spoken.
-            .onChange(of: scan.foundNoPills) { _, foundNone in
-                if foundNone { AccessibilityNotification.Announcement(ScanInstruction.noPills.text).post() }
+            .onChange(of: scan.phase.step) { _, step in
+                if step == .noPills { AccessibilityNotification.Announcement(ScanInstruction.noPills.text).post() }
             }
+            .sensoryFeedback(.warning, trigger: scan.phase.step) { _, step in step == .noPills }
             .onChange(of: scan.phase.step) { _, step in
                 guard step == .results, case .results(let result) = scan.phase else { return }
                 AccessibilityNotification.Announcement(result.summary).post()

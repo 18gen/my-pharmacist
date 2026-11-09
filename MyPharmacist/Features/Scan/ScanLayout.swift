@@ -17,6 +17,8 @@ enum ScanLayout {
     static let buttonBottomInset: CGFloat = lensEdgeGap + buttonGapInLens
     /// Roughly follows the screen's rounded corners at the 10pt inset.
     static let lensCornerRadius: CGFloat = 44
+    /// Space below a button inside the camera view, so it sits just above the close button.
+    static let lensButtonBottomPadding: CGFloat = buttonSize + buttonGapInLens + 12
     /// Space below the results page's buttons, clear of the home indicator. The close
     /// button is hidden there, so the page's own buttons take its place.
     static let pageBottomPadding: CGFloat = 24

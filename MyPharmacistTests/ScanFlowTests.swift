@@ -105,28 +105,22 @@ struct ScanFlowTests {
         #expect(scannedDoses.isEmpty)
     }
 
-    @Test func aPhotoWithNoPillsGoesBackToAiming() {
+    @Test func aPhotoWithNoPillsStaysOnScreen() {
         flow.setOpen(true)
         flow.showResults([], photo: testImage(), now: morning)
-        #expect(flow.phase.step == .aiming)
-        #expect(flow.foundNoPills)
+        // The photo stays, with no automatic retry; Retake (which starts the camera, so
+        // isn't run here) or closing leaves it.
+        #expect(flow.phase.step == .noPills)
         #expect(scannedDoses.isEmpty)
-
-        // Finding pills next time clears the hint.
-        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
-        #expect(flow.phase.step == .results)
-        #expect(!flow.foundNoPills)
     }
 
     @Test func theInstructionIsTheOneThingToDoNow() {
-        #expect(ScanInstruction.whileAiming(status: .checking, foundNoPills: false) == ScanInstruction.aim)
-        // A picture problem outranks the last photo having no pills.
-        let holdStill = ScanInstruction.whileAiming(status: .needs(.moving), foundNoPills: true)
+        #expect(ScanInstruction.whileAiming(status: .checking) == ScanInstruction.aim)
+        let holdStill = ScanInstruction.whileAiming(status: .needs(.moving))
         #expect(holdStill.text == "Hold still")
         #expect(holdStill.pictogram == .holdStill)
-        #expect(ScanInstruction.whileAiming(status: .ready, foundNoPills: true) == ScanInstruction.noPills)
         // Focusing is the camera's job, so it doesn't ask the person to do anything.
-        #expect(ScanInstruction.whileAiming(status: .needs(.focusing), foundNoPills: false) == ScanInstruction.aim)
+        #expect(ScanInstruction.whileAiming(status: .needs(.focusing)) == ScanInstruction.aim)
     }
 
     @Test func everyThingToFixHasAPictureOfIt() {
@@ -146,6 +140,5 @@ struct ScanFlowTests {
 
         flow.setOpen(true)
         #expect(flow.phase.step == .aiming)
-        #expect(!flow.foundNoPills)
     }
 }
