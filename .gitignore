@@ -1,0 +1,11 @@
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# The OpenAI key for demos. Copy Secrets.example.plist to this path and paste the key in.
+MyPharmacist/Resources/Secrets.plist

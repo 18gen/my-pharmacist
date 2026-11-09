@@ -14,18 +14,24 @@ nonisolated struct AnalyzedPill: Sendable {
 }
 
 /// Finds the pills in a photo and recognizes each one by comparing it with the
-/// medications' reference photos (Vision image feature prints, all on the device).
-/// This is the swap point for a stronger identifier later, such as a cloud model.
+/// medications' reference photos. With an OpenAI key in Secrets.plist, a vision model
+/// does the comparing (temporary, for demos); otherwise, or if it can't be reached,
+/// Vision image feature prints on the device do. This is the swap point for a model
+/// trained on ePillID later.
 ///
-/// An actor so the Vision work runs off the main thread and the reference prints are
-/// computed once and reused.
+/// An actor so the Vision work runs off the main thread and the references are prepared
+/// once and reused.
 actor PillPhotoAnalyzer {
     private let medications: [Medication]
     private let rule = PillMatchRule()
+    private let cloud: OpenAIPillIdentifier?
     private var references: [(medicationID: String, print: VNFeaturePrintObservation)]?
+    private var cloudCandidates: [OpenAIPillIdentifier.Candidate]?
 
-    init(medications: [Medication]) {
+    init(medications: [Medication],
+         cloud: OpenAIPillIdentifier? = OpenAIPillIdentifier.Configuration.fromBundle().map { OpenAIPillIdentifier(configuration: $0) }) {
         self.medications = medications
+        self.cloud = cloud
     }
 
     /// Step 2 of a scan: the separate pill-sized objects in the photo, each cut out.
@@ -34,8 +40,41 @@ actor PillPhotoAnalyzer {
         (try? PillFinder.find(in: photo)) ?? []
     }
 
-    /// Step 3 of a scan: recognizes each cut-out on its own, in the order given.
-    func identify(_ pills: [FoundPill]) -> [AnalyzedPill] {
+    /// Step 3 of a scan: recognizes each pill, in the order given.
+    func identify(_ pills: [FoundPill], in photo: CGImage) async -> [AnalyzedPill] {
+        if let cloud, !pills.isEmpty {
+            do {
+                let photos = pills.compactMap { pill in
+                    OpenAIPillIdentifier.surroundingCrop(of: pill.box, in: photo).flatMap { OpenAIPillIdentifier.jpeg($0) }
+                }
+                if photos.count == pills.count {
+                    let ids = try await cloud.identify(photos, among: cloudReferences())
+                    return zip(pills, ids).map { pill, id in
+                        AnalyzedPill(box: pill.box, crop: pill.crop, match: PillMatch(medicationID: id, distance: nil))
+                    }
+                }
+            } catch {
+                // Offline, or the service failed: fall back to the device's own check,
+                // which leans to "Unknown" rather than guessing.
+                print("OpenAI pill check failed, checking on the device: \(error)")
+            }
+        }
+        return identifyOnDevice(pills)
+    }
+
+    /// The medications as the cloud model sees them: a line each and their photos.
+    private func cloudReferences() -> [OpenAIPillIdentifier.Candidate] {
+        if let cloudCandidates { return cloudCandidates }
+        let candidates = medications.map { medication in
+            let description = [medication.displayName, medication.appearance].filter { !$0.isEmpty }.joined(separator: " · ")
+            let photos = medication.photos.compactMap { UIImage(named: $0)?.cgImage }.compactMap { OpenAIPillIdentifier.jpeg($0, maxSide: 256) }
+            return OpenAIPillIdentifier.Candidate(id: medication.id, description: description, photos: photos)
+        }
+        cloudCandidates = candidates
+        return candidates
+    }
+
+    private func identifyOnDevice(_ pills: [FoundPill]) -> [AnalyzedPill] {
         let references = loadReferences()
         return pills.map { pill in
             var distances: [String: Float] = [:]
