@@ -156,6 +156,6 @@ struct AddMedicationSheet: View {
 
 #Preview {
     NavigationStack {
-        MedicationsPage(store: MedicationStore(storage: InMemoryDoseLogStorage()))
+        MedicationsPage(store: MedicationStore(startingIDs: SampleMedications.startingIDs, storage: InMemoryDoseLogStorage()))
     }
 }

@@ -19,6 +19,8 @@ final class MedicationStore {
 
     /// Every medication that can be on the list, with the times each usually starts with.
     let catalog: [Medication]
+    /// The catalog medications a new or restored list starts with.
+    @ObservationIgnored private let startingIDs: [String]
 
     /// The person's list, in their order: which medications, and when.
     private(set) var plans: [MedicationPlan] {
@@ -43,16 +45,20 @@ final class MedicationStore {
     private static let keepDays = 14
 
     /// - Parameters:
-    ///   - medications: The catalog. A list that was never saved starts with all of it.
+    ///   - medications: The catalog.
+    ///   - startingIDs: What a list that was never saved starts with; nil for the whole catalog.
     ///   - listStorage: In memory unless given, so tests never touch the app's saved list.
     ///   - now: When the store is created; records older than `keepDays` before it are dropped.
     init(medications: [Medication] = SampleMedications.all,
+         startingIDs: [String]? = nil,
          listStorage: any MedicationListStorage = InMemoryMedicationListStorage(),
          storage: any DoseLogStorage = UserDefaultsDoseLogStorage(),
          calendar: Calendar = .current,
          now: Date = Date()) {
-        let plans = listStorage.load() ?? medications.map(MedicationPlan.init(preset:))
+        let startingIDs = startingIDs ?? medications.map(\.id)
+        let plans = listStorage.load() ?? Self.startingPlans(startingIDs, catalog: medications)
         self.catalog = medications
+        self.startingIDs = startingIDs
         self.plans = plans
         self.medications = Self.resolve(plans, catalog: medications)
         self.listStorage = listStorage
@@ -128,9 +134,13 @@ final class MedicationStore {
         plans.removeAll { $0.medicationID == medicationID }
     }
 
-    /// Back to the whole catalog at its usual times, for starting a demo over.
+    /// Back to the sample list at its usual times, for starting a demo over.
     func restoreSampleList() {
-        plans = catalog.map(MedicationPlan.init(preset:))
+        plans = Self.startingPlans(startingIDs, catalog: catalog)
+    }
+
+    private static func startingPlans(_ ids: [String], catalog: [Medication]) -> [MedicationPlan] {
+        ids.compactMap { id in catalog.first { $0.id == id } }.map(MedicationPlan.init(preset:))
     }
 
     // MARK: Changing

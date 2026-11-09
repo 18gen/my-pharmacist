@@ -7,8 +7,8 @@ piece of card glued inside gives it some thickness), then cut along the tablet's
 through both layers: the two sides line up. Folding turns the back half over rather than
 mirroring it, so its imprint reads the right way round.
 
-The pictures are the app's own reference photos (NLM C3PI, research and development use),
-so a printed pill looks like what the app compares against.
+The pictures are the app's own reference photos of its sample list, from the ePillID
+benchmark (NIH NLM images), so a printed pill looks like what the app compares against.
 
 Run from the repository root:  python3 design/demo-pills/make_demo_pills.py
 Needs Pillow and reportlab.
@@ -27,15 +27,14 @@ ROOT = Path(__file__).resolve().parents[2]
 PILLS = ROOT / "MyPharmacist" / "Resources" / "Assets.xcassets" / "Pills"
 OUT = Path(__file__).resolve().parent / "demo-pills-letter.pdf"
 
-# Longest side of each tablet, from its FDA label on DailyMed (SPL "size"). Xeloda's own
-# label gives 11 mm for both strengths; every generic lists 500 mg as 16 mm and 150 mg as
-# 11 mm, so 16 mm is used.
+# Longest side of each tablet, from its FDA label (SPL "size", via RxNav) by NDC. The
+# pictures are ePillID's reference photos (NIH NLM), front and back.
 TABLETS = [
     # (asset name, name, strength, when the sample patient takes it, size mm, front photo, back photo, rows)
-    ("capecitabine-500", "Capecitabine", "500 mg", "8 AM and 8 PM", 16, 1, 3, 2),
-    ("dexamethasone-4", "Dexamethasone", "4 mg", "8 AM", 6, 1, 3, 2),
-    ("allopurinol-300", "Allopurinol", "300 mg", "8 AM", 11, 1, 2, 2),
-    ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 13, 1, 3, 2),
+    ("exemestane-25", "Exemestane", "25 mg", "8 AM", 6, 1, 2, 2),
+    ("dexamethasone-1-5", "Dexamethasone", "1.5 mg", "8 AM", 6, 1, 2, 2),
+    ("metoclopramide-10", "Metoclopramide", "10 mg", "8 AM and 8 PM", 8, 1, 2, 2),
+    ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 9, 1, 2, 2),
 ]
 
 FOLD_GAP = 2 * mm      # from the fold line to each side's tablet edge
@@ -148,8 +147,8 @@ def main() -> None:
     c.setFillColor(GREY)
     c.setFont("Helvetica", 7.5)
     c.drawString(MARGIN, MARGIN - 4 * mm,
-                 "Photos: U.S. National Library of Medicine, C3PI image set (research and development use). "
-                 "Sizes: FDA labels on DailyMed.")
+                 "Photos: ePillID benchmark (NIH NLM Pillbox and Pill Image Recognition Challenge images). "
+                 "Sizes: FDA labels via RxNorm.")
     c.showPage()
     c.save()
     print(f"Wrote {OUT.relative_to(ROOT)}")

@@ -15,7 +15,8 @@ struct RootView: View {
     @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
 
-    init(store: MedicationStore = MedicationStore(listStorage: UserDefaultsMedicationListStorage())) {
+    init(store: MedicationStore = MedicationStore(startingIDs: SampleMedications.startingIDs,
+                                                  listStorage: UserDefaultsMedicationListStorage())) {
         _store = State(initialValue: store)
         _scan = State(initialValue: ScanFlow(store: store))
     }
