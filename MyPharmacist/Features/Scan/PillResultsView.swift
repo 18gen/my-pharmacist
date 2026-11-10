@@ -96,18 +96,7 @@ struct PillResultsView: View {
 
     /// Second to "Scan again": grey, and only as wide as its word.
     private var closeButton: some View {
-        Button(action: onDone) {
-            Text("Close")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Palette.textPrimary)
-                .frame(minHeight: 34)
-                .padding(.horizontal, 6)
-        }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.capsule)
-        .controlSize(.large)
-        .tint(Palette.textMuted)
-        .fixedSize()
+        SecondaryButton(title: "Close", action: onDone)
     }
 }
 
