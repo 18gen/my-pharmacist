@@ -19,13 +19,15 @@ struct WhenNeededCard: View {
             Button(action: toggle) {
                 HStack(spacing: 8) {
                     Label {
+                        // Never due "now", so always in the softer black of the other
+                        // times of day that aren't due.
                         Text("When needed")
                             .font(.title3.bold())
-                            .foregroundStyle(Palette.textPrimary)
+                            .foregroundStyle(Palette.textSubtitle)
                     } icon: {
                         Image(systemName: "cross.case.fill")
                             .font(.title3)
-                            .foregroundStyle(Palette.textSecondary)
+                            .foregroundStyle(Palette.textSubtitle)
                     }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.down")
