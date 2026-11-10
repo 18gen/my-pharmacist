@@ -48,8 +48,9 @@ struct RootView: View {
                                 .transition(CameraButton.hintTransition)
                         }
 
-                        // The results page says what to do at its own top instead.
-                        if scan.isOpen && scan.phase.step != .results {
+                        // The results page (and, while checking, the page standing
+                        // ready) says what to do at its own top instead.
+                        if scan.isOpen && !scan.phase.step.isResultsPage {
                             ScanHeader(scan: scan)
                                 .frame(height: ScanLayout.headerHeight(in: proxy.size, largeText: largeText))
                                 .frame(maxHeight: .infinity, alignment: .top)
@@ -59,7 +60,7 @@ struct RootView: View {
                         CameraLens(
                             scan: scan,
                             isOpen: scan.isOpen,
-                            openSize: scan.phase.step == .results ? ScanLayout.resultsPageSize(in: proxy.size)
+                            openSize: scan.phase.step.isResultsPage ? ScanLayout.resultsPageSize(in: proxy.size)
                                                                   : ScanLayout.openLensSize(in: proxy.size, largeText: largeText),
                             onDone: { setScanning(false) },
                             closedColor: isDue ? Palette.due : .black

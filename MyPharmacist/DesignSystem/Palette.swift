@@ -50,4 +50,6 @@ enum Palette {
     static let glassFallbackFill = Color(white: 0.94)
     /// The hand-drawn scan arrow.
     static let drawing = Color(white: 0.15)
+    /// Placeholder blocks where words and pictures will appear (on `cardFill`).
+    static let skeleton = Color(white: 0.88)
 }

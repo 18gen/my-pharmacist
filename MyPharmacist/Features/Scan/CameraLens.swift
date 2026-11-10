@@ -130,15 +130,24 @@ struct CameraLens: View {
                             onYes: { Task { await scan.confirmPills() } },
                             onNo: { Task { await scan.rejectPills() } })
                 .transition(.opacity)
-        case .checking:
-            ProgressView()
-                .controlSize(.large)
-                .transition(.opacity)
-        case .results(let result):
-            PillResultsView(result: result, onDone: onDone, onScanAgain: scanAgain)
-                .padding(.horizontal, 6)
-                .padding(.bottom, ScanLayout.pageBottomPadding)
-                .transition(.opacity)
+        case .checking, .results:
+            // One branch for both, so the page keeps its identity when the answer comes
+            // and only its contents change.
+            if let content = resultsContent {
+                PillResultsView(content: content, onDone: onDone, onScanAgain: scanAgain)
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, ScanLayout.pageBottomPadding)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    /// The results page's contents: the pills being checked, or what they are.
+    private var resultsContent: PillResultsView.Content? {
+        switch scan.phase {
+        case .checking(let found): .checking(found)
+        case .results(let result): .ready(result)
+        default: nil
         }
     }
 

@@ -86,6 +86,9 @@ final class ScanFlow {
 
     enum Step: Hashable {
         case aiming, finding, retake, confirming, checking, results
+
+        /// The results page, or the same page standing ready while the pills are checked.
+        var isResultsPage: Bool { self == .checking || self == .results }
     }
 
     private(set) var isOpen = false
