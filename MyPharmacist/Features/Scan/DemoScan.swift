@@ -12,7 +12,7 @@ import UIKit
 /// - `-demoFind` runs a made-up photo of pills on a palm-coloured surface through the
 ///   real steps instead: finding the pills (by colour alone, as Vision's subject lifting
 ///   doesn't run in the Simulator), the question whether every pill is circled, and
-///   recognizing each. Add `-noCloud` to keep it from using the OpenAI key.
+///   recognizing each. Add `-noCloud` to send nothing to the server (every pill is then unknown).
 /// - `-demoRetake` does the same with the palm empty, so the photo has to be taken
 ///   again: the camera view with its moving picture, and Retake and Cancel.
 /// - `-demoOpenClose` opens the camera a second after launch and closes it 2.5 seconds
