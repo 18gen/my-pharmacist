@@ -86,8 +86,9 @@ nonisolated struct PillCheckClient: Sendable {
     struct Reading: Equatable, Sendable {
         /// One medication ID, or nil, per pill photo, in order.
         let medicationIDs: [String?]
-        /// The checker saw something pill-like that the app didn't number. This can only
-        /// make the result more careful, never less.
+        /// The checker saw something pill-like that the app didn't number, or a pill's
+        /// picture that doesn't show one whole pill (two lying together, say, where one
+        /// would go unchecked). This can only make the result more careful, never less.
         let mayHaveMissedPill: Bool
     }
 
@@ -133,10 +134,7 @@ nonisolated struct PillCheckClient: Sendable {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else { throw .server(status: status) }
         guard let reply = try? Self.reply(in: data) else { throw .unusable }
-        return Reading(
-            medicationIDs: Self.medicationIDs(from: reply.pills, pillCount: pills.count, candidateIDs: Set(candidates.map(\.id))),
-            mayHaveMissedPill: reply.unnumberedPillLikeObjects > 0
-        )
+        return Self.reading(of: reply, pillCount: pills.count, candidateIDs: Set(candidates.map(\.id)))
     }
 
     // MARK: Request and reply
@@ -158,6 +156,14 @@ nonisolated struct PillCheckClient: Sendable {
 
     static func reply(in data: Data) throws -> Reply {
         try JSONDecoder().decode(Reply.self, from: data)
+    }
+
+    /// What the app takes from a reply about `pillCount` pill photos.
+    static func reading(of reply: Reply, pillCount: Int, candidateIDs: Set<String>) -> Reading {
+        Reading(
+            medicationIDs: medicationIDs(from: reply.pills, pillCount: pillCount, candidateIDs: candidateIDs),
+            mayHaveMissedPill: reply.unnumberedPillLikeObjects > 0 || reply.pills.contains { !$0.showsOneWholePill }
+        )
     }
 
     /// Each pill's medication, or nil when the checker said none, was unsure, named

@@ -66,4 +66,16 @@ struct PillCheckClientTests {
         let ids = Client.medicationIDs(from: answers, pillCount: 7, candidateIDs: ["exemestane-25", "ondansetron-8"])
         #expect(ids == ["exemestane-25", "ondansetron-8", nil, nil, nil, nil, nil])
     }
+
+    @Test func aPictureThatIsntOneWholePillMeansAPillMayBeUnchecked() {
+        let ids: Set = ["exemestane-25"]
+        let whole = Client.Answer(pill: 1, imprint: "2858", medicationID: "exemestane-25", confidence: "high")
+        let two = Client.Answer(pill: 2, showsOneWholePill: false, imprint: "", medicationID: "exemestane-25", confidence: "high")
+        #expect(!Client.reading(of: Client.Reply(pills: [whole]), pillCount: 1, candidateIDs: ids).mayHaveMissedPill)
+        let reading = Client.reading(of: Client.Reply(pills: [whole, two]), pillCount: 2, candidateIDs: ids)
+        #expect(reading.medicationIDs == ["exemestane-25", nil])
+        #expect(reading.mayHaveMissedPill)
+        // So does something pill-like that has no number.
+        #expect(Client.reading(of: Client.Reply(pills: [whole], unnumberedPillLikeObjects: 1), pillCount: 1, candidateIDs: ids).mayHaveMissedPill)
+    }
 }
