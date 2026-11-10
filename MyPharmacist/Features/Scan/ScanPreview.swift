@@ -58,6 +58,10 @@ enum ScanPreview {
     ScanPreview.screen(.retake(ScanPreview.photo, .noPills))
 }
 
+#Preview("Couldn't check: try again") {
+    ScanPreview.screen(.retake(ScanPreview.photo, .checkFailed))
+}
+
 #Preview("Is every pill circled?") {
     ScanPreview.screen(.confirming(FoundPills(photo: ScanPreview.photo, boxes: ScanPreview.boxes)))
 }
