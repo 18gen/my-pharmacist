@@ -56,10 +56,18 @@ enum DemoScan {
         await flow.check(captured)
     }
 
-    /// One of each kind of line: two of the morning pills, a second metoclopramide, the
-    /// as-needed ondansetron and a white pill not on the list. In reading order, because
-    /// results number pills in the order given.
+    /// Results for the made-up photo below.
     static func show(in flow: ScanFlow) {
+        let sample = samplePills()
+        flow.setOpen(true)
+        flow.showResults(sample.pills, photo: sample.photo, records: false)
+    }
+
+    /// A made-up photo with one of each kind of line: two of the morning pills, a second
+    /// metoclopramide, the as-needed ondansetron and a white pill not on the list. In
+    /// reading order, because results number pills in the order given. Also used by the
+    /// scan views' previews.
+    static func samplePills() -> (photo: CGImage, pills: [AnalyzedPill]) {
         let size = CGSize(width: 1080, height: 1440)
         let placed: [(photo: String?, id: String?, rect: CGRect)] = [
             ("metoclopramide-10-1", "metoclopramide-10", CGRect(x: 140, y: 470, width: 240, height: 240)),
@@ -85,8 +93,7 @@ enum DemoScan {
                 match: PillMatch(medicationID: item.id, distance: nil)
             )
         }
-        flow.setOpen(true)
-        flow.showResults(pills, photo: photo.cgImage!, records: false)
+        return (photo.cgImage!, pills)
     }
 
     /// The reference picture, or a plain white pill for the one not on the list.

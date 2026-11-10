@@ -75,3 +75,14 @@ struct PillConfirmView: View {
             .position(x: rect.midX, y: rect.midY)
     }
 }
+
+#if DEBUG
+#Preview("Is every pill circled?") {
+    let sample = DemoScan.samplePills()
+    GeometryReader { proxy in
+        PillConfirmView(found: FoundPills(photo: sample.photo, boxes: sample.pills.map(\.box)),
+                        size: proxy.size, onYes: {}, onNo: {})
+    }
+    .background(.black)
+}
+#endif
