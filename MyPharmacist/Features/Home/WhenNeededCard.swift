@@ -41,7 +41,7 @@ struct WhenNeededCard: View {
             .accessibilityHint(isExpanded ? "Double tap to hide these medications" : "Double tap to show these medications")
 
             DrawerLayout(openFraction: isExpanded ? 1 : 0) {
-                MedicationLineList(items: medications.map { ($0, false) })
+                MedicationLineList(items: medications.map { ($0, nil) })
                     .padding(.top, 8)
             }
             .clipped()

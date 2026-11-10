@@ -7,11 +7,14 @@ import SwiftUI
 
 /// One medication in a home screen card: a large picture of the tablet to compare with
 /// the one in hand, its name and strength, and what it's for (or, for one taken only when
-/// needed, when that is). No times or hours: the card says when. A scanned dose gets a
-/// tick and steps back a little.
+/// needed, when that is). No dose times: the card says when. A scanned dose gets a tick
+/// with the time it was scanned under it, and steps back a little.
 struct MedicationLine: View {
     let medication: Medication
-    var isScanned = false
+    /// When this dose's pill was scanned today; nil if it wasn't.
+    var scannedAt: Date? = nil
+
+    private var isScanned: Bool { scannedAt != nil }
 
     @ScaledMetric(relativeTo: .title3) private var pictureSize: CGFloat = 64
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -30,18 +33,23 @@ struct MedicationLine: View {
 
             Spacer(minLength: 0)
 
-            if isScanned {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(Palette.ok)
-                    .accessibilityHidden(true)
+            if let scannedAt {
+                VStack(spacing: 2) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                    Text(scannedAt.shortTime)
+                        .font(.footnote.weight(.semibold))
+                        .fixedSize()
+                }
+                .foregroundStyle(Palette.ok)
+                .accessibilityHidden(true)
             }
         }
         .padding(.vertical, 8)
         .opacity(isScanned ? 0.7 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(medication.displayName)
-        .accessibilityValue([medication.asNeeded ?? medication.purpose, isScanned ? "Scanned" : ""]
+        .accessibilityValue([medication.asNeeded ?? medication.purpose, scannedAt.map { "Scanned at \($0.shortTime)" } ?? ""]
             .filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
@@ -89,7 +97,7 @@ struct MedicationLine: View {
 
 /// Medications one under another, with dividers between them.
 struct MedicationLineList: View {
-    let items: [(medication: Medication, isScanned: Bool)]
+    let items: [(medication: Medication, scannedAt: Date?)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -97,7 +105,7 @@ struct MedicationLineList: View {
                 if index > 0 {
                     Divider()
                 }
-                MedicationLine(medication: item.medication, isScanned: item.isScanned)
+                MedicationLine(medication: item.medication, scannedAt: item.scannedAt)
             }
         }
     }
