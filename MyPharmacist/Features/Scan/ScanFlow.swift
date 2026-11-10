@@ -67,8 +67,8 @@ final class ScanFlow {
         /// Pills found: the photo shows with each one circled, for the person to say
         /// whether every pill is circled (step 3).
         case confirming(FoundPills)
-        /// The person said yes; this many pills are still being checked.
-        case checking(count: Int)
+        /// The person said yes; these pills are being checked.
+        case checking(FoundPills)
         case results(PillScanResult)
 
         /// The phase without its data, for animations and haptics.
@@ -219,7 +219,7 @@ final class ScanFlow {
     /// as the pills are recognized.
     func confirmPills() async {
         guard case .confirming(let found) = phase, let identification else { return }
-        phase = .checking(count: found.boxes.count)
+        phase = .checking(found)
         let task = Task { [weak self] in
             let identified = await identification.value
             guard let self, !Task.isCancelled else { return }

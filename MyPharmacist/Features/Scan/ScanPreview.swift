@@ -63,6 +63,6 @@ enum ScanPreview {
 }
 
 #Preview("Checking the pills") {
-    ScanPreview.screen(.checking(count: 5))
+    ScanPreview.screen(.checking(FoundPills(photo: ScanPreview.photo, boxes: ScanPreview.boxes)))
 }
 #endif

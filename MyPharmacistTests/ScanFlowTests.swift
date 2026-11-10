@@ -164,6 +164,32 @@ struct ScanFlowTests {
         #expect(result.pills.count == 2)
     }
 
+    @Test func checkingKeepsTheConfirmedPhotoAndPillsUntilTheResultsArrive() async throws {
+        flow.setOpen(true)
+        let pills = [pill(TestMedications.metformin), pill(TestMedications.lisinopril, x: 0.5)]
+        // The recognition waits until the test lets it finish.
+        let (gate, release) = AsyncStream.makeStream(of: Void.self)
+        let identification = Task {
+            for await _ in gate { break }
+            return PillIdentification(pills: pills)
+        }
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identification: identification)
+        let confirming = Task { await flow.confirmPills() }
+        for _ in 0..<100 where flow.phase.step != .checking {
+            await Task.yield()
+        }
+        guard case .checking(let found) = flow.phase else {
+            Issue.record("Expected the checking step, got \(flow.phase.step)")
+            return
+        }
+        #expect(found.boxes == pills.map(\.box))
+
+        release.yield()
+        release.finish()
+        await confirming.value
+        #expect(try #require(result).pills.count == 2)
+    }
+
     @Test func closingWhileAskedDropsThePhoto() async {
         flow.setOpen(true)
         let pills = [pill(TestMedications.metformin)]
