@@ -263,11 +263,6 @@ final class ScanFlow {
         await task.value
     }
 
-    /// The person says a pill isn't circled: the photo is no good, so take another.
-    func rejectPills() async {
-        await scanAgain()
-    }
-
     private func cancelChecks() {
         checkTask?.cancel()
         checkTask = nil
@@ -315,12 +310,8 @@ final class ScanFlow {
         phase = .results(result)
     }
 
-    /// From a photo that couldn't be checked, back to the live camera for another.
-    func retake() async {
-        await scanAgain()
-    }
-
-    /// Back to the live camera for another photo.
+    /// Back to the live camera for another photo: from the results, from a photo that
+    /// can't be checked, or when the person says a pill isn't circled.
     func scanAgain() async {
         cancelChecks()
         phase = .aiming

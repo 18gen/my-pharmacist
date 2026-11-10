@@ -128,7 +128,7 @@ struct CameraLens: View {
         case .confirming(let found):
             PillConfirmView(found: found, size: openSize,
                             onYes: { Task { await scan.confirmPills() } },
-                            onNo: { Task { await scan.rejectPills() } })
+                            onNo: scanAgain)
                 .transition(.opacity)
         case .checking, .results:
             // One branch for both, so the page keeps its identity when the answer comes
@@ -283,9 +283,7 @@ struct CameraLens: View {
                 }
                 .accessibilityHint("Checks the same photo again")
             } else {
-                WideButton(title: "Retake", systemImage: "arrow.counterclockwise") {
-                    Task { await scan.retake() }
-                }
+                WideButton(title: "Retake", systemImage: "arrow.counterclockwise", action: scanAgain)
                 .accessibilityHint("Opens the camera again")
             }
             SecondaryButton(title: "Cancel", action: onDone)
