@@ -34,9 +34,9 @@ actor PillPhotoAnalyzer {
         self.cloud = cloud
     }
 
-    /// Step 2 of a scan: the separate pill-sized objects in the photo, each cut out, or
-    /// why there are none to check.
-    func findPills(in photo: CGImage) -> PillSearch {
+    /// Step 2 of a scan: the pills in the photo, each cut out, or why there are none
+    /// to check.
+    func findPills(in photo: CapturedPhoto) -> PillSearch {
         PillFinder.find(in: photo)
     }
 

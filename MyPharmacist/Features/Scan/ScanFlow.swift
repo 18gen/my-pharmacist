@@ -144,7 +144,7 @@ final class ScanFlow {
             phase = .finding(photo)
 
             // Step 2: are there pills at all? If not, the photo stays with a Retake button.
-            let search = await analyzer.findPills(in: photo)
+            let search = await analyzer.findPills(in: captured)
             guard !Task.isCancelled else { return }
             let found: [FoundPill]
             switch search {
@@ -152,6 +152,9 @@ final class ScanFlow {
                 found = pills
             case .noPills:
                 phase = .retake(photo, .noPills)
+                return
+            case .unclear(let reason):
+                phase = .retake(photo, reason)
                 return
             case .failed:
                 phase = .retake(photo, .cantCheck)

@@ -4,6 +4,7 @@
 //
 
 import CoreGraphics
+import Foundation
 
 /// A picture of yes and no: which pixels belong to something (a pill, a hand, whatever
 /// differs from the background). Everything that measures or tidies a shape works on
@@ -49,6 +50,15 @@ nonisolated struct PixelMask: Sendable, Equatable {
     func intersection(_ other: PixelMask) -> PixelMask {
         precondition(width == other.width && height == other.height)
         return PixelMask(width: width, height: height, pixels: zip(pixels, other.pixels).map { $0 & $1 })
+    }
+
+    /// The mask as a grey picture, white where set: for clipping a drawing to it.
+    func grayImage() -> CGImage? {
+        let data = Data(pixels.map { $0 != 0 ? 255 : 0 })
+        guard let provider = CGDataProvider(data: data as CFData) else { return nil }
+        return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: width,
+                       space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
     }
 
     // MARK: Tidying
