@@ -86,9 +86,6 @@ final class ScanFlow {
 
     enum Step: Hashable {
         case aiming, finding, retake, confirming, checking, results
-
-        /// The camera is done and the scan view has become the results page.
-        var isPage: Bool { self == .checking || self == .results }
     }
 
     private(set) var isOpen = false

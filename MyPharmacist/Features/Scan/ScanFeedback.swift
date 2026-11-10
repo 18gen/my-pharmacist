@@ -28,7 +28,7 @@ struct ScanFeedback: ViewModifier {
         case .retake(_, let reason) where step == .retake:
             ScanInstruction.retake(reason).text
         case .confirming(let found) where step == .confirming:
-            ScanInstruction.confirm(count: found.boxes.count).text
+            ScanInstruction.confirm(count: found.boxes.count).spoken
         case .results(let result) where step == .results:
             result.summary
         default:

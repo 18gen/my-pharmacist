@@ -27,12 +27,12 @@ final class ScannerModel {
     /// - Parameter visibleAspect: Width over height of the camera view.
     func start(visibleAspect: Double) async {
         guard await CameraPermission.request() else {
-            cameraMessage = "Camera access is off.\nTurn it on in Settings › My Pharmacist."
+            cameraMessage = "Allow camera in Settings"
             return
         }
         startReadingQuality()
         if await !camera.start(visibleAspect: visibleAspect) {
-            cameraMessage = "No camera is available on this device."
+            cameraMessage = "No camera found"
             return
         }
         hasLight = await camera.hasTorch()

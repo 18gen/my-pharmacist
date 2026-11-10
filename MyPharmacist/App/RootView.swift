@@ -14,6 +14,10 @@ struct RootView: View {
     /// The pages pushed over the home screen, in order.
     @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// One of the accessibility text sizes: the instruction gets more room.
+    private var largeText: Bool { typeSize.isAccessibilitySize }
 
     init(store: MedicationStore = MedicationStore(startingIDs: SampleMedications.startingIDs,
                                                   listStorage: UserDefaultsMedicationListStorage())) {
@@ -44,7 +48,7 @@ struct RootView: View {
                         // The results page says what to do at its own top instead.
                         if scan.isOpen && scan.phase.step != .results {
                             ScanHeader(scan: scan)
-                                .frame(height: ScanLayout.headerHeight(in: proxy.size))
+                                .frame(height: ScanLayout.headerHeight(in: proxy.size, largeText: largeText))
                                 .frame(maxHeight: .infinity, alignment: .top)
                                 .transition(.opacity)
                         }
@@ -53,15 +57,16 @@ struct RootView: View {
                             scan: scan,
                             isOpen: scan.isOpen,
                             openSize: scan.phase.step == .results ? ScanLayout.resultsPageSize(in: proxy.size)
-                                                                  : ScanLayout.openLensSize(in: proxy.size),
+                                                                  : ScanLayout.openLensSize(in: proxy.size, largeText: largeText),
                             onDone: { setScanning(false) },
                             closedColor: isDue ? Palette.due : .black
                         )
                         .animation(.easeInOut(duration: 0.3), value: isDue)
 
                         CameraButton(isScanning: scan.isOpen,
-                                     isOnPage: scan.isOpen && scan.phase.step.isPage,
-                                     isHidden: scan.isOpen && scan.phase.step == .results,
+                                     isOnPage: scan.isOpen,
+                                     // The results page and a photo to retake have buttons of their own.
+                                     isHidden: scan.isOpen && (scan.phase.step == .results || scan.phase.step == .retake),
                                      isDue: isDue) {
                             setScanning(!scan.isOpen)
                         }
@@ -69,7 +74,10 @@ struct RootView: View {
                 }
                 // Known before the camera is first opened: it zooms for this shape.
                 .onChange(of: proxy.size, initial: true) { _, size in
-                    scan.visibleAspect = ScanLayout.lensAspect(in: size)
+                    scan.visibleAspect = ScanLayout.lensAspect(in: size, largeText: largeText)
+                }
+                .onChange(of: largeText) { _, largeText in
+                    scan.visibleAspect = ScanLayout.lensAspect(in: proxy.size, largeText: largeText)
                 }
             }
             .onChange(of: scan.scanner.captureStatus) { _, status in
@@ -130,7 +138,7 @@ struct RootView: View {
     }
 
     private func setScanning(_ open: Bool) {
-        withAnimation(.spring(duration: 0.5, bounce: 0.15)) {
+        withAnimation(ScanLayout.openingAnimation) {
             scan.setOpen(open)
         }
     }

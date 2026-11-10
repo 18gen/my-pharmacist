@@ -13,14 +13,27 @@ import UIKit
 ///   real steps instead: finding the pills (by colour alone, as Vision's subject lifting
 ///   doesn't run in the Simulator), the question whether every pill is circled, and
 ///   recognizing each. Add `-noCloud` to keep it from using the OpenAI key.
+/// - `-demoRetake` does the same with the palm empty, so the photo has to be taken
+///   again: the camera view with its moving picture, and Retake and Cancel.
+/// - `-demoOpenClose` opens the camera a second after launch and closes it 2.5 seconds
+///   later, to watch (or record) the button growing into the camera picture and back.
 enum DemoScan {
-    static var isRequested: Bool { showsResults || findsPills }
+    static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses }
+    private static var opensAndCloses: Bool { ProcessInfo.processInfo.arguments.contains("-demoOpenClose") }
     private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }
     private static var findsPills: Bool { ProcessInfo.processInfo.arguments.contains("-demoFind") }
+    private static var retakes: Bool { ProcessInfo.processInfo.arguments.contains("-demoRetake") }
 
     static func run(in flow: ScanFlow) {
-        if findsPills {
-            Task { await find(in: flow) }
+        if opensAndCloses {
+            Task {
+                try? await Task.sleep(for: .seconds(1))
+                withAnimation(ScanLayout.openingAnimation) { flow.setOpen(true) }
+                try? await Task.sleep(for: .seconds(2.5))
+                withAnimation(ScanLayout.openingAnimation) { flow.setOpen(false) }
+            }
+        } else if findsPills || retakes {
+            Task { await find(in: flow, empty: retakes) }
         } else {
             show(in: flow)
         }
@@ -28,7 +41,7 @@ enum DemoScan {
 
     /// The sample pills at about their real sizes, two of them touching, on a surface
     /// the colour of a palm that is lit from below.
-    static func find(in flow: ScanFlow) async {
+    static func find(in flow: ScanFlow, empty: Bool = false) async {
         let size = CGSize(width: 1134, height: 2016)   // 87.5 mm wide: about 13 pixels a millimetre
         let placed: [(photo: String?, middle: CGPoint, millimeters: CGFloat)] = [
             ("exemestane-25-1", CGPoint(x: 330, y: 800), 6),
@@ -37,7 +50,7 @@ enum DemoScan {
             ("metoclopramide-10-2", CGPoint(x: 524, y: 1200), 8),
             ("ondansetron-8-1", CGPoint(x: 800, y: 1260), 9),
             (nil, CGPoint(x: 600, y: 1560), 7),
-        ]
+        ].filter { _ in !empty }
         let photo = UIGraphicsImageRenderer(size: size, format: { let f = UIGraphicsImageRendererFormat(); f.scale = 1; return f }())
             .image { context in
                 let colours = [UIColor(red: 0.66, green: 0.50, blue: 0.42, alpha: 1).cgColor,

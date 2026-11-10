@@ -8,10 +8,17 @@ import SwiftUI
 /// A scan instruction as a picture: a large symbol on a soft round tile that moves the way
 /// the person should (a phone tilting, a phone moving away), so the instruction comes
 /// across without reading. With Reduce Motion on, the picture keeps still.
+///
+/// On the camera picture it is white on a dark see-through badge: the picture behind it
+/// can be anything (skin, a table, white paper, a dim room), and only white on dark stays
+/// clear on all of them. No colour carries meaning; the words above say the same.
 struct ScanPictogramView: View {
     let pictogram: ScanPictogram
+    /// Drawn on the camera picture rather than on the page.
+    var onCamera = false
 
     @ScaledMetric(relativeTo: .title2) private var tileSize: CGFloat = 76
+    @ScaledMetric(relativeTo: .title2) private var badgeSize: CGFloat = 84
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -27,14 +34,21 @@ struct ScanPictogramView: View {
                 }
             }
         }
-        .frame(width: tileSize, height: tileSize)
-        .background(Circle().fill(Palette.cardFill))
-        .foregroundStyle(Palette.textPrimary)
+        .frame(width: side, height: side)
+        .background {
+            if onCamera {
+                RoundedRectangle(cornerRadius: side * 0.28, style: .continuous).fill(.black.opacity(0.55))
+            } else {
+                Circle().fill(Palette.cardFill)
+            }
+        }
+        .foregroundStyle(onCamera ? .white : Palette.textPrimary)
         // The words beside it say the same.
         .accessibilityHidden(true)
     }
 
-    private var symbolSize: CGFloat { tileSize * 0.5 }
+    private var side: CGFloat { onCamera ? badgeSize : tileSize }
+    private var symbolSize: CGFloat { side * 0.5 }
 
     /// Slow for calm instructions, a little quicker for "hold still".
     private var duration: Double {

@@ -23,12 +23,11 @@ struct PillConfirmView: View {
             picture
                 .frame(width: size.width, height: max(0, size.height - Self.buttonsHeight - ScanLayout.lensButtonBottomPadding))
             VStack(spacing: 4) {
-                WideButton(title: "Yes, check them", systemImage: "checkmark", tint: .white, action: onYes)
-                    .foregroundStyle(.black)
+                WideButton(title: "Yes, check them", systemImage: "checkmark", action: onYes)
                     .accessibilityHint("Every pill in the photo is circled")
                 Button("No, take it again", action: onNo)
                     .font(.title3)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Palette.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .accessibilityHint("A pill is not circled. Opens the camera again")
             }
@@ -57,6 +56,7 @@ struct PillConfirmView: View {
                             }
                         }
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: ScanLayout.pictureCornerRadius, style: .continuous))
                     .frame(width: proxy.size.width, height: proxy.size.height)
             }
         }
@@ -83,6 +83,6 @@ struct PillConfirmView: View {
         PillConfirmView(found: FoundPills(photo: sample.photo, boxes: sample.pills.map(\.box)),
                         size: proxy.size, onYes: {}, onNo: {})
     }
-    .background(.black)
+    .background(Palette.background)
 }
 #endif

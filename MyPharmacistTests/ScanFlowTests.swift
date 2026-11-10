@@ -136,7 +136,13 @@ struct ScanFlowTests {
         let lines = reasons.map(ScanInstruction.retake)
         #expect(Set(lines.map(\.text)).count == reasons.count)
         #expect(Set(lines.compactMap(\.pictogram)).count == reasons.count)
-        #expect(ScanInstruction.retake(.touching).text == "Spread the pills apart")
+        #expect(ScanInstruction.retake(.touching).text == "Spread pills apart")
+        // Short enough to read at a glance in very large letters.
+        let every = lines + [ScanInstruction.aim, ScanInstruction.checking, ScanInstruction.turnOnLight, ScanInstruction.confirm(count: 3)]
+            + QualityIssue.allCases.compactMap(\.fix).map { ScanInstruction.Line(text: $0, pictogram: nil) }
+        for line in every {
+            #expect(line.text.split(separator: " ").count <= 4, "\(line.text) is long")
+        }
     }
 
     private func identified(_ pills: [AnalyzedPill]) -> Task<PillIdentification, Never> {
@@ -194,18 +200,49 @@ struct ScanFlowTests {
         #expect(try #require(result).mayHaveMissedPill)
     }
 
+    @Test func tooDarkAsksForTheLightWhenThePhoneHasOne() {
+        #expect(ScanInstruction.whileAiming(status: .needs(.tooDark), canTurnOnLight: true) == ScanInstruction.turnOnLight)
+        #expect(ScanInstruction.whileAiming(status: .needs(.tooDark)).text == "Find more light")
+        // Other problems don't change.
+        #expect(ScanInstruction.whileAiming(status: .needs(.moving), canTurnOnLight: true).text == "Hold still")
+    }
+
+    @Test func theInstructionAndTheCameraViewFitTheScreen() {
+        let screen = CGSize(width: 393, height: 759)
+        let lens = ScanLayout.openLensSize(in: screen)
+        #expect(ScanLayout.headerHeight(in: screen) == ScanLayout.headerWordsHeight)
+        #expect(lens.height + ScanLayout.headerWordsHeight + ScanLayout.lensEdgeGap == screen.height)
+        // The camera picture is the view above its bar.
+        #expect(abs(ScanLayout.lensAspect(in: screen) - Double(lens.width / (lens.height - ScanLayout.controlBarHeight))) < 0.0001)
+    }
+
     @Test func theResultsPageGrowsUpToWhereTheInstructionWas() {
         let screen = CGSize(width: 393, height: 759)
         let open = ScanLayout.openLensSize(in: screen)
         let page = ScanLayout.resultsPageSize(in: screen)
         #expect(page.width == open.width)
-        #expect(page.height == open.height + ScanLayout.headerHeight(in: screen) - ScanLayout.resultsTopGap)
-        #expect(page.height < screen.height)
+        // From just under the status bar to the sides' gap from the bottom: past the
+        // camera view at both ends.
+        #expect(page.height == screen.height - ScanLayout.resultsTopGap - ScanLayout.lensEdgeGap)
+        #expect(page.height > open.height + ScanLayout.lensLift)
+    }
+
+    @Test func liftingTheCameraPictureKeepsItsSize() {
+        // The instruction's room shrinks by as much as the picture rises; the room goes
+        // to the bar under it.
+        let screen = CGSize(width: 393, height: 759)
+        let barWithoutLift = ScanLayout.controlBarHeight - ScanLayout.lensLift
+        #expect(ScanLayout.pictureHeight(in: screen)
+                == screen.height - (ScanLayout.headerWordsHeight + ScanLayout.lensLift) - ScanLayout.lensEdgeGap - barWithoutLift)
+        // The close button stays where the home screen's camera button is: at the bottom
+        // of the bar, which ends where the camera view does.
+        #expect(ScanLayout.buttonBottomInset == ScanLayout.lensEdgeGap + ScanLayout.buttonGapInLens)
     }
 
     @Test func theQuestionSaysHowManyPillsWereFound() {
-        #expect(ScanInstruction.confirm(count: 3).text == "3 pills found. Is every pill circled?")
-        #expect(ScanInstruction.confirm(count: 1).text == "1 pill found. Is it your only pill?")
+        #expect(ScanInstruction.confirm(count: 3).text == "Is every pill circled?")
+        #expect(ScanInstruction.confirm(count: 3).spoken == "3 pills found. Is every pill circled?")
+        #expect(ScanInstruction.confirm(count: 1).spoken == "1 pill found. Is every pill circled?")
     }
 
     @Test func theInstructionIsTheOneThingToDoNow() {
@@ -222,7 +259,7 @@ struct ScanFlowTests {
             #expect(issue.pictogram != nil, "\(issue) has words but no picture")
         }
         #expect(ScanInstruction.aim.pictogram == .aim)
-        #expect(ScanInstruction.checking(count: 3).pictogram == .checking)
+        #expect(ScanInstruction.checking.pictogram == .checking)
     }
 
     @Test func openingAgainStartsTheNextSessionFresh() {

@@ -17,7 +17,7 @@ struct CameraButton: View {
     )
 
     let isScanning: Bool
-    /// The scan view has turned into the white results page, so the X needs a grey circle.
+    /// The scan view is open, and white: the X needs a grey circle to show on it.
     var isOnPage = false
     var isHidden = false
     /// Something is due now: "Scan Pills", the arrow and the button (the lens behind it)
