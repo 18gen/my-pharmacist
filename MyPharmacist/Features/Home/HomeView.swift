@@ -38,7 +38,9 @@ struct HomeView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 12) {
-                            if slots.isEmpty {
+                            if store.medications.isEmpty {
+                                FirstStepsCard(onAddMedications: onShowMedications)
+                            } else if slots.isEmpty {
                                 Text("No medications scheduled today.")
                                     .font(.body)
                                     .foregroundStyle(Palette.textTertiary)
@@ -90,5 +92,27 @@ struct HomeView: View {
         withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
             proxy.scrollTo(id, anchor: nil)
         }
+    }
+}
+
+/// What a new person sees before adding any medication: what the app does and the one
+/// thing to do first.
+private struct FirstStepsCard: View {
+    let onAddMedications: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add your medications")
+                .font(.title2.bold())
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text("Add each medication with a photo of its pill and when you take it. Then scan the pills in your hand before taking them, to check they're the right ones for now.")
+                .font(.body)
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            WideButton(title: "Add medications", systemImage: "plus", action: onAddMedications)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardBackground()
     }
 }
