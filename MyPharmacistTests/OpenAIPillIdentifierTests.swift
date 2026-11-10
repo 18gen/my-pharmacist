@@ -28,10 +28,38 @@ struct OpenAIPillIdentifierTests {
     }
 
     @Test func readsTheAnswersFromAReply() throws {
-        let answers = try Identifier.answers(in: reply("""
-            {"pills": [{"pill": 1, "imprint": "2858", "medication_id": "exemestane-25", "confidence": "high"}]}
+        let read = try Identifier.reply(in: reply("""
+            {"pills": [{"pill": 1, "shows_one_whole_pill": true, "imprint": "2858", "medication_id": "exemestane-25", "confidence": "high"}],
+             "unnumbered_pill_like_objects": 1}
             """))
-        #expect(answers == [Identifier.Answer(pill: 1, imprint: "2858", medicationID: "exemestane-25", confidence: "high")])
+        #expect(read.pills == [Identifier.Answer(pill: 1, imprint: "2858", medicationID: "exemestane-25", confidence: "high")])
+        #expect(read.unnumberedPillLikeObjects == 1)
+    }
+
+    @Test func aPhotoThatDoesntShowOneWholePillIsNoMatch() {
+        let answers = [
+            Identifier.Answer(pill: 1, showsOneWholePill: false, imprint: "2858", medicationID: "exemestane-25", confidence: "high"),
+            Identifier.Answer(pill: 2, imprint: "2858", medicationID: "exemestane-25", confidence: "high"),
+        ]
+        #expect(Identifier.medicationIDs(from: answers, pillCount: 2, candidateIDs: ["exemestane-25"]) == [nil, "exemestane-25"])
+    }
+
+    @Test func theRequestAsksForNothingToBeKeptAndSaysHowToReadImages() throws {
+        let body = Identifier.requestBody(model: "gpt-test", pills: [Data([9])], overview: Data([7]), candidates: candidates)
+        #expect(body["store"] as? Bool == false)
+        let input = try #require((body["input"] as? [[String: Any]])?.first?["content"] as? [[String: Any]])
+        let images = input.filter { $0["type"] as? String == "input_image" }
+        // Three reference photos, one pill and the picture of all of them.
+        #expect(images.count == 5)
+        #expect(images.allSatisfy { $0["detail"] as? String == "high" })
+        let schema = try #require(((body["text"] as? [String: Any])?["format"] as? [String: Any])?["schema"] as? [String: Any])
+        #expect(schema["required"] as? [String] == ["pills", "unnumbered_pill_like_objects"])
+    }
+
+    @Test func theRequestsSizeIsReadFromTheReply() throws {
+        let data = try JSONSerialization.data(withJSONObject: ["usage": ["input_tokens": 1234], "output": []])
+        #expect(Identifier.inputTokens(in: data) == 1234)
+        #expect(Identifier.inputTokens(in: reply("{}")) == nil)
     }
 
     @Test func onlySureAnswersAboutCandidatesCount() {
@@ -51,7 +79,7 @@ struct OpenAIPillIdentifierTests {
         let refusal = try! JSONSerialization.data(withJSONObject: [
             "output": [["type": "message", "content": [["type": "refusal", "refusal": "I can't help with that."]]]],
         ])
-        #expect(throws: Identifier.Failure.self) { try Identifier.answers(in: refusal) }
+        #expect(throws: Identifier.Failure.self) { try Identifier.reply(in: refusal) }
     }
 
     @Test func theRequestOffersOnlyTheCandidatesOrNone() throws {

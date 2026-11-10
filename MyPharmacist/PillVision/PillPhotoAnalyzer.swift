@@ -13,6 +13,14 @@ nonisolated struct AnalyzedPill: Sendable {
     let match: PillMatch
 }
 
+/// Every pill found in a photo, recognized.
+nonisolated struct PillIdentification: Sendable {
+    let pills: [AnalyzedPill]
+    /// The vision model saw something pill-like in the photo that wasn't found as a
+    /// pill. Only ever a reason for more care.
+    var mayHaveMissedPill = false
+}
+
 /// Finds the pills in a photo and recognizes each one by comparing it with the
 /// medications' reference photos. With an OpenAI key in Secrets.plist, a vision model
 /// does the comparing (temporary, for demos); otherwise, or if it can't be reached,
@@ -41,7 +49,7 @@ actor PillPhotoAnalyzer {
     }
 
     /// Step 3 of a scan: recognizes each pill, in the order given.
-    func identify(_ pills: [FoundPill], in photo: CapturedPhoto) async -> [AnalyzedPill] {
+    func identify(_ pills: [FoundPill], in photo: CapturedPhoto) async -> PillIdentification {
         if let cloud, !pills.isEmpty {
             do {
                 // Each pill cut from the full-size photo, in the middle of its own picture.
@@ -49,10 +57,16 @@ actor PillPhotoAnalyzer {
                     PillCropper.picture(of: pill, in: photo).flatMap { OpenAIPillIdentifier.jpeg($0, maxSide: PillCropper.largestSide) }
                 }
                 if photos.count == pills.count {
-                    let ids = try await cloud.identify(photos, among: cloudReferences())
-                    return zip(pills, ids).map { pill, id in
-                        AnalyzedPill(box: pill.box, crop: pill.crop, match: PillMatch(medicationID: id, distance: nil))
-                    }
+                    // And all of them together, numbered, so the model can say whether
+                    // something pill-like was left out.
+                    let overview = PillCropper.overview(of: pills, in: photo).flatMap { OpenAIPillIdentifier.jpeg($0, maxSide: PillCropper.overviewSide) }
+                    let reading = try await cloud.identify(photos, overview: overview, among: cloudReferences())
+                    return PillIdentification(
+                        pills: zip(pills, reading.medicationIDs).map { pill, id in
+                            AnalyzedPill(box: pill.box, crop: pill.crop, match: PillMatch(medicationID: id, distance: nil))
+                        },
+                        mayHaveMissedPill: reading.mayHaveMissedPill
+                    )
                 }
             } catch {
                 // Offline, or the service failed: fall back to the device's own check,
@@ -60,7 +74,7 @@ actor PillPhotoAnalyzer {
                 print("OpenAI pill check failed, checking on the device: \(error)")
             }
         }
-        return identifyOnDevice(pills)
+        return PillIdentification(pills: identifyOnDevice(pills))
     }
 
     /// The medications as the cloud model sees them: a line each and their photos.

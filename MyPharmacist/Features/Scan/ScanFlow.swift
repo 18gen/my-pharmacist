@@ -163,9 +163,9 @@ final class ScanFlow {
 
             // Step 3: check each pill.
             phase = .checking(count: found.count)
-            let pills = await analyzer.identify(found, in: captured)
+            let identified = await analyzer.identify(found, in: captured)
             guard !Task.isCancelled else { return }
-            showResults(pills, photo: photo)
+            showResults(identified.pills, photo: photo)
         }
     }
 
