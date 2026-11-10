@@ -157,6 +157,7 @@ struct CameraLens: View {
     @ViewBuilder
     private var bar: some View {
         switch scan.phase {
+        case .aiming where model.cameraProblem == .accessDenied: openSettingsButton
         case .aiming: lightButton
         case .retake: retakeButtons
         default: Color.clear
@@ -243,6 +244,32 @@ struct CameraLens: View {
             // No light: the bar's room stays taken (see `bar`).
             Color.clear
         }
+    }
+
+    /// Camera access is off: the one thing that helps is turning it on in Settings. The
+    /// camera starts by itself on coming back (`ScanFlow.appBecameActive`).
+    private var openSettingsButton: some View {
+        HStack {
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                Label("Open Settings", systemImage: "gear")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Palette.textPrimary)
+                    .frame(minHeight: 34)
+                    .padding(.horizontal, 6)
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
+            .tint(Palette.textMuted)
+            .accessibilityHint("Opens this app's settings to allow the camera")
+            Spacer()
+        }
+        .padding(.leading, 22)
+        .closeButtonRow()
     }
 
     /// In place of the close button, for a photo that has to be taken again: Retake

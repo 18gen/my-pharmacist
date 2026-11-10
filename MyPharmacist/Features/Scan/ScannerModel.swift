@@ -10,7 +10,10 @@ import Observation
 /// in (or what to fix first), and takes that photo.
 @Observable
 final class ScannerModel {
-    private(set) var cameraMessage: String?
+    /// Why there is no camera picture, if there isn't one.
+    private(set) var cameraProblem: CameraProblem?
+    /// What to tell the person about `cameraProblem`.
+    var cameraMessage: String? { cameraProblem?.message }
     /// Whether the picture is good enough yet, or what to fix first.
     private(set) var captureStatus: QualityGate.Status = .checking
     /// Whether the camera has a light, and whether the person turned it on. The choice
@@ -27,12 +30,12 @@ final class ScannerModel {
     /// - Parameter visibleAspect: Width over height of the camera view.
     func start(visibleAspect: Double) async {
         guard await CameraPermission.request() else {
-            cameraMessage = "Allow camera in Settings"
+            cameraProblem = .accessDenied
             return
         }
         startReadingQuality()
         if await !camera.start(visibleAspect: visibleAspect) {
-            cameraMessage = "No camera found"
+            cameraProblem = .unavailable
             return
         }
         hasLight = await camera.hasTorch()
@@ -54,6 +57,11 @@ final class ScannerModel {
         guard hasLight else { return }
         isLightOn.toggle()
         camera.setTorch(isLightOn)
+    }
+
+    /// The app went to the background: the system turns the light off, so say so.
+    func appWentToBackground() {
+        isLightOn = false
     }
 
     /// For a new scan: the light starts off.
@@ -78,7 +86,7 @@ final class ScannerModel {
 
     /// Forgets the previous picture so each scan starts from "checking".
     func reset() {
-        cameraMessage = nil
+        cameraProblem = nil
         captureStatus = .checking
         qualityGate = QualityGate()
     }
@@ -103,6 +111,21 @@ final class ScannerModel {
         // Only assign changes, so views showing the status don't redraw ten times a second.
         if status != captureStatus {
             captureStatus = status
+        }
+    }
+}
+
+/// Why the camera picture can't be shown.
+enum CameraProblem: Equatable {
+    /// The person turned camera access off for the app; it can be turned on in Settings.
+    case accessDenied
+    /// The device has no back camera, or it couldn't be started.
+    case unavailable
+
+    var message: String {
+        switch self {
+        case .accessDenied: "Allow camera in Settings"
+        case .unavailable: "No camera found"
         }
     }
 }

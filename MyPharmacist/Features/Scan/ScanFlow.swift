@@ -296,6 +296,20 @@ final class ScanFlow {
         await scanner.start(visibleAspect: visibleAspect)
     }
 
+    /// The app came back to the screen. While aiming, the camera starts again from
+    /// "checking": the picture may have changed, and camera access may have just been
+    /// turned on in Settings.
+    func appBecameActive() async {
+        guard isOpen, case .aiming = phase else { return }
+        scanner.reset()
+        await scanner.start(visibleAspect: visibleAspect)
+    }
+
+    /// The app left the screen: the system stops the camera and its light.
+    func appWentToBackground() {
+        scanner.appWentToBackground()
+    }
+
     /// Starts or stops the camera to match `isOpen`. Each opening starts from "checking".
     func syncCamera() async {
         if isOpen {

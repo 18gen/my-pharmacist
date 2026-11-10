@@ -15,6 +15,7 @@ struct RootView: View {
     @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
 
     /// One of the accessibility text sizes: the instruction gets more room.
     private var largeText: Bool { typeSize.isAccessibilitySize }
@@ -93,6 +94,13 @@ struct RootView: View {
             }
             // What each step of a scan says and feels like.
             .modifier(ScanFeedback(scan: scan))
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active: Task { await scan.appBecameActive() }
+                case .background: scan.appWentToBackground()
+                default: break
+                }
+            }
             .task(id: scan.isOpen) {
                 #if DEBUG
                 // The demo shows results without the camera, and previews never start it.

@@ -265,6 +265,18 @@ struct ScanFlowTests {
         #expect(ScanLayout.buttonBottomInset == ScanLayout.lensEdgeGap + ScanLayout.buttonGapInLens)
     }
 
+    @Test func leavingTheAppTurnsTheLightOff() {
+        flow.setOpen(true)
+        flow.scanner.showForPreview(status: .checking, hasLight: true, isLightOn: true)
+        flow.appWentToBackground()
+        #expect(!flow.scanner.isLightOn)
+    }
+
+    @Test func cameraProblemsSayWhatToDo() {
+        #expect(CameraProblem.accessDenied.message == "Allow camera in Settings")
+        #expect(CameraProblem.unavailable.message == "No camera found")
+    }
+
     @Test func theQuestionSaysHowManyPillsWereFound() {
         #expect(ScanInstruction.confirm(count: 3).text == "Is every pill circled?")
         #expect(ScanInstruction.confirm(count: 3).spoken == "3 pills found. Is every pill circled?")
