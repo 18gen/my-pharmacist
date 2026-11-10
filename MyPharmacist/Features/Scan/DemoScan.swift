@@ -17,15 +17,21 @@ import UIKit
 ///   again: the camera view with its moving picture, and Retake and Cancel.
 /// - `-demoOpenClose` opens the camera a second after launch and closes it 2.5 seconds
 ///   later, to watch (or record) the button growing into the camera picture and back.
+/// - `-demoChecking` opens on the results page standing ready while the pills are
+///   checked, and stays there.
 enum DemoScan {
-    static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses }
+    static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses || checks }
+    private static var checks: Bool { ProcessInfo.processInfo.arguments.contains("-demoChecking") }
     private static var opensAndCloses: Bool { ProcessInfo.processInfo.arguments.contains("-demoOpenClose") }
     private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }
     private static var findsPills: Bool { ProcessInfo.processInfo.arguments.contains("-demoFind") }
     private static var retakes: Bool { ProcessInfo.processInfo.arguments.contains("-demoRetake") }
 
     static func run(in flow: ScanFlow) {
-        if opensAndCloses {
+        if checks {
+            let sample = samplePills()
+            flow.showForPreview(.checking(FoundPills(photo: sample.photo, boxes: sample.pills.map(\.box))))
+        } else if opensAndCloses {
             Task {
                 try? await Task.sleep(for: .seconds(1))
                 withAnimation(ScanLayout.openingAnimation) { flow.setOpen(true) }
