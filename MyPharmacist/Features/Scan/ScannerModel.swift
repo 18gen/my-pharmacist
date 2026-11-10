@@ -20,13 +20,14 @@ final class ScannerModel {
 
     var session: AVCaptureSession { camera.session }
 
-    func start() async {
+    /// - Parameter visibleAspect: Width over height of the camera view.
+    func start(visibleAspect: Double) async {
         guard await CameraPermission.request() else {
             cameraMessage = "Camera access is off.\nTurn it on in Settings › My Pharmacist."
             return
         }
         startReadingQuality()
-        if await !camera.start() {
+        if await !camera.start(visibleAspect: visibleAspect) {
             cameraMessage = "No camera is available on this device."
         }
     }
@@ -40,8 +41,8 @@ final class ScannerModel {
         camera.focus(at: devicePoint)
     }
 
-    /// Takes the photo the pills are checked in, upright; nil if the camera can't.
-    func capturePhoto() async -> CGImage? {
+    /// Takes the photo the pills are checked in; nil if the camera can't.
+    func capturePhoto() async -> CapturedPhoto? {
         await camera.capturePhoto()
     }
 

@@ -30,6 +30,12 @@ enum ScanLayout {
         CGSize(width: container.width - 2 * lensEdgeGap, height: container.height * 0.8)
     }
 
+    /// Width over height of the open camera view.
+    static func lensAspect(in container: CGSize) -> Double {
+        let size = openLensSize(in: container)
+        return size.height > 0 ? Double(size.width / size.height) : 9.0 / 16.0
+    }
+
     /// The space between the status bar and the top of the open camera view, where the
     /// scan's instruction goes. The camera view ends `lensEdgeGap` above the bottom of the
     /// safe area (it doesn't reach into the home indicator's strip), so that is all there

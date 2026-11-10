@@ -4,7 +4,8 @@
 //
 
 import AVFoundation
-import CoreImage
+import CoreMedia
+import os
 
 /// Owns the capture session, checks the picture quality of about ten frames a second,
 /// and takes the photo the pills are checked in. Photos stay in memory only; nothing is
@@ -12,7 +13,8 @@ import CoreImage
 /// Lives off the main actor: all camera work happens on its own queues.
 ///
 /// `@unchecked Sendable` is safe because each mutable property is only touched on one
-/// queue: `isConfigured`, `device` and `photoDelegates` on `sessionQueue`;
+/// queue: `isConfigured`, `device`, `visibleAspect`, `visibleWidthMillimeters` and
+/// `photoDelegates` on `sessionQueue`;
 /// `lastQualityCheck` and `qualityAnalyzer` on `videoQueue`.
 /// Everything else is immutable, and the stream's continuation is thread-safe.
 nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
@@ -33,7 +35,10 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
     private let photoOutput = AVCapturePhotoOutput()
     /// The photo output doesn't keep its delegates, so each capture's is held until it ends.
     private var photoDelegates: [Int64: PhotoCaptureDelegate] = [:]
-    private static let imageContext = CIContext()
+    /// Width over height of the part of the picture the camera view shows.
+    private var visibleAspect = 9.0 / 16.0
+    /// How wide that part is in real life, at the zoom the camera was started with.
+    private var visibleWidthMillimeters = CapturedPhoto.assumedWidthMillimeters
 
     override init() {
         (quality, qualityContinuation) = AsyncStream.makeStream(of: FrameQuality.self, bufferingPolicy: .bufferingNewest(1))
@@ -45,7 +50,9 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
     }
 
     /// Configures (once) and starts the camera. Returns false if no camera is available.
-    func start() async -> Bool {
+    /// - Parameter visibleAspect: Width over height of the camera view. The picture fills
+    ///   it, so this is the part of each photo the person sees and the part that is kept.
+    func start(visibleAspect: Double) async -> Bool {
         // Forget the last session's frames, so movement and sharpness start fresh.
         videoQueue.async { self.qualityAnalyzer = FrameQualityAnalyzer() }
         return await withCheckedContinuation { continuation in
@@ -53,8 +60,12 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
                 if !self.isConfigured {
                     self.isConfigured = self.configure()
                 }
-                if self.isConfigured && !self.session.isRunning {
-                    self.session.startRunning()
+                if self.isConfigured {
+                    // Before the session starts, so the very first frame is at final zoom.
+                    self.frame(for: visibleAspect)
+                    if !self.session.isRunning {
+                        self.session.startRunning()
+                    }
                 }
                 continuation.resume(returning: self.isConfigured)
             }
@@ -69,9 +80,9 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
         }
     }
 
-    /// Takes a photo and returns it upright for a phone held in portrait, or nil if the
-    /// camera isn't running or the capture failed.
-    func capturePhoto() async -> CGImage? {
+    /// Takes a photo, kept to the part the camera view showed, for a phone held in
+    /// portrait. Nil if the camera isn't running or the capture failed.
+    func capturePhoto() async -> CapturedPhoto? {
         await withCheckedContinuation { continuation in
             sessionQueue.async {
                 guard self.session.isRunning else {
@@ -79,21 +90,28 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
                     return
                 }
                 let settings = AVCapturePhotoSettings()
+                // A photo is the smallest size on offer unless it asks for more.
+                if self.photoOutput.maxPhotoDimensions.width > 0 {
+                    settings.maxPhotoDimensions = self.photoOutput.maxPhotoDimensions
+                }
                 let id = settings.uniqueID
+                let visibleAspect = self.visibleAspect, width = self.visibleWidthMillimeters
                 let delegate = PhotoCaptureDelegate { [weak self] image in
                     self?.sessionQueue.async { self?.photoDelegates[id] = nil }
-                    continuation.resume(returning: image.flatMap(Self.upright))
+                    // Photos arrive in the sensor's landscape orientation; `.right` is
+                    // how they turn upright.
+                    let photo = image.flatMap {
+                        CapturedPhoto(source: $0, orientation: .right, visibleAspect: visibleAspect, widthMillimeters: width)
+                    }
+                    if let photo {
+                        ScanLog.logger.info("photo kept \(Int(photo.size.width))x\(Int(photo.size.height)), \(photo.widthMillimeters, format: .fixed(precision: 1)) mm wide")
+                    }
+                    continuation.resume(returning: photo)
                 }
                 self.photoDelegates[id] = delegate
                 self.photoOutput.capturePhoto(with: settings, delegate: delegate)
             }
         }
-    }
-
-    /// Photos arrive in the sensor's landscape orientation; `.right` turns them upright.
-    private static func upright(_ image: CGImage) -> CGImage? {
-        let rotated = CIImage(cgImage: image).oriented(.right)
-        return imageContext.createCGImage(rotated, from: rotated.extent)
     }
 
     /// Focuses (and exposes) on a point in device coordinates, e.g. from a tap.
@@ -113,26 +131,30 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
         }
     }
 
-    /// Width of a few pills spread out, which we want to fill most of the preview: about
-    /// 7 cm, at ~80% of the width.
-    private static let pillsWidthMillimeters: Float = 70
-    private static let pillsFillFraction: Float = 0.8
-
-    /// If the camera can't focus close enough to fill the view with the pills, zoom in so
-    /// they fill it from a distance the camera can focus at (Apple's barcode-scanning
-    /// approach). People then naturally hold the phone where the pills are sharp.
-    private static func startingZoom(for device: AVCaptureDevice) -> CGFloat {
-        let horizontalFOV = device.activeFormat.videoFieldOfView   // landscape sensor, at zoom 1.0
-        let minimumFocus = Float(device.minimumFocusDistance)       // mm; -1 if unknown
-        guard horizontalFOV > 0, minimumFocus > 0 else { return 1 }
-
-        // In portrait the preview's width is the sensor's short side (16:9 frames).
-        let halfWidthTangent = tan(horizontalFOV / 2 * .pi / 180) * 9 / 16
-        // Distance at which the pills fill the target fraction of the width at zoom 1.0.
-        let fillDistance = (pillsWidthMillimeters / pillsFillFraction / 2) / halfWidthTangent
-        let focusZoom = CGFloat(minimumFocus / fillDistance)
-
-        return min(max(1, focusZoom), min(device.maxAvailableVideoZoomFactor, 3))
+    /// Zooms so the pills fill the part of the picture the camera view shows (see
+    /// `CameraFraming`). Runs on `sessionQueue`, after the session's format is set.
+    private func frame(for visibleAspect: Double) {
+        guard let device else { return }
+        let format = device.activeFormat
+        let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+        let minimumFocus = Double(device.minimumFocusDistance)   // mm; -1 if unknown
+        var framing = CameraFraming(
+            longSideFieldOfView: Double(format.videoFieldOfView),   // landscape sensor, at zoom 1.0
+            minimumFocusDistance: minimumFocus > 0 ? minimumFocus : nil,
+            visibleAspect: visibleAspect,
+            nativeZoomFactors: format.secondaryNativeResolutionZoomFactors.map { Double($0) },
+            maximumDeviceZoom: Double(device.maxAvailableVideoZoomFactor)
+        )
+        if dimensions.width > 0, dimensions.height > 0 {
+            framing.frameAspect = Double(min(dimensions.width, dimensions.height)) / Double(max(dimensions.width, dimensions.height))
+        }
+        self.visibleAspect = visibleAspect
+        visibleWidthMillimeters = framing.visibleWidthMillimeters
+        if (try? device.lockForConfiguration()) != nil {
+            device.videoZoomFactor = CGFloat(framing.zoom)
+            device.unlockForConfiguration()
+        }
+        ScanLog.logger.info("camera zoom \(framing.zoom, format: .fixed(precision: 2)), full-resolution factors \(framing.nativeZoomFactors), field of view \(framing.longSideFieldOfView, format: .fixed(precision: 1)), closest focus \(minimumFocus, format: .fixed(precision: 0)) mm, view \(framing.visibleWidthMillimeters, format: .fixed(precision: 1)) mm wide")
     }
 
     private func configure() -> Bool {
@@ -145,7 +167,8 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
         self.device = device
 
         session.beginConfiguration()
-        session.sessionPreset = .high
+        // Photo quality: the only preset whose photos are larger than a video frame.
+        session.sessionPreset = .photo
         let output = AVCaptureVideoDataOutput()
         output.alwaysDiscardsLateVideoFrames = true
         // Full-range brightness (0–255) for the quality checks; Vision reads either range.
@@ -162,10 +185,15 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
         session.addOutput(photoOutput)
         session.commitConfiguration()
 
-        // After the commit (which applies the preset's camera format, and can reset zoom)
-        // and before the session starts, so the very first frame is already at final zoom.
+        // After the commit, which applies the preset's camera format (and can reset zoom,
+        // which `frame(for:)` sets next): the photo sizes on offer are that format's. And
+        // before the session starts, as changing the size later rebuilds the pipeline.
+        let sizes = device.activeFormat.supportedMaxPhotoDimensions.map { PhotoSize(width: Int($0.width), height: Int($0.height)) }
+        if let best = PhotoSize.best(of: sizes) {
+            photoOutput.maxPhotoDimensions = CMVideoDimensions(width: Int32(best.width), height: Int32(best.height))
+        }
+        ScanLog.logger.info("photo sizes on offer \(sizes.map { "\($0.width)x\($0.height)" }), asking for up to \(self.photoOutput.maxPhotoDimensions.width)x\(self.photoOutput.maxPhotoDimensions.height)")
         if (try? device.lockForConfiguration()) != nil {
-            device.videoZoomFactor = Self.startingZoom(for: device)
             // Pills are photographed up close, so prefer near focus where supported.
             if device.isAutoFocusRangeRestrictionSupported {
                 device.autoFocusRangeRestriction = .near
@@ -209,6 +237,8 @@ nonisolated private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCa
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: (any Error)?) {
+        let size = photo.resolvedSettings.photoDimensions
+        ScanLog.logger.info("photo delivered \(size.width)x\(size.height)")
         completion(error == nil ? photo.cgImageRepresentation() : nil)
     }
 }

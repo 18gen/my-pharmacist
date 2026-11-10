@@ -65,6 +65,10 @@ struct RootView: View {
                         }
                     }
                 }
+                // Known before the camera is first opened: it zooms for this shape.
+                .onChange(of: proxy.size, initial: true) { _, size in
+                    scan.visibleAspect = ScanLayout.lensAspect(in: size)
+                }
             }
             .onChange(of: scan.scanner.captureStatus) { _, status in
                 announce(status)

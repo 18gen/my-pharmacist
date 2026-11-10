@@ -78,6 +78,9 @@ final class ScanFlow {
     private(set) var isOpen = false
     private(set) var phase: Phase = .aiming
     let scanner: ScannerModel
+    /// Width over height of the camera view, set by the screen that lays it out. The
+    /// camera zooms for it and photos are kept to it, so the photo is what the person saw.
+    @ObservationIgnored var visibleAspect = 9.0 / 16.0
 
     @ObservationIgnored private let store: MedicationStore
     @ObservationIgnored private var analyzer: PillPhotoAnalyzer
@@ -130,11 +133,12 @@ final class ScanFlow {
         phase = .finding(nil)
         checkTask = Task { [weak self] in
             guard let self else { return }
-            guard let photo = await scanner.capturePhoto(), !Task.isCancelled else {
+            guard let captured = await scanner.capturePhoto(), !Task.isCancelled else {
                 // The camera couldn't take it; aim again and let the next good moment retry.
                 aimAgain()
                 return
             }
+            let photo = captured.working
             // The camera is done: the photo it took shows in its place.
             scanner.stop()
             phase = .finding(photo)
@@ -209,14 +213,14 @@ final class ScanFlow {
         checkTask = nil
         phase = .aiming
         scanner.reset()
-        await scanner.start()
+        await scanner.start(visibleAspect: visibleAspect)
     }
 
     /// Starts or stops the camera to match `isOpen`. Each opening starts from "checking".
     func syncCamera() async {
         if isOpen {
             scanner.reset()
-            await scanner.start()
+            await scanner.start(visibleAspect: visibleAspect)
         } else {
             scanner.stop()
         }
