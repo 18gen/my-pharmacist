@@ -65,30 +65,21 @@ nonisolated enum PillFinder {
         }
         let rules = PillRules(pictureWidth: width, widthMillimeters: photo.widthMillimeters, capturedWidth: Int(photo.size.width))
 
-        // First way: Vision's objects. With none pill-sized (the hand took the pills
-        // with it, or nothing stood out), look again piece by piece, where the hand is
-        // the background.
-        var lift = lift(from: searched)
-        var usedTiles = false
-        if lift.ran, lift.objects.isEmpty {
-            usedTiles = true
-            lift.objects = liftInTiles(from: searched)
-        }
-
-        // Second way: colour, on the surface if Vision found one.
+        // First way: Vision's objects. Second way: colour, on the surface if Vision
+        // found one.
+        let (lift, usedTiles) = liftedObjects(in: searched)
         var settings = SurfaceOutliers.Settings()
         settings.blockSize = max(32, Int(surfaceSquareMillimeters * rules.pixelsPerMillimeter))
         let colour = SurfaceOutliers.find(in: picture, within: lift.surface, settings: settings)
 
         let (location, areas) = PillLocator.examine(lifted: lift.objects, colour: colour, rules: rules, pictureWidth: width, pictureHeight: height)
-        let took = ContinuousClock.now - started
         ScanLog.logger.info("""
             search \(width)x\(height) at \(rules.pixelsPerMillimeter, format: .fixed(precision: 1)) px/mm: \
             vision \(lift.ran ? "ran" : "failed") mask \(lift.maskWidth)x\(lift.maskHeight), \
             objects \(lift.shares.map { String(format: "%.2f%%", $0 * 100) }), surface \(lift.surface != nil), \
             tiles \(usedTiles), lifted \(lift.objects.count), colour \(colour.blobs.count) clear \(colour.faint.count) faint \
             reliable \(colour.isReliable) spread \(colour.spread) standing out \(colour.shareStandingOut, format: .fixed(precision: 3)) \
-            in \(colour.areas), took \(took)
+            in \(colour.areas), took \(ContinuousClock.now - started)
             """)
         log(areas, rules: rules)
 
@@ -107,24 +98,27 @@ nonisolated enum PillFinder {
             // Without Vision, an empty answer from colour alone isn't "no pills".
             return lift.ran ? .noPills : .failed
         case .found(let located):
-            var pills: [FoundPill] = []
-            for pill in located {
-                ScanLog.logger.info("""
-                    pill \(pills.count + 1): \(pill.shape.length / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) x \
-                    \(pill.shape.width / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) mm, \
-                    \(pill.shape.length * rules.capturedPixelsPerPixel, format: .fixed(precision: 0)) px in the photo, \
-                    fills \(pill.shape.solidity, format: .fixed(precision: 2)), found by \(pill.sources.rawValue)
-                    """)
-                // A pill that can't be cut out fails the whole search: leaving it out
-                // would show the rest as if they were all the pills there are.
-                guard let crop = cutOut(pill.blob, from: working, searchedWidth: width) else { return .failed }
-                pills.append(FoundPill(
-                    box: pill.blob.normalizedBounds(pictureWidth: width, pictureHeight: height),
-                    crop: crop, outline: pill.blob, shape: pill.shape,
-                    searchedSize: CGSize(width: width, height: height), sources: pill.sources))
+            // A pill that can't be cut out fails the whole search: leaving it out would
+            // show the rest as if they were all the pills there are.
+            let pills = located.compactMap { pill in
+                cutOut(pill.blob, from: working, searchedWidth: width).map { crop in
+                    FoundPill(box: pill.blob.normalizedBounds(pictureWidth: width, pictureHeight: height),
+                              crop: crop, outline: pill.blob, shape: pill.shape,
+                              searchedSize: CGSize(width: width, height: height), sources: pill.sources)
+                }
             }
-            return .found(pills)
+            return pills.count == located.count ? .found(pills) : .failed
         }
+    }
+
+    /// Vision's pill-sized objects. With none (the hand took the pills with it, or
+    /// nothing stood out), the picture is looked at again piece by piece, where the hand
+    /// is the background.
+    private static func liftedObjects(in picture: CGImage) -> (lift: Lift, usedTiles: Bool) {
+        var lift = lift(from: picture)
+        guard lift.ran, lift.objects.isEmpty else { return (lift, false) }
+        lift.objects = liftInTiles(from: picture)
+        return (lift, true)
     }
 
     /// One line for every area that was pill-sized, with the numbers the rules went by
@@ -137,6 +131,7 @@ nonisolated enum PillFinder {
             ScanLog.logger.info("""
                 area by \(area.sources.rawValue): \(area.shape.length / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) x \
                 \(area.shape.width / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) mm, \
+                \(area.shape.length * rules.capturedPixelsPerPixel, format: .fixed(precision: 0)) px in the photo, \
                 fills \(area.shape.solidity, format: .fixed(precision: 2)), dent \(dent, format: .fixed(precision: 2)), \
                 judged \(String(describing: area.verdict), privacy: .public), \(String(describing: area.outcome), privacy: .public)
                 """)
@@ -295,11 +290,8 @@ nonisolated enum PillFinder {
                           width: Double(blob.mask.width) * scale, height: Double(blob.mask.height) * scale)
             .integral.intersection(CGRect(x: 0, y: 0, width: working.width, height: working.height))
         guard rect.width > 0, rect.height > 0, let piece = working.cropping(to: rect), let outline = blob.mask.grayImage(),
-              let context = CGContext(data: nil, width: Int(rect.width), height: Int(rect.height), bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+              let context = CGContext.bitmap(width: Int(rect.width), height: Int(rect.height), transparent: true) else { return nil }
         let whole = CGRect(x: 0, y: 0, width: rect.width, height: rect.height)
-        context.interpolationQuality = .high
         context.clip(to: whole, mask: outline)
         context.draw(piece, in: whole)
         return context.makeImage()

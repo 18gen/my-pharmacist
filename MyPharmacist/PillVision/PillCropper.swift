@@ -47,10 +47,7 @@ nonisolated enum PillCropper {
         guard let piece = photo.region(wanted), let outline = grown.mask.dilated(by: margin).grayImage() else { return nil }
 
         let output = min(largestSide, max(smallestSide, Int(side.rounded())))
-        guard let context = CGContext(data: nil, width: output, height: output, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        context.interpolationQuality = .high
+        guard let context = CGContext.bitmap(width: output, height: output) else { return nil }
         context.setFillColor(gray: 0.5, alpha: 1)
         context.fill(CGRect(x: 0, y: 0, width: output, height: output))
 
@@ -93,10 +90,7 @@ nonisolated enum PillCropper {
         guard let piece = working.cropping(to: region) else { return nil }
         let scale = min(1, Double(overviewSide) / Double(max(region.width, region.height)))
         let outputWidth = max(1, Int(region.width * scale)), outputHeight = max(1, Int(region.height * scale))
-        guard let context = CGContext(data: nil, width: outputWidth, height: outputHeight, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        context.interpolationQuality = .high
+        guard let context = CGContext.bitmap(width: outputWidth, height: outputHeight) else { return nil }
         context.draw(piece, in: CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight))
 
         let fontSize = max(14, Double(min(outputWidth, outputHeight)) * 0.045)

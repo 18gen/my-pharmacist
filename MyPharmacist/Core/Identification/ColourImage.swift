@@ -25,9 +25,7 @@ nonisolated struct ColourImage: Sendable {
         guard width > 0, height > 0 else { return nil }
         var bytes = [UInt8](repeating: 0, count: width * height * 4)
         let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
-                                          bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                          bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+            guard let context = CGContext.bitmap(width: width, height: height, data: buffer.baseAddress) else { return false }
             context.interpolationQuality = .medium
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
             return true
@@ -40,9 +38,7 @@ nonisolated struct ColourImage: Sendable {
     func cgImage() -> CGImage? {
         var copy = bytes
         return copy.withUnsafeMutableBytes { buffer in
-            CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage()
+            CGContext.bitmap(width: width, height: height, data: buffer.baseAddress)?.makeImage()
         }
     }
 }

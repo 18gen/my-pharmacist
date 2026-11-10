@@ -75,10 +75,7 @@ nonisolated enum PillReferencePhoto {
     private static func scaled(_ image: CGImage, maxSide: Int) -> CGImage? {
         let scale = min(1, Double(maxSide) / Double(max(image.width, image.height)))
         let width = max(1, Int(Double(image.width) * scale)), height = max(1, Int(Double(image.height) * scale))
-        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        context.interpolationQuality = .high
+        guard let context = CGContext.bitmap(width: width, height: height, transparent: true) else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         return context.makeImage()
     }

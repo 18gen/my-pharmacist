@@ -117,10 +117,7 @@ nonisolated struct CapturedPhoto: Sendable {
 
     /// Draws `image` into a new picture of the given size, turned upright.
     private static func draw(_ image: CGImage, turned orientation: Orientation, width: Int, height: Int) -> CGImage? {
-        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        context.interpolationQuality = .high
+        guard let context = CGContext.bitmap(width: width, height: height) else { return nil }
         switch orientation {
         case .up:
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
