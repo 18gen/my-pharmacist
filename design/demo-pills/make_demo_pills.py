@@ -1,4 +1,5 @@
-"""Makes demo-pills-letter.pdf: the app's sample tablets at actual size on one US Letter
+"""Makes demo-pills-letter.pdf (the debug demos' pills) and sample-list-pills-letter.pdf
+(what "Load sample list" loads, for App Review): the app's sample tablets at actual size on one US Letter
 page, for printing and cutting out as demo pills.
 
 Each tablet is a fold pair: its front and its back side by side, mirrored about a dotted
@@ -25,7 +26,7 @@ from reportlab.pdfgen import canvas
 
 ROOT = Path(__file__).resolve().parents[2]
 PILLS = ROOT / "MyPharmacist" / "Resources" / "Assets.xcassets" / "Pills"
-OUT = Path(__file__).resolve().parent / "demo-pills-letter.pdf"
+HERE = Path(__file__).resolve().parent
 
 # Longest side of each tablet, from its FDA label (SPL "size", via RxNav) by NDC. The
 # pictures are ePillID's reference photos (NIH NLM), front and back.
@@ -35,6 +36,24 @@ TABLETS = [
     ("dexamethasone-1-5", "Dexamethasone", "1.5 mg", "8 AM", 6, 1, 2, 2),
     ("metoclopramide-10", "Metoclopramide", "10 mg", "8 AM and 8 PM", 8, 1, 2, 2),
     ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 9, 1, 2, 2),
+]
+
+# What "Load sample list" loads, for App Review: its photos are from NLM C3PI (four
+# per tablet; the front and back picked by eye). Xeloda's label gives 11 mm for both
+# strengths, and that is what is printed.
+SAMPLE_LIST = [
+    ("capecitabine-500", "Capecitabine", "500 mg", "12 AM and 8 PM", 11, 1, 3, 2),
+    ("dexamethasone-4", "Dexamethasone", "4 mg", "12 AM", 6, 1, 3, 2),
+    ("allopurinol-300", "Allopurinol", "300 mg", "8 AM", 11, 1, 2, 2),
+    ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 9, 1, 2, 2),
+]
+
+SHEETS = [
+    # (file, tablets, what the tablets are, where their photos come from)
+    ("demo-pills-letter.pdf", TABLETS, "demo pills",
+     "ePillID benchmark (NIH NLM Pillbox and Pill Image Recognition Challenge images)"),
+    ("sample-list-pills-letter.pdf", SAMPLE_LIST, "sample list pills",
+     "NIH NLM C3PI and ePillID images"),
 ]
 
 FOLD_GAP = 2 * mm      # from the fold line to each side's tablet edge
@@ -70,15 +89,15 @@ def tablet_extent(box, size_mm: float) -> tuple[float, float]:
     return (right - left) / longest * size_mm * mm, (bottom - top) / longest * size_mm * mm
 
 
-def main() -> None:
+def make_sheet(out: Path, tablets, title: str, photo_source: str) -> None:
     page_width, page_height = letter
-    c = canvas.Canvas(str(OUT), pagesize=letter)
-    c.setTitle("My Pharmacist demo pills")
+    c = canvas.Canvas(str(out), pagesize=letter)
+    c.setTitle(f"My Pharmacist {title}")
     c.setAuthor("My Pharmacist")
 
     y = page_height - MARGIN
     c.setFont("Helvetica-Bold", 17)
-    c.drawString(MARGIN, y - 4 * mm, "My Pharmacist · demo pills (actual size)")
+    c.drawString(MARGIN, y - 4 * mm, f"My Pharmacist · {title} (actual size)")
     y -= 11 * mm
 
     c.setFont("Helvetica", 9.5)
@@ -106,7 +125,7 @@ def main() -> None:
     c.drawString(MARGIN + 52 * mm, y - 1, "5 cm")
     y -= 10 * mm
 
-    for asset, name, strength, when, size_mm, front_side, back_side, rows in TABLETS:
+    for asset, name, strength, when, size_mm, front_side, back_side, rows in tablets:
         front, front_box = tablet(asset, front_side)
         back, back_box = tablet(asset, back_side)
         tablet_width, tablet_height = tablet_extent(front_box, size_mm)
@@ -147,11 +166,15 @@ def main() -> None:
     c.setFillColor(GREY)
     c.setFont("Helvetica", 7.5)
     c.drawString(MARGIN, MARGIN - 4 * mm,
-                 "Photos: ePillID benchmark (NIH NLM Pillbox and Pill Image Recognition Challenge images). "
-                 "Sizes: FDA labels via RxNorm.")
+                 f"Photos: {photo_source}. Sizes: FDA labels via RxNorm.")
     c.showPage()
     c.save()
-    print(f"Wrote {OUT.relative_to(ROOT)}")
+    print(f"Wrote {out.relative_to(ROOT)}")
+
+
+def main() -> None:
+    for file, tablets, title, photo_source in SHEETS:
+        make_sheet(HERE / file, tablets, title, photo_source)
 
 
 if __name__ == "__main__":
