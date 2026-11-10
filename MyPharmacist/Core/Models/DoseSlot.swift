@@ -14,7 +14,8 @@ nonisolated struct DoseSlot: Identifiable, Hashable, Sendable {
     let items: [ScheduledDose]
     let status: Status
 
-    var id: DoseTime { time }
+    /// Unique even when the same time of day shows for two days (around midnight).
+    var id: Date { scheduled }
 
     /// Where the slot stands, without counting hours: knowing a dose is "7 hr late" doesn't
     /// tell the person what to do.
@@ -22,7 +23,7 @@ nonisolated struct DoseSlot: Identifiable, Hashable, Sendable {
         /// Every dose in it was scanned; `at` is the last of those times.
         case done(at: Date)
         /// Its time is close, from `DoseSchedule.earlyWindow` before it until
-        /// `DoseSchedule.nowWindowAfter` after it.
+        /// `DoseSchedule.lateWindow` after it: the same window a pill counts in.
         case now
         /// Past that, with doses not scanned yet.
         case notScannedYet

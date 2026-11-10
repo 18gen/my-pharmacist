@@ -18,8 +18,8 @@ struct MedicationStoreTests {
     @Test func checkingPillsUsesTodaysSchedule() {
         let store = makeStore()
         let check = store.check([TestMedications.metformin, nil], now: morning)
-        #expect(check.verdicts == [.take(store.doses(on: morning).first { $0.id == "metformin-500@8:00" }!), .unidentified])
-        #expect(check.missing.map(\.id) == ["lisinopril-10@8:00"])
+        #expect(check.verdicts == [.take(store.doses(on: morning).first { $0.id == "2026-10-14|metformin-500@8:00" }!), .unidentified])
+        #expect(check.missing.map(\.id) == ["2026-10-14|lisinopril-10@8:00"])
         // Checking alone changes nothing.
         #expect(!store.todayList(now: morning).contains { $0.state.isScanned })
     }
@@ -38,12 +38,32 @@ struct MedicationStoreTests {
         #expect(slots.map(\.status.isFolded) == [false, true, true])
     }
 
+    @Test func justBeforeMidnightTheMidnightDoseIsDueNow() {
+        let midnight = Medication(id: "midnight", name: "Midnight", strength: "1 mg", doseTimes: [DoseTime(0)])
+        let store = MedicationStore(medications: [midnight], storage: InMemoryDoseLogStorage(), calendar: TestClock.calendar,
+                                    now: morning)
+        let lateEvening = TestClock.at(23, 30)
+        // Today's 12 AM slot is long past; tomorrow's is due now and shows as well.
+        let slots = store.todaySlots(now: lateEvening)
+        #expect(slots.map(\.status) == [.notScannedYet, .now])
+        #expect(store.hasDoseDueNow(now: lateEvening))
+        // A pill now counts for tomorrow's dose.
+        let check = store.check([midnight], now: lateEvening)
+        guard case .take(let dose) = check.verdicts.first else {
+            Issue.record("Expected to take tomorrow's 12 AM dose, got \(check.verdicts)")
+            return
+        }
+        #expect(dose.id == "2026-10-15|midnight@0:00")
+    }
+
     @Test func scannedDosesAreSavedAndCanBeRemoved() {
         let storage = InMemoryDoseLogStorage()
         let store = makeStore(storage)
         let dose = store.doses(on: morning)[0]
         store.recordScan(of: [dose], at: morning)
-        #expect(storage.log == ["2026-10-14|\(dose.id)": morning])
+        // Saved under the dose's id, which starts with its day.
+        #expect(storage.log == ["2026-10-14|lisinopril-10@8:00": morning])
+        #expect(dose.id == "2026-10-14|lisinopril-10@8:00")
 
         let reloaded = makeStore(storage)
         #expect(reloaded.todayList(now: morning).first { $0.id == dose.id }?.state == .scanned(at: morning))
@@ -121,7 +141,7 @@ struct MedicationListTests {
         // In order, each once.
         #expect(store.plan(for: TestMedications.metformin.id)?.doseTimes == [DoseTime(7, 30), DoseTime(21)])
         #expect(store.doses(on: morning).filter { $0.medication.id == TestMedications.metformin.id }.map(\.id)
-                == ["metformin-500@7:30", "metformin-500@21:00"])
+                == ["2026-10-14|metformin-500@7:30", "2026-10-14|metformin-500@21:00"])
     }
 
     @Test func setTimesWithNoneAreIgnored() {

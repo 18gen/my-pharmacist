@@ -9,10 +9,11 @@ import Foundation
 nonisolated enum DoseSchedule {
     /// "Now" means within 15 minutes either side of the dose time.
     static let dueWindow: TimeInterval = 15 * 60
-    /// A pill may count for a dose up to 1 hour before its time.
+    /// A pill may count for a dose from 1 hour before its time...
     static let earlyWindow: TimeInterval = 60 * 60
-    /// A time of day shows as "Now" from `earlyWindow` before it until this long after it.
-    static let nowWindowAfter: TimeInterval = 60 * 60
+    /// ...until 2 hours after it. Later than that the dose is missed: the app never says
+    /// to take it, because a late dose taken close to the next one can be a double dose.
+    static let lateWindow: TimeInterval = 2 * 60 * 60
 
     /// All of the given medications' doses on `day`, in time order.
     static func doses(for medications: [Medication], on day: Date, calendar: Calendar = .current) -> [Dose] {
@@ -20,6 +21,15 @@ nonisolated enum DoseSchedule {
             .flatMap { medication in
                 medication.doseTimes.map { Dose(medication: medication, time: $0, day: day, calendar: calendar) }
             }
+            .sorted { ($0.scheduled, $0.medication.name) < ($1.scheduled, $1.medication.name) }
+    }
+
+    /// The doses of the day before, the day and the day after `now`, in time order: enough
+    /// to judge a pill around midnight, when the dose it is for may be on another day.
+    static func doses(for medications: [Medication], around now: Date, calendar: Calendar = .current) -> [Dose] {
+        [-1, 0, 1]
+            .compactMap { calendar.date(byAdding: .day, value: $0, to: now) }
+            .flatMap { doses(for: medications, on: $0, calendar: calendar) }
             .sorted { ($0.scheduled, $0.medication.name) < ($1.scheduled, $1.medication.name) }
     }
 
@@ -41,27 +51,34 @@ nonisolated enum DoseSchedule {
         return items.filter { $0.state.isPending } + items.filter { $0.state.isScanned }
     }
 
-    /// Decides what a pill of `medication` counts for now. Never more than one dose.
-    /// If several unscanned doses could fit, it picks the one closest to now, so the dose
-    /// that is currently due is never left looking unscanned.
-    static func decision(for medication: Medication, dayDoses: [Dose], scannedAt: [String: Date], now: Date) -> DoseDecision {
-        let doses = dayDoses.filter { $0.medication.id == medication.id }
-        guard !doses.isEmpty else { return .notScheduledToday(medication) }
+    /// Decides what a pill of `medication` counts for now. Never more than one dose, and
+    /// never a dose outside its window:
+    /// 1. a dose not scanned yet, from `earlyWindow` before its time to `lateWindow`
+    ///    after it: take it (the latest, if several);
+    /// 2. otherwise the latest dose already past: scanned means this pill may have been
+    ///    taken already; not scanned means it is missed;
+    /// 3. otherwise the next dose: too early.
+    /// - Parameter doses: The doses around now (`doses(for:around:)`), so a dose just
+    ///   after midnight counts the evening before.
+    static func decision(for medication: Medication, doses: [Dose], scannedAt: [String: Date], now: Date) -> DoseDecision {
+        let states = withStates(doses.filter { $0.medication.id == medication.id }, scannedAt: scannedAt, now: now)
+        guard !states.isEmpty else { return .notScheduledToday(medication) }
 
-        let states = withStates(doses, scannedAt: scannedAt, now: now)
-
-        // The latest pending dose that is due, late, or at most `earlyWindow` away.
-        let checkable = states.filter {
-            $0.state.isPending && $0.dose.scheduled <= now.addingTimeInterval(earlyWindow)
+        let inWindow = states.filter {
+            $0.state.isPending
+                && $0.dose.scheduled >= now.addingTimeInterval(-lateWindow)
+                && $0.dose.scheduled <= now.addingTimeInterval(earlyWindow)
         }
-        if let dose = checkable.last?.dose {
+        if let dose = inWindow.last?.dose {
             return .take(dose)
         }
 
-        let next = states.first { $0.state.isPending }?.dose
-        let lastScanned = states.last { $0.state.isScanned }
-        if let lastScanned, case .scanned(let time) = lastScanned.state {
-            return .alreadyScanned(lastScanned.dose, at: time, next: next)
+        let next = states.first { $0.state.isPending && $0.dose.scheduled > now }?.dose
+        if let latest = states.last(where: { $0.dose.scheduled <= now }) {
+            if case .scanned(let time) = latest.state {
+                return .alreadyScanned(latest.dose, at: time, next: next)
+            }
+            return .missed(latest.dose, next: next)
         }
         if let next {
             return .tooEarly(next: next)
@@ -87,7 +104,7 @@ nonisolated enum DoseSchedule {
             } else if now < scheduled.addingTimeInterval(-earlyWindow) {
                 status = nextIsTaken ? .later : .next
                 nextIsTaken = true
-            } else if now <= scheduled.addingTimeInterval(nowWindowAfter) {
+            } else if now <= scheduled.addingTimeInterval(lateWindow) {
                 status = .now
             } else {
                 status = .notScannedYet

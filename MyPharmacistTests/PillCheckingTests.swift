@@ -17,7 +17,7 @@ struct PillSetVerifierTests {
     }
 
     private func check(_ identities: [Medication?], scannedAt: [String: Date] = [:], at hour: Int) -> PillSetCheck {
-        PillSetVerifier.check(identities, medications: medications, dayDoses: dayDoses, scannedAt: scannedAt, now: TestClock.at(hour))
+        PillSetVerifier.check(identities, medications: medications, doses: dayDoses, scannedAt: scannedAt, now: TestClock.at(hour))
     }
 
     @Test func theMorningPillsAreAllToTake() {
@@ -50,7 +50,7 @@ struct PillSetVerifierTests {
 
     @Test func anAsNeededPillIsLeftToThePerson() {
         let result = PillSetVerifier.check([TestMedications.ondansetron], medications: medications + [TestMedications.ondansetron],
-                                           dayDoses: dayDoses, scannedAt: [:], now: TestClock.at(8))
+                                           doses: dayDoses, scannedAt: [:], now: TestClock.at(8))
         #expect(result.verdicts == [.asNeeded(TestMedications.ondansetron)])
         #expect(result.dosesToTake.isEmpty)
     }
@@ -58,7 +58,7 @@ struct PillSetVerifierTests {
     @Test func anAsNeededMedicationIsNeverMissing() {
         let result = PillSetVerifier.check([TestMedications.metformin, TestMedications.lisinopril],
                                            medications: medications + [TestMedications.ondansetron],
-                                           dayDoses: dayDoses, scannedAt: [:], now: TestClock.at(8))
+                                           doses: dayDoses, scannedAt: [:], now: TestClock.at(8))
         #expect(result.missing.isEmpty)
     }
 

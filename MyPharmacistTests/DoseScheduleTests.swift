@@ -17,10 +17,10 @@ struct DoseScheduleTests {
 
     @Test func dosesAreInTimeThenNameOrder() {
         #expect(dayDoses.map(\.id) == [
-            "lisinopril-10@8:00",
-            "metformin-500@8:00",
-            "metformin-500@18:00",
-            "atorvastatin-20@21:00",
+            "2026-10-14|lisinopril-10@8:00",
+            "2026-10-14|metformin-500@8:00",
+            "2026-10-14|metformin-500@18:00",
+            "2026-10-14|atorvastatin-20@21:00",
         ])
         #expect(dayDoses[0].scheduled == TestClock.at(8))
     }
@@ -43,34 +43,34 @@ struct DoseScheduleTests {
         let lisinopril = dose(TestMedications.lisinopril, at: 8)
         let ordered = DoseSchedule.ordered(dayDoses, scannedAt: [lisinopril.id: TestClock.at(8)], now: TestClock.at(9))
         #expect(ordered.map(\.dose.id) == [
-            "metformin-500@8:00",
-            "metformin-500@18:00",
-            "atorvastatin-20@21:00",
-            "lisinopril-10@8:00",
+            "2026-10-14|metformin-500@8:00",
+            "2026-10-14|metformin-500@18:00",
+            "2026-10-14|atorvastatin-20@21:00",
+            "2026-10-14|lisinopril-10@8:00",
         ])
         #expect(ordered.last?.state.isScanned == true)
     }
 
     @Test func pillChecksADoseUpToAnHourEarly() {
-        let decision = DoseSchedule.decision(for: TestMedications.metformin, dayDoses: dayDoses, scannedAt: [:], now: TestClock.at(7, 30))
+        let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [:], now: TestClock.at(7, 30))
         #expect(decision == .take(dose(TestMedications.metformin, at: 8)))
     }
 
     @Test func pillTooEarlyPointsToTheNextDose() {
-        let decision = DoseSchedule.decision(for: TestMedications.metformin, dayDoses: dayDoses, scannedAt: [:], now: TestClock.at(6, 30))
+        let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [:], now: TestClock.at(6, 30))
         #expect(decision == .tooEarly(next: dose(TestMedications.metformin, at: 8)))
     }
 
     @Test func pillAfterTakingWarnsAndNamesTheNextDose() {
         let morning = dose(TestMedications.metformin, at: 8)
         let scannedAt = TestClock.at(8, 5)
-        let decision = DoseSchedule.decision(for: TestMedications.metformin, dayDoses: dayDoses, scannedAt: [morning.id: scannedAt], now: TestClock.at(9))
+        let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [morning.id: scannedAt], now: TestClock.at(9))
         #expect(decision == .alreadyScanned(morning, at: scannedAt, next: dose(TestMedications.metformin, at: 18)))
     }
 
     @Test func pillChecksTheDoseClosestToNow() {
         // Both the missed 8:00 and the current 18:00 dose are untaken; 18:00 wins.
-        let decision = DoseSchedule.decision(for: TestMedications.metformin, dayDoses: dayDoses, scannedAt: [:], now: TestClock.at(19))
+        let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [:], now: TestClock.at(19))
         #expect(decision == .take(dose(TestMedications.metformin, at: 18)))
     }
 
@@ -78,13 +78,58 @@ struct DoseScheduleTests {
         let morning = dose(TestMedications.metformin, at: 8)
         let evening = dose(TestMedications.metformin, at: 18)
         let scannedAt = [morning.id: TestClock.at(8), evening.id: TestClock.at(18)]
-        let decision = DoseSchedule.decision(for: TestMedications.metformin, dayDoses: dayDoses, scannedAt: scannedAt, now: TestClock.at(22))
+        let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: scannedAt, now: TestClock.at(22))
         #expect(decision == .alreadyScanned(evening, at: TestClock.at(18), next: nil))
+    }
+
+    @Test func aDoseCountsUpToTwoHoursLateThenItIsMissed() {
+        let morning = dose(TestMedications.metformin, at: 8)
+        #expect(DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [:], now: TestClock.at(10)) == .take(morning))
+        // A minute later it's too late: never OK to take, and the next dose is named.
+        #expect(DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [:], now: TestClock.at(10, 1))
+                == .missed(morning, next: dose(TestMedications.metformin, at: 18)))
+        // Hours later, still missed, not a late "take".
+        #expect(DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [:], now: TestClock.at(15))
+                == .missed(morning, next: dose(TestMedications.metformin, at: 18)))
+    }
+
+    /// Capecitabine-like: 12 AM and 8 PM, judged with the doses around now.
+    private let midnightMedication = Medication(id: "midnight", name: "Midnight", strength: "1 mg",
+                                                doseTimes: [DoseTime(0), DoseTime(20)])
+
+    private func midnightDecision(at now: Date, scannedAt: [String: Date] = [:]) -> DoseDecision {
+        let doses = DoseSchedule.doses(for: [midnightMedication], around: now, calendar: calendar)
+        return DoseSchedule.decision(for: midnightMedication, doses: doses, scannedAt: scannedAt, now: now)
+    }
+
+    private func midnightDose(hour: Int, dayOffset: Int) -> Dose {
+        Dose(medication: midnightMedication, time: DoseTime(hour), day: calendar.date(byAdding: .day, value: dayOffset, to: TestClock.day)!,
+             calendar: calendar)
+    }
+
+    @Test func aMidnightDoseCountsFromElevenTheEveningBefore() {
+        let evening = midnightDose(hour: 20, dayOffset: 0)
+        let tonight = midnightDose(hour: 0, dayOffset: 1)
+        // 11:30 PM, the 8 PM dose scanned: the pill is tomorrow's 12 AM dose.
+        #expect(midnightDecision(at: TestClock.at(23, 30), scannedAt: [evening.id: TestClock.at(20)]) == .take(tonight))
+        // 12:30 AM: the same dose, now on its own day.
+        let afterMidnight = calendar.date(byAdding: .minute, value: 30, to: tonight.scheduled)!
+        #expect(midnightDecision(at: afterMidnight, scannedAt: [evening.id: TestClock.at(20)]) == .take(tonight))
+    }
+
+    @Test func aMissedMidnightDoseIsNotTakenInTheAfternoon() {
+        // 3 PM with the 12 AM dose not scanned: missed, and the 8 PM dose is next.
+        #expect(midnightDecision(at: TestClock.at(15)) == .missed(midnightDose(hour: 0, dayOffset: 0), next: midnightDose(hour: 20, dayOffset: 0)))
+    }
+
+    @Test func dosesOnDifferentDaysHaveDifferentIDs() {
+        #expect(midnightDose(hour: 0, dayOffset: 0).id != midnightDose(hour: 0, dayOffset: 1).id)
+        #expect(midnightDose(hour: 0, dayOffset: 1).id == "2026-10-15|midnight@0:00")
     }
 
     @Test func pillOfAMedicationWithNoDosesToday() {
         let doses = DoseSchedule.doses(for: [TestMedications.lisinopril], on: TestClock.day, calendar: calendar)
-        let decision = DoseSchedule.decision(for: TestMedications.metformin, dayDoses: doses, scannedAt: [:], now: TestClock.at(8))
+        let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: doses, scannedAt: [:], now: TestClock.at(8))
         #expect(decision == .notScheduledToday(TestMedications.metformin))
     }
 }
@@ -109,11 +154,11 @@ struct DoseSlotTests {
     @Test func eachTimeOfDaySaysWhereItStandsWithoutCountingHours() {
         let result = slots(at: 8, 30)
         #expect(result.map(\.status) == [.now, .next, .later])
-        // From an hour before until an hour after.
+        // From an hour before until two hours after: the window a pill counts in.
         #expect(slots(at: 7, 0)[0].status == .now)
         #expect(slots(at: 6, 59)[0].status == .next)
-        #expect(slots(at: 9, 0)[0].status == .now)
-        #expect(slots(at: 9, 1)[0].status == .notScannedYet)
+        #expect(slots(at: 10, 0)[0].status == .now)
+        #expect(slots(at: 10, 1)[0].status == .notScannedYet)
     }
 
     @Test func aTimeOfDayIsDoneOnlyWhenEveryDoseInItIsScanned() {

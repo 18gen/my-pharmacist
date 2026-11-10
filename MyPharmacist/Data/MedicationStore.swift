@@ -79,9 +79,16 @@ final class MedicationStore {
         DoseSchedule.doses(for: medications, on: day, calendar: calendar)
     }
 
-    /// Today's doses grouped by time of day, earliest first, each group with where it stands.
+    /// Today's doses grouped by time of day, earliest first, each group with where it
+    /// stands. A time of day from the day before or after that is due now comes too: at
+    /// 11:30 PM the 12 AM dose is due, though it's tomorrow's.
     func todaySlots(now: Date) -> [DoseSlot] {
-        DoseSchedule.slots(doses(on: now), scannedAt: scanTimes(on: now), now: now)
+        let today = DoseSchedule.slots(doses(on: now), scannedAt: scanLog, now: now)
+        func dueNow(dayOffset: Int) -> [DoseSlot] {
+            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now) else { return [] }
+            return DoseSchedule.slots(doses(on: day), scannedAt: scanLog, now: now).filter { $0.status == .now }
+        }
+        return dueNow(dayOffset: -1) + today + dueNow(dayOffset: 1)
     }
 
     /// Whether a time of day is due now: the scan button turns blue.
@@ -96,8 +103,7 @@ final class MedicationStore {
 
     /// Today's doses in display order (pending first, earliest on top) with their states.
     func todayList(now: Date) -> [ScheduledDose] {
-        let doses = doses(on: now)
-        return DoseSchedule.ordered(doses, scannedAt: scanTimes(on: now), now: now)
+        DoseSchedule.ordered(doses(on: now), scannedAt: scanLog, now: now)
     }
 
     // MARK: The medication list
@@ -160,20 +166,21 @@ final class MedicationStore {
     /// Records that these doses' pills were scanned, OK to take, at `time`.
     func recordScan(of doses: [Dose], at time: Date = Date()) {
         for dose in doses {
-            scanLog[key(for: dose)] = time
+            scanLog[dose.id] = time
         }
     }
 
     func removeScans(of doses: [Dose]) {
         for dose in doses {
-            scanLog[key(for: dose)] = nil
+            scanLog[dose.id] = nil
         }
     }
 
     /// Decides which of the pills in a photo to take now, given what each was recognized as.
     func check(_ identities: [Medication?], now: Date = Date()) -> PillSetCheck {
-        PillSetVerifier.check(identities, medications: medications, dayDoses: doses(on: now),
-                              scannedAt: scanTimes(on: now), now: now)
+        PillSetVerifier.check(identities, medications: medications,
+                              doses: DoseSchedule.doses(for: medications, around: now, calendar: calendar),
+                              scannedAt: scanLog, now: now)
     }
 
     // MARK: Storage
@@ -201,25 +208,6 @@ final class MedicationStore {
                 asNeeded: plan.isAsNeeded ? (entry.asNeeded ?? defaultAsNeeded) : nil
             )
         }
-    }
-
-    /// The given day's scan times keyed by `Dose.id`.
-    private func scanTimes(on day: Date) -> [String: Date] {
-        let prefix = Self.dayKey(day, calendar: calendar) + "|"
-        var result: [String: Date] = [:]
-        for (key, time) in scanLog where key.hasPrefix(prefix) {
-            result[String(key.dropFirst(prefix.count))] = time
-        }
-        return result
-    }
-
-    private func key(for dose: Dose) -> String {
-        Self.dayKey(dose.scheduled, calendar: calendar) + "|" + dose.id
-    }
-
-    private static func dayKey(_ date: Date, calendar: Calendar) -> String {
-        let parts = calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
     private func save() {

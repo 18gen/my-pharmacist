@@ -9,11 +9,14 @@ import Foundation
 nonisolated enum DoseDecision: Hashable, Sendable {
     /// This pill is the dose to take now.
     case take(Dose)
-    /// Every dose due so far was already scanned, so this pill may have been taken
-    /// already; `next` is the next dose today, if any.
+    /// The latest dose was already scanned, so this pill may have been taken already;
+    /// `next` is the next dose, if any.
     case alreadyScanned(Dose, at: Date, next: Dose?)
-    /// Nothing scanned yet and the first dose is more than `earlyWindow` away.
+    /// The latest dose wasn't scanned and is more than `DoseSchedule.lateWindow` past:
+    /// too late to take it now without asking. `next` is the next dose, if any.
+    case missed(Dose, next: Dose?)
+    /// No dose has passed yet and the next is more than `earlyWindow` away.
     case tooEarly(next: Dose)
-    /// The medication has no doses scheduled today.
+    /// The medication has no doses scheduled around now.
     case notScheduledToday(Medication)
 }

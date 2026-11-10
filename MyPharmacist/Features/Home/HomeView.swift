@@ -75,7 +75,7 @@ struct HomeView: View {
     }
 
     private func isOpen(_ slot: DoseSlot) -> Binding<Bool> {
-        let key = "\(slot.time.hour):\(slot.time.minute) \(slot.status)"
+        let key = "\(slot.scheduled.timeIntervalSince1970) \(slot.status)"
         return Binding(
             get: { openSlots.contains(key) },
             set: { open in

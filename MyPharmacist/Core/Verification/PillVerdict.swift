@@ -11,6 +11,9 @@ nonisolated enum PillVerdict: Hashable, Sendable {
     case take(Dose)
     /// This dose was scanned before, so the pill may have been taken already.
     case alreadyScanned(Dose, at: Date, next: Dose?)
+    /// The dose it would count for is more than two hours past: too late to take it now
+    /// without asking a pharmacist.
+    case missed(Dose, next: Dose?)
     case tooEarly(next: Dose)
     case notScheduledToday(Medication)
     /// Another pill of a medication already counted in this photo: one pill per dose.
@@ -29,6 +32,7 @@ nonisolated enum PillVerdict: Hashable, Sendable {
         switch decision {
         case .take(let dose): self = .take(dose)
         case .alreadyScanned(let dose, let time, let next): self = .alreadyScanned(dose, at: time, next: next)
+        case .missed(let dose, let next): self = .missed(dose, next: next)
         case .tooEarly(let next): self = .tooEarly(next: next)
         case .notScheduledToday(let medication): self = .notScheduledToday(medication)
         }

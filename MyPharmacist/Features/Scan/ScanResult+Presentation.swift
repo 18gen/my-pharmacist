@@ -70,7 +70,7 @@ extension PillVerdict {
         case .take: .ok
         case .asNeeded: .caution
         case .unidentified: .unknown
-        case .alreadyScanned, .tooEarly, .notScheduledToday, .extra: .dontTake
+        case .alreadyScanned, .missed, .tooEarly, .notScheduledToday, .extra: .dontTake
         }
     }
 
@@ -79,6 +79,7 @@ extension PillVerdict {
         switch self {
         case .take(let dose): "\(dose.scheduled.shortTime) dose"
         case .alreadyScanned(_, let time, _): "Scanned at \(time.shortTime). You may have taken it."
+        case .missed(let dose, _): "Too late for the \(dose.scheduled.shortTime) dose. Ask your pharmacist."
         case .tooEarly(let next): "Next dose at \(next.scheduled.shortTime)"
         case .notScheduledToday: "Not for today"
         case .extra: "One is enough"
