@@ -8,8 +8,8 @@ import SwiftUI
 /// The results page, once the camera is off: the photo with each pill ringed in its
 /// colour, every pill grouped by what to do with it, most serious first, and one large
 /// button for what comes next. When a pill should go back, that button is "Scan again",
-/// so whatever is taken in the end has been checked as a whole. Tapping a pill's row
-/// picks it out in the photo, for pills that look alike.
+/// so whatever is taken in the end has been checked as a whole, with a smaller "Close"
+/// beside it. Tapping a pill's row picks it out in the photo, for pills that look alike.
 struct PillResultsView: View {
     let result: PillScanResult
     let onDone: () -> Void
@@ -52,17 +52,41 @@ struct PillResultsView: View {
     @ViewBuilder
     private var nextStep: some View {
         if result.needsRescan {
-            VStack(spacing: 4) {
-                WideButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
-                    .accessibilityHint(result.putBackCount > 0 ? "Put back the pills not to take first" : "Spread the pills apart first")
-                Button("Close", action: onDone)
-                    .font(.title3)
-                    .foregroundStyle(Palette.textPrimary)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+            // One row while both fit; at the largest text sizes, one above the other.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    scanAgainButton
+                    closeButton
+                }
+                VStack(spacing: 8) {
+                    scanAgainButton
+                    closeButton
+                }
             }
         } else {
             WideButton(title: "Done", systemImage: "checkmark", action: onDone)
         }
+    }
+
+    private var scanAgainButton: some View {
+        WideButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
+            .accessibilityHint(result.putBackCount > 0 ? "Put back the pills not to take first" : "Spread the pills apart first")
+    }
+
+    /// Second to "Scan again": grey, and only as wide as its word.
+    private var closeButton: some View {
+        Button(action: onDone) {
+            Text("Close")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Palette.textPrimary)
+                .frame(minHeight: 34)
+                .padding(.horizontal, 6)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .controlSize(.large)
+        .tint(Palette.textMuted)
+        .fixedSize()
     }
 }
 
