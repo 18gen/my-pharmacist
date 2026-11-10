@@ -99,7 +99,33 @@ struct PillLocatorTests {
     }
 
     @Test func pillsTooSmallToReadNeedThePhoneCloser() {
-        #expect(locate(lifted: blobs([(100, 200, 4), (200, 300, 4)])) == .unclear(.tooFar))
+        #expect(locate(lifted: blobs([(100, 200, 5), (200, 300, 5)])) == .unclear(.tooFar))
+    }
+
+    @Test func whatColourAloneFindsHasToLookLikeAPill() {
+        // Skin has creases, blotches and gaps between fingers that differ in colour too.
+        var crease = PixelMask(width: width, height: height)
+        for x in 40..<120 {
+            for y in 300..<306 { crease[x, y] = true }
+        }
+        // A ragged blotch: three small areas joined in an L.
+        let blotch = blobs([(200, 400, 8), (212, 400, 8), (212, 412, 8), (212, 424, 8), (224, 424, 8)])
+        let speck = blobs([(300, 100, 4)])
+        let atEdge = blobs([(6, 500, 14)])
+        #expect(locate(colour: crease.blobs() + blotch + speck + atEdge) == .noPills)
+        // The same things beside a real pill don't spoil it.
+        #expect(pills(locate(colour: crease.blobs() + blotch + speck + atEdge + blobs([(250, 250, 14)]))).count == 1)
+    }
+
+    @Test func touchingPillsFoundByColourAloneAreCutApartOrFlagged() {
+        #expect(pills(locate(colour: blobs([(100, 200, 16), (130, 200, 16)]))).count == 2)
+        #expect(locate(colour: blobs([(100, 200, 16), (122, 200, 16)])) == .unclear(.touching))
+    }
+
+    @Test func aPillWithItsShadowFoundByColourIsStillOnePill() {
+        // The shadow is a small piece beside the pill that isn't a pill by itself.
+        let found = pills(locate(colour: blobs([(100, 200, 16), (122, 206, 5)])))
+        #expect(found.count == 1)
     }
 
     @Test func colourOnAPatternedSurfaceIsIgnored() {

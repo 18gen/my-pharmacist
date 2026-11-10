@@ -38,7 +38,7 @@ nonisolated enum SurfaceOutliers {
         /// More of the surface than this standing out, or more separate areas, means
         /// the surface is patterned and colour says nothing.
         var mostShare = 0.3
-        var mostAreas = 40
+        var mostAreas = 80
     }
 
     struct Result: Sendable {
@@ -48,6 +48,11 @@ nonisolated enum SurfaceOutliers {
         let faint: [Blob]
         /// False when the surface is too patterned for colour to mean anything.
         let isReliable: Bool
+        /// For tuning: how much the surface itself varies (lightness, green–red,
+        /// blue–yellow), the share of it that stood out, and in how many areas.
+        var spread: [Float] = []
+        var shareStandingOut = 0.0
+        var areas = 0
     }
 
     /// - Parameter region: Where the surface is (a hand, say); nil for the whole picture.
@@ -122,6 +127,9 @@ nonisolated enum SurfaceOutliers {
                 // is a shadow or a crease.
                 let lighter = lightnessOff[index] / lightnessSpread
                 let score = max(colour, lighter)
+                // Darker than the surface and only somewhat off in colour is a shadow,
+                // such as the one a pill casts beside itself. A dark pill is clearly off.
+                if lighter < -1, colour <= clearLimit { continue }
                 if score > differentLimit {
                     differs[index] = 1
                     clearly[index] = score > clearLimit
@@ -157,7 +165,9 @@ nonisolated enum SurfaceOutliers {
             }
         }
         let isReliable = Double(standingOut) <= settings.mostShare * Double(insideCount) && all.count <= settings.mostAreas
-        return Result(blobs: blobs, faint: faint, isReliable: isReliable)
+        return Result(blobs: blobs, faint: faint, isReliable: isReliable,
+                      spread: [lightnessSpread, greenRedSpread, blueYellowSpread],
+                      shareStandingOut: Double(standingOut) / Double(insideCount), areas: all.count)
     }
 
     /// A spread that a few far-off values don't change: 1.4826 × the middle absolute

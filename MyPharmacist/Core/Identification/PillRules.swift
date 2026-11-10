@@ -31,7 +31,7 @@ nonisolated struct PillRules: Sendable {
     var smallestPill = 3.0
     /// The phone may be held this much further away than its closest: pills then look
     /// this share of their closest size.
-    var farthest = 0.4
+    var farthest = 0.6
     /// The largest tablets and capsules are about 23 mm long.
     var longestPill = 24.0
     /// An area narrower than this share of its length is a line (a crease, an edge).
@@ -39,8 +39,12 @@ nonisolated struct PillRules: Sendable {
     /// One pill fills nearly all of its convex outline; two touching fill about 88%.
     var leastSolidity = 0.93
     /// Or have a dent where they meet, deeper than this share of the radius of a circle
-    /// the area's size.
+    /// the area's size, while not quite filling their outline (two capsules side by
+    /// side fill 96% of theirs). A rough edge on a single pill dents less deeply than
+    /// `certainDent`, and a dent that deep is two pills whatever else.
     var deepestDent = 0.15
+    var dentedSolidity = 0.965
+    var certainDent = 0.3
     /// Closer to the photo's edge than this share of its shorter side counts as cut off.
     var edgeMargin = 0.01
     /// A pill shorter than this in the full-size photo is too small for its markings.
@@ -48,6 +52,12 @@ nonisolated struct PillRules: Sendable {
     /// A cut between two pills is short. One longer than this many times the narrower
     /// piece's width runs through a single pill.
     var longestCut = 0.8
+    /// Touching pills still fill most of their outline. An area found by colour alone
+    /// that fills less than this is a crease, a shadow or a blotch on the skin.
+    var leastJoinedSolidity = 0.78
+    /// Something that barely differs from the surface is taken for a possible pill only
+    /// if it is this round: at least this wide for its length.
+    var leastFaintWidth = 0.5
     /// More areas than this is a cluttered picture, not a handful of pills.
     var mostPills = 12
 
@@ -66,15 +76,19 @@ nonisolated struct PillRules: Sendable {
 
     func judge(_ shape: BlobShape, bounds: CGRect, pictureWidth: Int, pictureHeight: Int) -> Verdict {
         guard shape.length >= smallestPill * farthest * pixelsPerMillimeter else { return .notAPill }
-        guard shape.width >= thinnest * shape.length else { return .notAPill }
-        let looksJoined = shape.solidity < leastSolidity || shape.deepestDent > deepestDent * shape.equivalentRadius
+        guard shape.width >= thinnest * shape.length, shape.width >= smallestPill * farthest * pixelsPerMillimeter else { return .notAPill }
+        let dent = shape.deepestDent / max(1, shape.equivalentRadius)
+        let looksJoined = shape.solidity < leastSolidity || dent > certainDent
+            || (dent > deepestDent && shape.solidity < dentedSolidity)
         // Nothing sharp is closer than the closest distance, so a single thing longer
         // than the longest pill at that distance is something else (a coin, a ring).
-        if shape.length > longestPill * pixelsPerMillimeter, !looksJoined { return .notAPill }
+        let tooLong = shape.length > longestPill * pixelsPerMillimeter
+        if tooLong, !looksJoined { return .notAPill }
         let margin = edgeMargin * Double(min(pictureWidth, pictureHeight))
         if bounds.minX < margin || bounds.minY < margin
             || bounds.maxX > Double(pictureWidth) - margin || bounds.maxY > Double(pictureHeight) - margin {
-            return .cutOff
+            // Something long running off the photo is a sleeve or the table, not a pill.
+            return tooLong ? .notAPill : .cutOff
         }
         return looksJoined ? .touching : .pill
     }
@@ -82,5 +96,11 @@ nonisolated struct PillRules: Sendable {
     /// Whether a pill is large enough in the full-size photo for its markings to be read.
     func isReadable(_ shape: BlobShape) -> Bool {
         shape.length * capturedPixelsPerPixel >= leastCapturedLength
+    }
+
+    /// Whether an area is as wide as a readable pill is long: what colour alone found
+    /// has to be, as creases and the gaps between fingers are long but narrow.
+    func isWide(_ shape: BlobShape) -> Bool {
+        shape.width * capturedPixelsPerPixel >= leastCapturedLength
     }
 }

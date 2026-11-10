@@ -63,28 +63,40 @@ nonisolated enum PillLocator {
         }
         candidates += coloured.indices.filter { !usedColour.contains($0) }.map { (coloured[$0], .colour) }
 
+        // Skin has creases, shadows and blotches that differ from the skin around them
+        // too. So what colour alone found has to look like a pill to count: large enough
+        // to read, and whole. Vision's objects are taken at their word.
         var pills: [LocatedPill] = []
         var reasons = Set<RetakeReason>()
         for candidate in candidates {
+            let byColourAlone = candidate.sources == .colour
+            let shape = BlobShape(candidate.blob)
             switch judge(candidate.blob) {
             case .notAPill:
                 continue
             case .cutOff:
-                reasons.insert(.cutOff)
+                // At the photo's edge colour mostly finds what is beside the hand.
+                if !byColourAlone { reasons.insert(.cutOff) }
             case .pill:
-                pills.append(LocatedPill(blob: candidate.blob, shape: BlobShape(candidate.blob), sources: candidate.sources))
+                if byColourAlone, !rules.isWide(shape) { continue }
+                pills.append(LocatedPill(blob: candidate.blob, shape: shape, sources: candidate.sources))
             case .touching:
-                guard let parts = cutApart(candidate.blob, rules: rules, judge: judge) else {
+                if let parts = cutApart(candidate.blob, rules: rules, judge: judge, allowingScraps: byColourAlone),
+                   !byColourAlone || parts.allSatisfy({ rules.isWide(BlobShape($0)) }) {
+                    pills += parts.map { LocatedPill(blob: $0, shape: BlobShape($0), sources: candidate.sources) }
+                } else if !byColourAlone || (shape.solidity >= rules.leastJoinedSolidity && rules.isWide(shape)
+                                             && hasPillPiece(candidate.blob, shape: shape, judge: judge)) {
                     reasons.insert(.touching)
-                    continue
                 }
-                pills += parts.map { LocatedPill(blob: $0, shape: BlobShape($0), sources: candidate.sources) }
             }
         }
-        // Something pill-shaped that barely differs from the surface, where no pill was
-        // found: it may be one, and its edge can't be trusted either way.
+        // Something round and pill-sized that barely differs from the surface, where no
+        // pill was found: it may be one, and its edge can't be trusted either way.
         for area in faint where judge(area) == .pill && !pills.contains(where: { overlap($0.blob, area) }) {
-            reasons.insert(.hardToSee)
+            let shape = BlobShape(area)
+            if rules.isWide(shape), shape.width >= rules.leastFaintWidth * shape.length {
+                reasons.insert(.hardToSee)
+            }
         }
         if pills.contains(where: { !rules.isReadable($0.shape) }) {
             reasons.insert(.tooFar)
@@ -108,16 +120,32 @@ nonisolated enum PillLocator {
     /// The single pills an area of touching pills is made of, or nil when it can't be
     /// cut apart cleanly: a piece that isn't a pill by itself, or a cut too long to be
     /// where two pills merely touch.
-    private static func cutApart(_ blob: Blob, rules: PillRules, judge: (Blob) -> PillRules.Verdict) -> [Blob]? {
+    /// - Parameter allowingScraps: For an area found by colour, which can include the
+    ///   shadow a pill casts beside itself: small pieces that aren't pills are dropped
+    ///   instead of spoiling the cut.
+    private static func cutApart(_ blob: Blob, rules: PillRules, judge: (Blob) -> PillRules.Verdict, allowingScraps: Bool) -> [Blob]? {
         let shape = BlobShape(blob)
         // A pill's middle is about half its width from its edge; a fifth of that is
         // more than a wavy edge makes.
         let split = BlobSplitter.split(blob, minimumRise: max(2, 0.2 * shape.width / 2))
         guard split.parts.count > 1 else { return nil }
-        guard split.parts.allSatisfy({ judge($0) == .pill }) else { return nil }
-        let narrowest = split.parts.map { BlobShape($0).width }.min() ?? 0
+        var parts = split.parts
+        if allowingScraps {
+            let largest = parts.map(\.mask.count).max() ?? 0
+            parts.removeAll { judge($0) != .pill && $0.mask.count * 4 < largest }
+        }
+        guard !parts.isEmpty, parts.allSatisfy({ judge($0) == .pill }) else { return nil }
+        let narrowest = parts.map { BlobShape($0).width }.min() ?? 0
         guard Double(split.longestCut) <= rules.longestCut * narrowest else { return nil }
-        return split.parts
+        return parts
+    }
+
+    /// Whether an area found by colour may be pills touching: some piece of it is a pill
+    /// by itself, or it has no narrow place to cut at yet nearly fills its outline, as a
+    /// pill with its shadow does. A ring or the gap between two fingers does neither.
+    private static func hasPillPiece(_ blob: Blob, shape: BlobShape, judge: (Blob) -> PillRules.Verdict) -> Bool {
+        let parts = BlobSplitter.split(blob, minimumRise: max(2, 0.2 * shape.width / 2)).parts
+        return parts.count > 1 ? parts.contains { judge($0) == .pill } : shape.solidity >= 0.88
     }
 
     /// Whether two areas are the same thing: they share more than three tenths of the
