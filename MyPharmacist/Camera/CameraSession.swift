@@ -86,8 +86,8 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
     /// portrait. Nil if the camera isn't running or the capture failed.
     func capturePhoto() async -> CapturedPhoto? {
         await withCheckedContinuation { continuation in
-            sessionQueue.async {
-                guard self.session.isRunning else {
+            sessionQueue.async { [weak self] in
+                guard let self, self.session.isRunning else {
                     continuation.resume(returning: nil)
                     return
                 }
@@ -98,8 +98,12 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
                 }
                 let id = settings.uniqueID
                 let visibleAspect = self.visibleAspect, width = self.visibleWidthMillimeters
+                // Weak: `photoDelegates` holds the delegate until the photo arrives, and
+                // the delegate must not hold the session in turn.
                 let delegate = PhotoCaptureDelegate { [weak self] image in
-                    self?.sessionQueue.async { self?.photoDelegates[id] = nil }
+                    if let session = self {
+                        session.sessionQueue.async { session.photoDelegates[id] = nil }
+                    }
                     // Photos arrive in the sensor's landscape orientation; `.right` is
                     // how they turn upright.
                     let photo = image.flatMap {
