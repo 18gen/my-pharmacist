@@ -18,7 +18,7 @@ enum ScanPreview {
     @MainActor
     static func screen(_ phase: ScanFlow.Phase, status: QualityGate.Status = .checking,
                        hasLight: Bool = true, isLightOn: Bool = false) -> some View {
-        let store = MedicationStore(startingIDs: SampleMedications.startingIDs, storage: InMemoryDoseLogStorage())
+        let store = MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
         let scan = ScanFlow(store: store)
         scan.showForPreview(phase)
         scan.scanner.showForPreview(status: status, hasLight: hasLight, isLightOn: isLightOn)

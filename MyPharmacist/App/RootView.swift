@@ -20,13 +20,24 @@ struct RootView: View {
     /// One of the accessibility text sizes: the instruction gets more room.
     private var largeText: Bool { typeSize.isAccessibilitySize }
 
-    /// - Parameter scan: A scan already in some step, for previews; nil for a new one.
-    init(store: MedicationStore = MedicationStore(startingIDs: SampleMedications.startingIDs,
-                                                  restorePlans: SampleMedications.restorePlans,
-                                                  listStorage: UserDefaultsMedicationListStorage()),
-         scan: ScanFlow? = nil) {
+    /// - Parameters:
+    ///   - store: The person's medications and scans; the one saved on the device unless
+    ///     given.
+    ///   - scan: A scan already in some step, for previews; nil for a new one.
+    init(store: MedicationStore = RootView.savedStore(), scan: ScanFlow? = nil) {
         _store = State(initialValue: store)
         _scan = State(initialValue: scan ?? ScanFlow(store: store))
+    }
+
+    /// The list and scans saved on the device. Debug demos use the demo medications in
+    /// memory instead, leaving the saved list alone.
+    static func savedStore() -> MedicationStore {
+        #if DEBUG
+        if DemoScan.isRequested {
+            return MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
+        }
+        #endif
+        return MedicationStore(listStorage: UserDefaultsMedicationListStorage())
     }
 
     var body: some View {
@@ -111,6 +122,7 @@ struct RootView: View {
             #if DEBUG
             .onAppear {
                 if DemoScan.isRequested { DemoScan.run(in: scan) }
+                if let pages = DemoScan.pages { path = pages }
             }
             #endif
             // Home has its own header instead of a navigation bar.
@@ -124,10 +136,11 @@ struct RootView: View {
                 case .medications:
                     MedicationsPage(store: store)
                 case .medication(let id):
-                    if let entry = store.catalogEntry(id) {
-                        MedicationEditor(store: store, entry: entry, mode: .edit,
-                                         onRemoved: { path.removeAll { $0 == route } })
+                    if let entry = store.entry(id) {
+                        MedicationEditor(store: store, entry: entry, onDone: { path.removeAll { $0 == route } })
                     }
+                case .newMedication:
+                    MedicationEditor(store: store, onDone: { path.removeAll { $0 == route } })
                 }
             }
         }

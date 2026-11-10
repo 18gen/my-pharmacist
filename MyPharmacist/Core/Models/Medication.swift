@@ -14,9 +14,9 @@ nonisolated struct Medication: Identifiable, Hashable, Sendable {
     let doseTimes: [DoseTime]
     /// What the tablet looks like, for people: "Pink oval · XELODA / 500".
     var appearance: String = ""
-    /// Asset names of reference photos of the tablet, both sides. The first is the one
-    /// shown in lists; all of them are compared against scanned pills.
-    var photos: [String] = []
+    /// Reference photos of the tablet, both sides. The first is the one shown in lists;
+    /// all of them are compared against scanned pills.
+    var photos: [MedicationPhoto] = []
     /// What it's for, in the person's words: "Cancer treatment". People often know their
     /// medications by this rather than by name.
     var purpose: String = ""

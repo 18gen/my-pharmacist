@@ -15,7 +15,7 @@ struct CameraLensLayoutTests {
 
     /// The camera view drawn in `phase`, as an image at 1 pixel per point.
     private func render(_ phase: ScanFlow.Phase) throws -> CGImage {
-        let store = MedicationStore(startingIDs: SampleMedications.startingIDs, storage: InMemoryDoseLogStorage())
+        let store = MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
         let scan = ScanFlow(store: store)
         scan.showForPreview(phase)
         scan.scanner.showForPreview(status: .checking, hasLight: false)

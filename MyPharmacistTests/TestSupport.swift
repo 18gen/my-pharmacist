@@ -84,3 +84,9 @@ func pixel(of image: CGImage, x: Int, y: Int) -> (red: Int, green: Int, blue: In
     let index = (y * image.width + x) * 4
     return (Int(bytes[index]), Int(bytes[index + 1]), Int(bytes[index + 2]))
 }
+
+/// A photo store in a new temporary folder, so tests never touch the app's photos.
+func temporaryPhotoStore() -> MedicationPhotoStore {
+    MedicationPhotoStore(directory: FileManager.default.temporaryDirectory
+        .appending(path: "MyPharmacistTests-\(UUID().uuidString)", directoryHint: .isDirectory))
+}

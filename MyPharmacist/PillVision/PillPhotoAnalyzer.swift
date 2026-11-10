@@ -83,7 +83,7 @@ actor PillPhotoAnalyzer {
         if let cloudCandidates { return cloudCandidates }
         let candidates = medications.map { medication in
             let description = [medication.displayName, medication.appearance].filter { !$0.isEmpty }.joined(separator: " · ")
-            let photos = medication.photos.compactMap { UIImage(named: $0)?.cgImage }.compactMap { OpenAIPillIdentifier.jpeg($0, maxSide: 256) }
+            let photos = medication.photos.compactMap { MedicationPhotoStore.standard.image($0)?.cgImage }.compactMap { OpenAIPillIdentifier.jpeg($0, maxSide: 256) }
             return OpenAIPillIdentifier.Candidate(id: medication.id, description: description, photos: photos)
         }
         cloudCandidates = candidates
@@ -109,8 +109,9 @@ actor PillPhotoAnalyzer {
         if let references { return references }
         var loaded: [(medicationID: String, print: VNFeaturePrintObservation)] = []
         for medication in medications {
-            for name in medication.photos {
-                guard let image = UIImage(named: name)?.cgImage, let print = Self.featurePrint(of: image, padding: 1) else { continue }
+            for photo in medication.photos {
+                guard let image = MedicationPhotoStore.standard.image(photo)?.cgImage,
+                      let print = Self.featurePrint(of: image, padding: 1) else { continue }
                 loaded.append((medication.id, print))
             }
         }

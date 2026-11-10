@@ -6,14 +6,13 @@
 import SwiftUI
 
 /// "My Medications": every medication on the list with what it's for and when it's taken.
-/// Tapping one opens its page to change the times or remove it; "Add a medication" picks
-/// one from the catalog. Opened from the pills button; slides in from the right. A large
-/// round "‹" button (or a swipe from the left edge) goes back.
+/// Tapping one opens its page to change it or remove it; "Add a medication" opens an
+/// empty one. Opened from the pills button; slides in from the right. A large round "‹"
+/// button (or a swipe from the left edge) goes back.
 struct MedicationsPage: View {
     let store: MedicationStore
     @Environment(\.dismiss) private var dismiss
-    @State private var isAdding = false
-    @State private var isConfirmingRestore = false
+    @State private var isConfirmingSample = false
 
     var body: some View {
         ScrollView {
@@ -30,21 +29,20 @@ struct MedicationsPage: View {
 
                 list
 
-                WideButton(title: "Add a medication", systemImage: "plus") {
-                    isAdding = true
+                // Its page is declared in `RootView`, with every other pushed page.
+                NavigationLink(value: AppRoute.newMedication) {
+                    Label("Add a medication", systemImage: "plus")
+                        .font(.title3.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 34)
                 }
-                .disabled(store.addable.isEmpty)
-                if store.addable.isEmpty {
-                    Text("Every medication the app knows is already on your list.")
-                        .font(.body)
-                        .foregroundStyle(Palette.textTertiary)
-                        .frame(maxWidth: .infinity)
-                        .multilineTextAlignment(.center)
-                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .controlSize(.large)
+                .tint(Palette.textPrimary)
 
-                // For starting a demo over.
-                Button("Restore the sample list") {
-                    isConfirmingRestore = true
+                // For trying the app, and for App Review, without one's own pills.
+                Button("Load sample list") {
+                    isConfirmingSample = true
                 }
                 .font(.body)
                 .foregroundStyle(Palette.textSecondary)
@@ -55,16 +53,13 @@ struct MedicationsPage: View {
             .padding(.bottom, 24)
         }
         .background(Palette.background)
-        .sheet(isPresented: $isAdding) {
-            AddMedicationSheet(store: store)
-        }
-        .confirmationDialog("Restore the sample list?", isPresented: $isConfirmingRestore, titleVisibility: .visible) {
-            Button("Restore", role: .destructive) {
-                withAnimation { store.restoreSampleList() }
+        .confirmationDialog("Load the sample list?", isPresented: $isConfirmingSample, titleVisibility: .visible) {
+            Button("Load sample list", role: .destructive) {
+                withAnimation { store.loadSampleList() }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your list becomes capecitabine, dexamethasone, allopurinol and ondansetron at their sample times, replacing your changes.")
+            Text("Your list becomes four sample medications with sample times, for trying the app. Your own medications and their photos are deleted.")
         }
         // The system back button can't be enlarged, so this page draws its own header.
         .toolbar(.hidden, for: .navigationBar)
@@ -74,10 +69,11 @@ struct MedicationsPage: View {
     @ViewBuilder
     private var list: some View {
         if store.medications.isEmpty {
-            Text("No medications yet. Add one below.")
+            Text("No medications yet. Add yours with photos of each pill, so a scan can recognize them.")
                 .font(.body)
                 .foregroundStyle(Palette.textTertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .cardBackground()
         } else {
             VStack(alignment: .leading, spacing: 0) {
@@ -88,7 +84,7 @@ struct MedicationsPage: View {
                         MedicationRow(medication: medication, opensPage: true)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint("Opens its times")
+                    .accessibilityHint("Opens it to change or remove")
                 }
             }
             .cardBackground()
@@ -96,66 +92,8 @@ struct MedicationsPage: View {
     }
 }
 
-/// "Add a medication": the catalog medications not on the list yet. Choosing one opens its
-/// page to set the times before adding it.
-struct AddMedicationSheet: View {
-    let store: MedicationStore
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .center) {
-                        Text("Add a medication")
-                            .font(.largeTitle.weight(.bold))
-                            .foregroundStyle(Palette.textPrimary)
-                            .accessibilityAddTraits(.isHeader)
-                        Spacer(minLength: 8)
-                        GlassIconButton(systemName: "xmark", accessibilityLabel: "Cancel") {
-                            dismiss()
-                        }
-                    }
-
-                    if store.addable.isEmpty {
-                        Text("Every medication the app knows is already on your list.")
-                            .font(.body)
-                            .foregroundStyle(Palette.textTertiary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .cardBackground()
-                    } else {
-                        Text("Choose one. You can set its times next.")
-                            .font(.body)
-                            .foregroundStyle(Palette.textSecondary)
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(store.addable.enumerated()), id: \.element.id) { index, entry in
-                                if index > 0 { Divider() }
-                                NavigationLink(value: AppRoute.medication(id: entry.id)) {
-                                    MedicationRow(medication: entry, opensPage: true)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .cardBackground()
-                    }
-                }
-                .padding(16)
-            }
-            .background(Palette.background)
-            // The sheet has a stack of its own, so the same route opens the page in its
-            // "add" form here.
-            .navigationDestination(for: AppRoute.self) { route in
-                if case .medication(let id) = route, let entry = store.catalogEntry(id) {
-                    MedicationEditor(store: store, entry: entry, mode: .add, onAdded: { dismiss() })
-                }
-            }
-            .toolbar(.hidden, for: .navigationBar)
-        }
-    }
-}
-
 #Preview {
     NavigationStack {
-        MedicationsPage(store: MedicationStore(startingIDs: SampleMedications.startingIDs, storage: InMemoryDoseLogStorage()))
+        MedicationsPage(store: MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage()))
     }
 }

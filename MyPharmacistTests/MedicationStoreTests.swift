@@ -99,105 +99,116 @@ struct MedicationStoreTests {
 @MainActor
 struct MedicationListTests {
     private let morning = TestClock.at(8)
-    private let catalog = TestMedications.all + [TestMedications.ondansetron]
 
-    private func makeStore(_ list: InMemoryMedicationListStorage = InMemoryMedicationListStorage()) -> MedicationStore {
-        MedicationStore(medications: catalog, listStorage: list, storage: InMemoryDoseLogStorage(),
+    private func makeStore(_ list: InMemoryMedicationListStorage = InMemoryMedicationListStorage(),
+                           entries: [MedicationEntry] = [], photoStore: MedicationPhotoStore = temporaryPhotoStore()) -> MedicationStore {
+        MedicationStore(entries: entries, listStorage: list, storage: InMemoryDoseLogStorage(), photoStore: photoStore,
                         calendar: TestClock.calendar, now: morning)
     }
 
-    @Test func aNewListHasTheWholeCatalogAtItsUsualTimes() {
-        let store = makeStore()
-        #expect(store.medications == catalog)
-        #expect(store.addable.isEmpty)
+    private func entry(_ name: String = "Metformin", times: [DoseTime] = [DoseTime(8)], photos: [MedicationPhoto] = []) -> MedicationEntry {
+        MedicationEntry(name: name, strength: "500 mg", photos: photos, doseTimes: times)
     }
 
-    @Test func removedMedicationsCanBeAddedBackAndTheListIsSaved() {
+    @Test func aNewPersonStartsWithAnEmptyList() {
+        #expect(makeStore().medications.isEmpty)
+    }
+
+    @Test func aSavedListIsWhatLoads() {
+        let saved = entry()
+        let store = makeStore(InMemoryMedicationListStorage([saved]), entries: [entry("Something else")])
+        #expect(store.entries == [saved])
+    }
+
+    @Test func aMedicationNeedsANameAndTimesUnlessTakenWhenNeeded() {
         let list = InMemoryMedicationListStorage()
         let store = makeStore(list)
-        store.remove(TestMedications.lisinopril.id)
-        #expect(!store.medications.contains(TestMedications.lisinopril))
-        #expect(store.addable == [TestMedications.lisinopril])
-
-        store.add(MedicationPlan(medicationID: TestMedications.lisinopril.id, doseTimes: [DoseTime(9)], isAsNeeded: false))
-        #expect(store.medications.last?.id == TestMedications.lisinopril.id)
-        #expect(store.medications.last?.doseTimes == [DoseTime(9)])
-
-        // A store reading the same saved list sees the same medications.
-        #expect(makeStore(list).medications == store.medications)
+        #expect(!store.add(entry("   ")))
+        #expect(!store.add(entry(times: [])))
+        var asNeeded = entry(times: [])
+        asNeeded.isAsNeeded = true
+        #expect(store.add(asNeeded))
+        let metformin = entry()
+        #expect(store.add(metformin))
+        // The same one twice is still one.
+        #expect(!store.add(metformin))
+        #expect(list.entries?.count == 2)
     }
 
-    @Test func anEmptiedListStaysEmpty() {
-        let list = InMemoryMedicationListStorage()
-        let store = makeStore(list)
-        for medication in catalog { store.remove(medication.id) }
-        #expect(makeStore(list).medications.isEmpty)
-    }
-
-    @Test func changingTheTimesMovesTheDoses() {
+    @Test func aMedicationIsSavedTidy() {
         let store = makeStore()
-        store.update(MedicationPlan(medicationID: TestMedications.metformin.id,
-                                    doseTimes: [DoseTime(21), DoseTime(7, 30), DoseTime(21)], isAsNeeded: false))
-        // In order, each once.
-        #expect(store.plan(for: TestMedications.metformin.id)?.doseTimes == [DoseTime(7, 30), DoseTime(21)])
-        #expect(store.doses(on: morning).filter { $0.medication.id == TestMedications.metformin.id }.map(\.id)
-                == ["2026-10-14|metformin-500@7:30", "2026-10-14|metformin-500@21:00"])
+        store.add(entry("  Metformin ", times: [DoseTime(21), DoseTime(7, 30), DoseTime(21)]))
+        #expect(store.entries[0].name == "Metformin")
+        #expect(store.medications[0].doseTimes == [DoseTime(7, 30), DoseTime(21)])
+        #expect(store.doses(on: morning).map(\.id) == ["2026-10-14|\(store.entries[0].id)@7:30", "2026-10-14|\(store.entries[0].id)@21:00"])
     }
 
-    @Test func setTimesWithNoneAreIgnored() {
+    @Test func aMedicationNeverSilentlyStopsBeingDue() {
         let store = makeStore()
-        store.update(MedicationPlan(medicationID: TestMedications.metformin.id, doseTimes: [], isAsNeeded: false))
-        #expect(store.plan(for: TestMedications.metformin.id)?.doseTimes == [DoseTime(8), DoseTime(18)])
+        let metformin = entry(times: [DoseTime(8), DoseTime(18)])
+        store.add(metformin)
+        var noTimes = metformin
+        noTimes.doseTimes = []
+        store.update(noTimes)
+        #expect(store.medications[0].doseTimes == [DoseTime(8), DoseTime(18)])
     }
 
     @Test func onlyWhenNeededKeepsTheTimesForLater() {
         let store = makeStore()
-        let times = [DoseTime(8), DoseTime(18)]
-        store.update(MedicationPlan(medicationID: TestMedications.metformin.id, doseTimes: times, isAsNeeded: true))
-        let asNeeded = store.medications.first { $0.id == TestMedications.metformin.id }
-        #expect(asNeeded?.doseTimes == [])
-        #expect(asNeeded?.asNeeded == MedicationStore.defaultAsNeeded)
-        #expect(store.asNeededMedications.map(\.id).contains(TestMedications.metformin.id))
-
-        store.update(MedicationPlan(medicationID: TestMedications.metformin.id, doseTimes: times, isAsNeeded: false))
-        #expect(store.medications.first { $0.id == TestMedications.metformin.id }?.doseTimes == times)
+        var metformin = entry(times: [DoseTime(8), DoseTime(18)])
+        store.add(metformin)
+        metformin.isAsNeeded = true
+        store.update(metformin)
+        #expect(store.medications[0].doseTimes == [])
+        #expect(store.medications[0].asNeeded == MedicationEntry.defaultAsNeeded)
+        #expect(store.asNeededMedications.map(\.id) == [metformin.id])
+        // Back to set times: the times are still there.
+        metformin.isAsNeeded = false
+        store.update(metformin)
+        #expect(store.medications[0].doseTimes == [DoseTime(8), DoseTime(18)])
     }
 
     @Test func anAsNeededMedicationKeepsItsOwnWords() {
-        let store = makeStore()
-        #expect(store.medications.first { $0.id == TestMedications.ondansetron.id }?.asNeeded == "Only when you feel sick")
-        // Switched to set times, it starts with a morning dose.
-        #expect(store.plan(for: TestMedications.ondansetron.id)?.doseTimes == [DoseTime(8)])
+        let store = makeStore(entries: [MedicationEntry(TestMedications.ondansetron)])
+        #expect(store.medications[0].asNeeded == "Only when you feel sick")
+        #expect(store.entries[0].doseTimes == [DoseTime(8)])
     }
 
-    @Test func restoringBringsBackTheWholeCatalog() {
-        let store = makeStore()
-        store.remove(TestMedications.metformin.id)
-        store.update(MedicationPlan(medicationID: TestMedications.lisinopril.id, doseTimes: [DoseTime(10)], isAsNeeded: false))
-        store.restoreSampleList()
-        #expect(store.medications == catalog)
+    @Test func removingAMedicationDeletesItsPhotos() throws {
+        let photos = temporaryPhotoStore()
+        let photo = try photos.save(testImage(width: 8, height: 8))
+        let store = makeStore(photoStore: photos)
+        let metformin = entry(photos: [photo, .asset("exemestane-25-1")])
+        store.add(metformin)
+        #expect(photos.image(photo) != nil)
+        store.remove(metformin.id)
+        #expect(store.entries.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: photos.directory.appending(path: fileName(photo)).path))
     }
 
-    @Test func restoringSetsTheGivenPlansAndTimes() {
-        let plans = [
-            MedicationPlan(medicationID: TestMedications.lisinopril.id, doseTimes: [DoseTime(20), DoseTime(0)], isAsNeeded: false),
-            MedicationPlan(medicationID: "not-in-the-catalog", doseTimes: [DoseTime(8)], isAsNeeded: false),
-        ]
-        let store = MedicationStore(medications: catalog, restorePlans: plans, storage: InMemoryDoseLogStorage())
-        #expect(store.medications.count == catalog.count)
-        store.restoreSampleList()
-        // Only the given plan, its times in order; the one not in the catalog is left out.
-        #expect(store.medications.map(\.id) == [TestMedications.lisinopril.id])
-        #expect(store.medications.first?.doseTimes == [DoseTime(0), DoseTime(20)])
+    @Test func replacingAPhotoDeletesTheOldOne() throws {
+        let photos = temporaryPhotoStore()
+        let old = try photos.save(testImage(width: 8, height: 8))
+        let new = try photos.save(testImage(width: 8, height: 8))
+        let store = makeStore(photoStore: photos)
+        var metformin = entry(photos: [old])
+        store.add(metformin)
+        metformin.photos = [new]
+        store.update(metformin)
+        #expect(!FileManager.default.fileExists(atPath: photos.directory.appending(path: fileName(old)).path))
+        #expect(FileManager.default.fileExists(atPath: photos.directory.appending(path: fileName(new)).path))
     }
 
-    @Test func theAppsSampleListIsTheC3PITabletsAndOndansetron() {
-        let store = MedicationStore(startingIDs: SampleMedications.startingIDs, restorePlans: SampleMedications.restorePlans,
-                                    storage: InMemoryDoseLogStorage())
-        store.restoreSampleList()
+    @Test func loadingTheSampleListReplacesTheList() throws {
+        let photos = temporaryPhotoStore()
+        let photo = try photos.save(testImage(width: 8, height: 8))
+        let store = makeStore(photoStore: photos)
+        store.add(entry(photos: [photo]))
+        store.loadSampleList()
         #expect(store.medications.map(\.id) == ["capecitabine-500", "dexamethasone-4", "allopurinol-300", "ondansetron-8"])
         #expect(store.medications.map(\.doseTimes) == [[DoseTime(0), DoseTime(20)], [DoseTime(0)], [DoseTime(8)], []])
         #expect(store.asNeededMedications.map(\.id) == ["ondansetron-8"])
+        #expect(!FileManager.default.fileExists(atPath: photos.directory.appending(path: fileName(photo)).path))
     }
 
     @Test func midnightIsBedtimeNotMorning() {
@@ -210,9 +221,16 @@ struct MedicationListTests {
     @Test func userDefaultsListStorageRoundTrips() {
         let storage = UserDefaultsMedicationListStorage(defaults: isolatedDefaults())
         #expect(storage.load() == nil)
-        let plans = [MedicationPlan(medicationID: "metformin-500", doseTimes: [DoseTime(8), DoseTime(18, 30)], isAsNeeded: false)]
-        storage.save(plans)
-        #expect(storage.load() == plans)
+        let entries = [
+            MedicationEntry(name: "Metformin", photos: [.file("a.png"), .asset("exemestane-25-1")],
+                            doseTimes: [DoseTime(8), DoseTime(18, 30)]),
+            MedicationEntry(name: "Ondansetron", doseTimes: [DoseTime(8)], isAsNeeded: true, asNeededNote: "When sick"),
+        ]
+        storage.save(entries)
+        #expect(storage.load() == entries)
+    }
+
+    private func fileName(_ photo: MedicationPhoto) -> String {
+        if case .file(let name) = photo { name } else { "" }
     }
 }
-

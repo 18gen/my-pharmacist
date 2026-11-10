@@ -8,6 +8,8 @@
 enum AppRoute: Hashable {
     /// "My Medications".
     case medications
-    /// One medication's page, to change its times or remove it.
+    /// One medication's page, to change it or remove it.
     case medication(id: String)
+    /// An empty medication page, to add a new one.
+    case newMedication
 }

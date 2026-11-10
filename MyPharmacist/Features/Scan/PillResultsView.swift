@@ -298,7 +298,7 @@ private enum ResultsPreview {
     ///   1 exemestane, 2 a second metoclopramide, 3 ondansetron, 4 a pill not on the list);
     ///   nil for all of them.
     static func result(keeping: [Int]? = nil, mayHaveMissedPill: Bool = false) -> PillScanResult {
-        let store = MedicationStore(startingIDs: SampleMedications.startingIDs, storage: InMemoryDoseLogStorage())
+        let store = MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
         let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
         let sample = DemoScan.samplePills()
         let pills = keeping.map { $0.map { sample.pills[$0] } } ?? sample.pills

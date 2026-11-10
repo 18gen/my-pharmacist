@@ -174,7 +174,7 @@ struct DayPeriod {
 private enum SlotPreview {
     static func slot(_ status: DoseSlot.Status, scanned: Bool = false) -> DoseSlot {
         let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
-        let medications = SampleMedications.all.filter { $0.doseTimes.contains(DoseTime(8)) }.prefix(2)
+        let medications = SampleMedications.demoList.map(\.medication).filter { $0.doseTimes.contains(DoseTime(8)) }.prefix(2)
         let items = medications.enumerated().map { index, medication in
             ScheduledDose(dose: Dose(medication: medication, time: DoseTime(8), day: morning),
                           state: scanned ? .scanned(at: morning.addingTimeInterval(Double(index + 2) * 60)) : .due)

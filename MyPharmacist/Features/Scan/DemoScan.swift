@@ -19,8 +19,18 @@ import UIKit
 ///   later, to watch (or record) the button growing into the camera picture and back.
 /// - `-demoChecking` opens on the results page standing ready while the pills are
 ///   checked, and stays there.
+/// - `-demoMedications` opens My Medications, and `-demoNewMedication` the page to add
+///   one, with the demo medications.
 enum DemoScan {
-    static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses || checks }
+    static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses || checks || pages != nil }
+
+    /// Pages to open on launch, if asked for.
+    static var pages: [AppRoute]? {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
+        if arguments.contains("-demoMedications") { return [.medications] }
+        return nil
+    }
     private static var checks: Bool { ProcessInfo.processInfo.arguments.contains("-demoChecking") }
     private static var opensAndCloses: Bool { ProcessInfo.processInfo.arguments.contains("-demoOpenClose") }
     private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }
@@ -28,7 +38,9 @@ enum DemoScan {
     private static var retakes: Bool { ProcessInfo.processInfo.arguments.contains("-demoRetake") }
 
     static func run(in flow: ScanFlow) {
-        if checks {
+        if pages != nil {
+            return
+        } else if checks {
             let sample = samplePills()
             flow.showForPreview(.checking(FoundPills(photo: sample.photo, boxes: sample.pills.map(\.box))))
         } else if opensAndCloses {

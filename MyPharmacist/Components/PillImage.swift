@@ -13,8 +13,8 @@ struct PillImage: View {
 
     var body: some View {
         Group {
-            if let photo = medication.photos.first {
-                Image(photo)
+            if let photo = medication.photos.first, let image = MedicationPhotoStore.standard.image(photo) {
+                Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
                     .padding(size * 0.08)

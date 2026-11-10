@@ -8,41 +8,41 @@ import Foundation
 /// Where the person's medication list is kept. `MedicationStore` decides what goes in it;
 /// this only loads and saves.
 protocol MedicationListStorage {
-    /// Nil when nothing was saved yet, so the list starts from the catalog. An empty list
-    /// is a list the person emptied.
-    func load() -> [MedicationPlan]?
-    func save(_ plans: [MedicationPlan])
+    /// Nil when nothing was saved yet. An empty list is a list the person emptied.
+    func load() -> [MedicationEntry]?
+    func save(_ entries: [MedicationEntry])
 }
 
-/// Saved on the device in UserDefaults, as JSON under "medicationList".
+/// Saved on the device in UserDefaults, as JSON under "medications.v2". (The prototype's
+/// "medicationList" held catalog references and is no longer read.)
 struct UserDefaultsMedicationListStorage: MedicationListStorage {
-    private static let key = "medicationList"
+    private static let key = "medications.v2"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
-    func load() -> [MedicationPlan]? {
+    func load() -> [MedicationEntry]? {
         guard let data = defaults.data(forKey: Self.key) else { return nil }
-        return try? JSONDecoder().decode([MedicationPlan].self, from: data)
+        return try? JSONDecoder().decode([MedicationEntry].self, from: data)
     }
 
-    func save(_ plans: [MedicationPlan]) {
-        if let data = try? JSONEncoder().encode(plans) {
+    func save(_ entries: [MedicationEntry]) {
+        if let data = try? JSONEncoder().encode(entries) {
             defaults.set(data, forKey: Self.key)
         }
     }
 }
 
-/// Kept in memory only, for tests and previews.
+/// Kept in memory only, for tests, previews and demos.
 final class InMemoryMedicationListStorage: MedicationListStorage {
-    private(set) var plans: [MedicationPlan]?
+    private(set) var entries: [MedicationEntry]?
 
-    init(_ plans: [MedicationPlan]? = nil) {
-        self.plans = plans
+    init(_ entries: [MedicationEntry]? = nil) {
+        self.entries = entries
     }
 
-    func load() -> [MedicationPlan]? { plans }
-    func save(_ plans: [MedicationPlan]) { self.plans = plans }
+    func load() -> [MedicationEntry]? { entries }
+    func save(_ entries: [MedicationEntry]) { self.entries = entries }
 }

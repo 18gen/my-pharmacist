@@ -5,35 +5,36 @@
 
 import Foundation
 
-/// Mock prescriptions for the prototype's story: a patient on oral hormone therapy for
-/// breast cancer (exemestane), with the supportive medications that often come with it.
-/// In the real product these arrive from the pharmacy's records when prescribed. The
-/// schedules are examples only, not advice.
+/// Sample medications with built-in photos, for trying the app without one's own pills:
+/// an oncology patient's tablets and the supportive medications that often come with
+/// them. The schedules are examples only, not advice.
 ///
-/// The sample list is made of pills from the ePillID benchmark (NIH NLM images), so the
-/// demo can be run with ePillID pictures and, later, with a model trained on ePillID.
-/// Three more from the NLM C3PI image set can be added from the catalog. Strengths,
-/// imprints and sizes checked against RxNorm and the FDA labels by NDC.
+/// The photos are from the ePillID benchmark and the NLM C3PI image set (NIH NLM), so
+/// the printed demo pill sheet matches them. Strengths, imprints and sizes checked
+/// against RxNorm and the FDA labels by NDC.
 nonisolated enum SampleMedications {
-    /// Every medication that can be put on the list.
-    static let all: [Medication] = sampleList + more
-
-    /// What a new list starts with.
-    static let startingIDs = sampleList.map(\.id)
-
-    /// What "Restore the sample list" sets, times included, for demos: the C3PI tablets
-    /// and the as-needed ondansetron. Two doses at 12 AM, so something is due around
-    /// midnight as well as in the morning and evening.
-    static let restorePlans: [MedicationPlan] = [
-        MedicationPlan(medicationID: "capecitabine-500", doseTimes: [DoseTime(0), DoseTime(20)], isAsNeeded: false),
-        MedicationPlan(medicationID: "dexamethasone-4", doseTimes: [DoseTime(0)], isAsNeeded: false),
-        MedicationPlan(medicationID: "allopurinol-300", doseTimes: [DoseTime(8)], isAsNeeded: false),
-        // Kept with a morning time, used only if it's switched to set times.
-        MedicationPlan(medicationID: "ondansetron-8", doseTimes: [DoseTime(8)], isAsNeeded: true),
+    /// What "Load sample list" puts on the list, times included, for demos and App
+    /// Review: the C3PI tablets and the as-needed ondansetron. Two doses at 12 AM, so
+    /// something is due around midnight as well as in the morning and evening.
+    static let sampleList: [MedicationEntry] = [
+        entry(more[0], times: [DoseTime(0), DoseTime(20)]),
+        entry(more[1], times: [DoseTime(0)]),
+        entry(more[2], times: [DoseTime(8)]),
+        MedicationEntry(ePillID[3]),
     ]
 
+    /// The ePillID medications at their usual times: what the debug demos and previews
+    /// scan, as the demo pill sheet prints them.
+    static let demoList: [MedicationEntry] = ePillID.map(MedicationEntry.init)
+
+    private static func entry(_ medication: Medication, times: [DoseTime]) -> MedicationEntry {
+        var entry = MedicationEntry(medication)
+        entry.doseTimes = times
+        return entry
+    }
+
     /// From ePillID: two photos each, front and back.
-    private static let sampleList: [Medication] = [
+    private static let ePillID: [Medication] = [
         Medication(
             id: "exemestane-25",
             name: "Exemestane",
@@ -106,7 +107,7 @@ nonisolated enum SampleMedications {
     ]
 
     /// Asset names "<id>-1" … "<id>-<count>"; the first is the one shown in lists.
-    private static func photos(_ id: String, count: Int) -> [String] {
-        (1...count).map { "\(id)-\($0)" }
+    private static func photos(_ id: String, count: Int) -> [MedicationPhoto] {
+        (1...count).map { .asset("\(id)-\($0)") }
     }
 }

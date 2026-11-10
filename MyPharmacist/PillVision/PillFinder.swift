@@ -254,7 +254,7 @@ nonisolated enum PillFinder {
 
     /// Copies Vision's low-resolution label map: one byte per pixel, the number of the
     /// object it belongs to, 0 for the background.
-    private static func labels(of mask: CVPixelBuffer) -> (values: [UInt8], width: Int, height: Int) {
+    static func labels(of mask: CVPixelBuffer) -> (values: [UInt8], width: Int, height: Int) {
         CVPixelBufferLockBaseAddress(mask, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(mask, .readOnly) }
         let width = CVPixelBufferGetWidth(mask), height = CVPixelBufferGetHeight(mask)

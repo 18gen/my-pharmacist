@@ -5,86 +5,64 @@
 
 import SwiftUI
 
-/// One medication's page: what it is, and when it's taken, at set times (each named by
-/// its time of day, as on the home screen) or only when needed. Editing a medication on
-/// the list changes it straight away and has a button to remove it; adding one from the
-/// catalog sets the times first and adds it with one button.
+/// One medication's page, to add a new one or change one on the list: photos of the
+/// tablet (front and back), its name, strength and what it's for, and when it's taken,
+/// at set times (each named by its time of day, as on the home screen) or only when
+/// needed. A medication on the list changes as it's edited; a new one is added with one
+/// button once it has a name and a photo.
 struct MedicationEditor: View {
     enum Mode {
-        case edit
         case add
+        case edit
     }
 
     let store: MedicationStore
-    /// The catalog entry: name, strength, photos.
-    let entry: Medication
     let mode: Mode
-    /// Called after adding, to close the "Add a medication" sheet.
-    var onAdded: () -> Void = {}
-    /// Called after removing, to close this page. It goes by the navigation path rather
-    /// than `dismiss`, which a confirmation dialog that is closing itself can swallow.
-    var onRemoved: () -> Void = {}
+    /// Called after adding (to close the sheet) or removing (to close the page). It goes
+    /// by the navigation path rather than `dismiss`, which a confirmation dialog that is
+    /// closing itself can swallow.
+    var onDone: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
+    @State private var draft: MedicationEntry
     /// The times in the order they were set, so a row doesn't jump while its time changes.
     @State private var times: [TimeRow]
-    @State private var isAsNeeded: Bool
+    /// Photos taken while this page was open, so the ones not kept can be deleted.
+    @State private var newPhotos: [MedicationPhoto] = []
+    @State private var wasAdded = false
     @State private var isConfirmingRemove = false
 
     /// Offered in turn by "Add a time": the usual times of day.
     private static let suggestedTimes = [DoseTime(8), DoseTime(12), DoseTime(18), DoseTime(21)]
 
-    init(store: MedicationStore, entry: Medication, mode: Mode,
-         onAdded: @escaping () -> Void = {}, onRemoved: @escaping () -> Void = {}) {
+    /// - Parameter entry: The medication to change; nil to add a new one.
+    init(store: MedicationStore, entry: MedicationEntry? = nil, onDone: @escaping () -> Void = {}) {
         self.store = store
-        self.entry = entry
-        self.mode = mode
-        self.onAdded = onAdded
-        self.onRemoved = onRemoved
-        let plan = store.plan(for: entry.id) ?? MedicationPlan(preset: entry)
-        _times = State(initialValue: plan.orderedTimes.map(TimeRow.init))
-        _isAsNeeded = State(initialValue: plan.isAsNeeded)
+        self.mode = entry == nil ? .add : .edit
+        self.onDone = onDone
+        let draft = entry ?? MedicationEntry()
+        _draft = State(initialValue: draft)
+        _times = State(initialValue: draft.orderedTimes.map(TimeRow.init))
     }
 
-    private var draft: MedicationPlan {
-        MedicationPlan(medicationID: entry.id, doseTimes: times.map(\.time), isAsNeeded: isAsNeeded)
+    /// What's still needed before a new medication can be added, in words; nil when ready.
+    private var missing: String? {
+        let hasName = !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        switch (hasName, !draft.photos.isEmpty) {
+        case (false, false): return "Add a photo of the pill and its name."
+        case (false, true): return "Add the medication's name."
+        case (true, false): return "Add a photo of the pill, so a scan can recognize it."
+        case (true, true): return nil
+        }
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                GlassIconButton(systemName: "chevron.left", accessibilityLabel: "Back") {
-                    dismiss()
-                }
-
-                header
-
-                Text("When to take")
-                    .font(.title2.bold())
-                    .foregroundStyle(Palette.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Picker("When to take", selection: $isAsNeeded.animation(.easeInOut(duration: 0.2))) {
-                        Text("At set times").tag(false)
-                        Text("Only when needed").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .controlSize(.large)
-                    .padding(.bottom, 8)
-
-                    if isAsNeeded {
-                        Label(entry.asNeeded ?? MedicationStore.defaultAsNeeded, systemImage: "exclamationmark.triangle.fill")
-                            .font(.title3)
-                            .foregroundStyle(Palette.caution)
-                            .padding(.vertical, 8)
-                    } else {
-                        timeList
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .cardBackground()
-
+                topBar
+                photos
+                details
+                schedule
                 footer
             }
             .padding(.horizontal, 16)
@@ -92,43 +70,120 @@ struct MedicationEditor: View {
             .padding(.bottom, 24)
         }
         .background(Palette.background)
-        .onChange(of: draft) { _, plan in
-            // Changes to a medication on the list apply as they're made: no Save to forget.
-            if mode == .edit { store.update(plan) }
+        .scrollDismissesKeyboard(.interactively)
+        .onChange(of: times.map(\.time)) { _, times in
+            draft.doseTimes = times
         }
-        .confirmationDialog("Remove \(entry.name) from your medications?",
+        .onChange(of: draft) { _, entry in
+            // Changes to a medication on the list apply as they're made: no Save to forget.
+            if mode == .edit { store.update(entry) }
+        }
+        .onDisappear(perform: deleteUnkeptPhotos)
+        .confirmationDialog("Remove \(draft.name) from your medications?",
                             isPresented: $isConfirmingRemove, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
-                store.remove(entry.id)
-                onRemoved()
+                store.remove(draft.id)
+                onDone()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("It won't be on the home screen, and a scan will show its pill as unknown.")
+            Text("Its photos are deleted, it won't be on the home screen, and a scan will show its pill as unknown.")
         }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
     }
 
-    /// A large picture of the tablet with its name, strength, use and look.
-    private var header: some View {
-        HStack(spacing: 16) {
-            PillImage(medication: entry, size: 88)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.name)
-                    .font(.title.bold())
-                    .foregroundStyle(Palette.textPrimary)
-                Text([entry.strength, entry.purpose].filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.body)
-                    .foregroundStyle(Palette.textSecondary)
-                if !entry.appearance.isEmpty {
-                    Text(entry.appearance)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.textTertiary)
-                }
+    private var topBar: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Back without adding is how a new one is cancelled.
+            GlassIconButton(systemName: "chevron.left", accessibilityLabel: mode == .add ? "Cancel" : "Back") {
+                dismiss()
+            }
+            Text(mode == .add ? "New medication" : draft.name)
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+        }
+    }
+
+    /// Front and back of the tablet: what a scanned pill is compared with.
+    private var photos: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Photos of the pill")
+            Text("Put the pill alone on a plain surface. Take the front, then the back.")
+                .font(.body)
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: 12) {
+                PillPhotoSlot(title: "Front", photo: photoBinding(0), onSaved: { newPhotos.append($0) })
+                PillPhotoSlot(title: "Back", photo: photoBinding(1), onSaved: { newPhotos.append($0) })
             }
         }
-        .accessibilityElement(children: .combine)
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            field("Name", text: $draft.name, prompt: "For example, Capecitabine")
+            field("Strength", text: $draft.strength, prompt: "For example, 500 mg")
+            field("What it's for", text: $draft.purpose, prompt: "For example, Cancer treatment")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardBackground()
+    }
+
+    private var schedule: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("When to take")
+            VStack(alignment: .leading, spacing: 4) {
+                Picker("When to take", selection: $draft.isAsNeeded.animation(.easeInOut(duration: 0.2))) {
+                    Text("At set times").tag(false)
+                    Text("Only when needed").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.large)
+                .padding(.bottom, 8)
+
+                if draft.isAsNeeded {
+                    field("When", text: $draft.asNeededNote, prompt: MedicationEntry.defaultAsNeeded)
+                } else {
+                    timeList
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardBackground()
+        }
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.title2.bold())
+            .foregroundStyle(Palette.textPrimary)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func field(_ label: String, text: Binding<String>, prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Palette.textSecondary)
+            TextField(label, text: text, prompt: Text(prompt))
+                .font(.title3)
+                .textInputAutocapitalization(.words)
+                .submitLabel(.done)
+                .padding(.vertical, 6)
+        }
+    }
+
+    /// The photo in one of the two places, kept in order: front first.
+    private func photoBinding(_ index: Int) -> Binding<MedicationPhoto?> {
+        Binding(
+            get: { draft.photos.indices.contains(index) ? draft.photos[index] : nil },
+            set: { photo in
+                var slots: [MedicationPhoto?] = [draft.photos.first, draft.photos.dropFirst().first]
+                slots[index] = photo
+                draft.photos = slots.compactMap { $0 }
+            }
+        )
     }
 
     private var timeList: some View {
@@ -160,9 +215,19 @@ struct MedicationEditor: View {
     private var footer: some View {
         switch mode {
         case .add:
-            WideButton(title: "Add to my medications", systemImage: "plus") {
-                store.add(draft)
-                onAdded()
+            VStack(spacing: 8) {
+                WideButton(title: "Add to my medications", systemImage: "plus") {
+                    wasAdded = store.add(draft)
+                    if wasAdded { onDone() }
+                }
+                .disabled(missing != nil)
+                if let missing {
+                    Text(missing)
+                        .font(.body)
+                        .foregroundStyle(Palette.textTertiary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
             }
         case .edit:
             Button(role: .destructive) {
@@ -176,6 +241,15 @@ struct MedicationEditor: View {
             .buttonBorderShape(.capsule)
             .controlSize(.large)
             .tint(Palette.danger)
+        }
+    }
+
+    /// Photos taken here that the medication doesn't have in the end: replaced, removed,
+    /// or never added because the page was cancelled.
+    private func deleteUnkeptPhotos() {
+        let kept = (mode == .add && !wasAdded) ? [] : (store.entry(draft.id)?.photos ?? [])
+        for photo in newPhotos where !kept.contains(photo) {
+            MedicationPhotoStore.standard.delete(photo)
         }
     }
 
@@ -251,3 +325,18 @@ private struct TimeRowView: View {
         )
     }
 }
+
+#if DEBUG
+#Preview("New medication") {
+    NavigationStack {
+        MedicationEditor(store: MedicationStore(storage: InMemoryDoseLogStorage()))
+    }
+}
+
+#Preview("A medication on the list") {
+    let store = MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
+    NavigationStack {
+        MedicationEditor(store: store, entry: store.entries[2])
+    }
+}
+#endif
