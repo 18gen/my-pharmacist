@@ -30,6 +30,10 @@ enum ScanInstruction {
         switch reason {
         case .noPills: noPills
         case .cantCheck: cantCheck
+        case .touching: Line(text: "Spread the pills apart", pictogram: .noPills)
+        case .cutOff: Line(text: "Move the pills to the middle", pictogram: .aim)
+        case .tooFar: Line(text: "Move the phone closer", pictogram: .aim)
+        case .hardToSee: Line(text: "Put the pills on a plain surface", pictogram: .noPills)
         }
     }
 
