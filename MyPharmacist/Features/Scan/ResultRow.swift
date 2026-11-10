@@ -5,9 +5,9 @@
 
 import SwiftUI
 
-/// One line of the results page: the pill as it looked in the photo (or, for a missing
-/// dose, its reference picture), its name, and one short reason. Tinted and outlined in
-/// its level's colour; the section heading above says what to do with it.
+/// One line of the results page: the pill as it looked in the photo, its name, and one
+/// short reason. Tinted and outlined in its level's colour; the section heading above
+/// says what to do with it.
 struct ResultRow: View {
     let line: ResultLine
     /// Picked out in the photo above.
@@ -54,8 +54,6 @@ struct ResultRow: View {
                 .padding(6)
                 .frame(width: pictureSize, height: pictureSize)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.85)))
-        case .missing(let dose):
-            PillImage(medication: dose.medication, size: pictureSize)
         case .uncheckedPill:
             Image(systemName: "pills")
                 .font(.system(size: pictureSize * 0.45, weight: .semibold))

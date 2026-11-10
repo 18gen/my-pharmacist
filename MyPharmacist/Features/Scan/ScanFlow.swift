@@ -29,11 +29,10 @@ struct FoundPills {
 }
 
 /// Everything found in one photo. The photo stays in memory only while the results show.
+/// Only what was scanned: doses due now that weren't in the photo aren't part of it.
 struct PillScanResult {
     let photo: CGImage
     let pills: [ScannedPill]
-    /// Doses due now that weren't in the photo.
-    let missing: [Dose]
     /// The vision model saw something pill-like in the photo that wasn't found as a
     /// pill, so these may not be all the pills there are.
     var mayHaveMissedPill = false
@@ -267,7 +266,7 @@ final class ScanFlow {
             ScannedPill(id: index + 1, box: pills[index].box, crop: pills[index].crop, medication: identities[index],
                         verdict: check.verdicts[index], match: pills[index].match)
         }
-        let result = PillScanResult(photo: photo, pills: scanned, missing: check.missing, mayHaveMissedPill: mayHaveMissedPill)
+        let result = PillScanResult(photo: photo, pills: scanned, mayHaveMissedPill: mayHaveMissedPill)
         if records {
             store.recordScan(of: result.dosesToTake, at: now)
             recordedThisSession = result.dosesToTake

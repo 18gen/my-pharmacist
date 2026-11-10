@@ -57,9 +57,8 @@ enum DemoScan {
     }
 
     /// One of each kind of line: two of the morning pills, a second metoclopramide, the
-    /// as-needed ondansetron and a white pill not on the list. Dexamethasone is left out
-    /// so it shows as missing. In reading order, because results number pills in the
-    /// order given.
+    /// as-needed ondansetron and a white pill not on the list. In reading order, because
+    /// results number pills in the order given.
     static func show(in flow: ScanFlow) {
         let size = CGSize(width: 1080, height: 1440)
         let placed: [(photo: String?, id: String?, rect: CGRect)] = [

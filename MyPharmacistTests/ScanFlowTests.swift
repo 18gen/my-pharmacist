@@ -40,18 +40,27 @@ struct ScanFlowTests {
         #expect(result.pills.map(\.id) == [1, 2])
         #expect(result.pills[0].verdict.isTake)
         #expect(result.pills[1].verdict == .unidentified)
-        #expect(result.missing.map(\.medication) == [TestMedications.lisinopril])
         #expect(result.summary == "Put back 1 pill")
         #expect(result.needsRescan)
     }
 
     @Test func theMostSeriousLinesComeFirst() throws {
         flow.setOpen(true)
-        // OK, not yet (atorvastatin is for the evening), unknown; lisinopril is missing.
+        // OK, not yet (atorvastatin is for the evening), unknown.
         flow.showResults([pill(TestMedications.metformin), pill(TestMedications.atorvastatin, x: 0.3), pill(nil, x: 0.6)], photo: testImage(), now: morning)
         let result = try #require(result)
-        #expect(result.groups.map(\.level) == [.unknown, .dontTake, .caution, .ok])
-        #expect(result.groups.map(\.lines.count) == [1, 1, 1, 1])
+        #expect(result.groups.map(\.level) == [.unknown, .dontTake, .ok])
+        #expect(result.groups.map(\.lines.count) == [1, 1, 1])
+    }
+
+    @Test func onlyWhatWasScannedIsShown() throws {
+        flow.setOpen(true)
+        // Lisinopril is due too but wasn't in the photo: the page is about metformin only.
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
+        let result = try #require(result)
+        #expect(result.groups.flatMap(\.lines).map(\.id) == ["pill-1"])
+        #expect(result.isAllClear)
+        #expect(result.summary == "OK to take this pill")
     }
 
     @Test func pillsThatAreOKToTakeAreRecordedAsScanned() throws {

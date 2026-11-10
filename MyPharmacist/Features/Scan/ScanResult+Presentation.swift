@@ -12,8 +12,8 @@ enum ResultLevel: Int, CaseIterable, Comparable, Identifiable {
     case unknown
     /// One of theirs, but not to take now.
     case dontTake
-    /// For the person to decide: a medication only for when it's needed, or a dose due
-    /// now that wasn't in the photo.
+    /// For the person to decide: a medication only for when it's needed, or a photo
+    /// that may hold a pill that wasn't checked.
     case caution
     case ok
 
@@ -88,17 +88,15 @@ extension PillVerdict {
     }
 }
 
-/// One line of the results: a pill from the photo, a dose due now that wasn't in it, or
-/// a warning that the photo may hold a pill that wasn't checked.
+/// One line of the results: a pill from the photo, or a warning that the photo may hold
+/// a pill that wasn't checked.
 enum ResultLine: Identifiable {
     case pill(ScannedPill)
-    case missing(Dose)
     case uncheckedPill
 
     var id: String {
         switch self {
         case .pill(let pill): "pill-\(pill.id)"
-        case .missing(let dose): "missing-\(dose.id)"
         case .uncheckedPill: "unchecked-pill"
         }
     }
@@ -106,14 +104,13 @@ enum ResultLine: Identifiable {
     var level: ResultLevel {
         switch self {
         case .pill(let pill): pill.verdict.level
-        case .missing, .uncheckedPill: .caution
+        case .uncheckedPill: .caution
         }
     }
 
     var title: String {
         switch self {
         case .pill(let pill): pill.medication?.displayName ?? "Unknown pill"
-        case .missing(let dose): dose.medication.displayName
         case .uncheckedPill: "Another pill?"
         }
     }
@@ -121,7 +118,6 @@ enum ResultLine: Identifiable {
     var reason: String {
         switch self {
         case .pill(let pill): pill.verdict.reason
-        case .missing(let dose): "Not in the photo · \(dose.scheduled.shortTime) dose"
         case .uncheckedPill: "The photo may have a pill that wasn't checked. Spread the pills and scan again."
         }
     }
@@ -137,9 +133,9 @@ struct ResultGroup: Identifiable {
 
 extension PillScanResult {
     /// Most serious first; empty levels are left out. Within a level, pills in reading
-    /// order, then missing doses.
+    /// order, then the unchecked-pill warning.
     var groups: [ResultGroup] {
-        let lines = pills.map(ResultLine.pill) + (mayHaveMissedPill ? [.uncheckedPill] : []) + missing.map(ResultLine.missing)
+        let lines = pills.map(ResultLine.pill) + (mayHaveMissedPill ? [.uncheckedPill] : [])
         return ResultLevel.allCases.compactMap { level in
             let matching = lines.filter { $0.level == level }
             return matching.isEmpty ? nil : ResultGroup(level: level, lines: matching)
@@ -155,10 +151,9 @@ extension PillScanResult {
     /// to scan again.
     var needsRescan: Bool { putBackCount > 0 || mayHaveMissedPill }
 
-    /// Every pill is OK to take, nothing is missing and no pill went unchecked: the
-    /// success vibration.
+    /// Every pill is OK to take and no pill went unchecked: the success vibration.
     var isAllClear: Bool {
-        missing.isEmpty && !mayHaveMissedPill && pills.allSatisfy { $0.verdict.level == .ok }
+        !mayHaveMissedPill && pills.allSatisfy { $0.verdict.level == .ok }
     }
 
     /// What to do, in one line, for the header and VoiceOver.
