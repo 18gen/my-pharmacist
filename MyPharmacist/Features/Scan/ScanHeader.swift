@@ -38,7 +38,7 @@ struct ScanHeader: View {
         .padding(.horizontal, 20)
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         // Low in the space above the camera view, close to the picture it is about.
-        .padding(.bottom, 10)
+        .padding(.bottom, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .animation(.easeInOut(duration: 0.2), value: text)
         .accessibilityElement(children: .combine)
