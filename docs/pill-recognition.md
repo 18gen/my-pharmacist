@@ -29,7 +29,8 @@ Code: `PillFinder`, `PillLocator`, `PillRules`, `BlobSplitter`, `SurfaceOutliers
   2. It is cut at its narrow place. Clean pieces are the pills.
   3. Two middles that can't be cut apart are pills lying against each other: the photo
      is taken again ("Spread pills apart").
-  4. One middle, no larger than a pill, is one pill with a rough outline: it is kept.
+  4. One middle, no larger than a pill and filling at least 88% of its outline, is one
+     pill with a rough outline: it is kept, and marked as doubted.
   5. Anything else is ignored.
 - **One doubtful area turns the whole photo away**, with one thing to fix (spread apart,
   move closer, pills to the middle, plain surface). A pill that was never cut out can't
@@ -50,8 +51,12 @@ Code: `PillCropper`, `PillRecognizer`, `PillCheckClient`, `server/pill-check`.
 - **The request:** the server sends the pictures to an OpenAI vision model in one
   request, together with the names and reference photos of the person's medications.
 - **The answer** can only be one of those medications or "none" (a strict JSON schema).
-  It counts as unknown when the model is unsure, or says a picture doesn't show one whole
-  pill. In that last case the results also ask to scan again.
+  The model also says what each picture shows: one pill, several pills, part of a pill,
+  or no pill.
+  - Unsure, several pills or part of a pill: the pill is unknown. For the last two the
+    results also ask to scan again, as a pill may have gone unchecked.
+  - No pill: an area the app itself doubted (step 1) is left out of the results. Any
+    other area stays, as unknown.
 - **A failed check** is never shown as a result. The person can try again on the same
   photo.
 
@@ -112,7 +117,7 @@ the one the app uses now.
   1. 細いつながり(錠剤の間の影やしわ)を取り除く。錠剤が 2 つ以上残れば、それが錠剤です。
   2. 細い部分で切り分ける。きれいに分かれれば、それが錠剤です。
   3. 中心が 2 つあり切り分けられないものは、重なった錠剤です。撮り直しになります(「Spread pills apart」)。
-  4. 中心が 1 つで錠剤 1 つの大きさなら、輪郭が荒い 1 錠として残します。
+  4. 中心が 1 つで、錠剤 1 つの大きさ以下、かつ輪郭の 88% 以上を埋めていれば、輪郭が荒い 1 錠として残します(「疑わしい」印を付けます)。
   5. それ以外は無視します。
 - **怪しい領域が 1 つでもあれば、写真全体を撮り直しにします。** 直すことを 1 つだけ伝えます。切り抜かれなかった錠剤は、後の段階では見つけられないためです。
 - **利用者が確認します。** すべての錠剤に丸を付けた写真を見せ、「全部に丸が付いている」と答えるまで判定しません。
@@ -125,7 +130,9 @@ the one the app uses now.
 
 - **画像:** 各錠剤を元の解像度から 384〜512 px の正方形に切り抜きます。錠剤は中央に置き、長い錠剤は横向きに回し、周囲を暗くします。全錠剤に番号を付けた写真も 1 枚作り、見落としに気づけるようにします。
 - **リクエスト:** サーバーが、画像と登録薬の名前・参照写真を、OpenAI の画像モデルへ 1 回で送ります。
-- **答え:** 登録薬のどれか、または「none」だけです(JSON スキーマで制限)。モデルの自信が低いとき、または「画像に錠剤が 1 つだけ写っていない」と答えたときは「不明」になります。後者では、結果画面で再スキャンも促します。
+- **答え:** 登録薬のどれか、または「none」だけです(JSON スキーマで制限)。モデルは各画像に何が写っているかも答えます:錠剤 1 つ/複数の錠剤/錠剤の一部/錠剤ではない。
+  - 自信が低い、複数の錠剤、錠剤の一部:その錠剤は「不明」になります。後の 2 つでは、未確認の錠剤があるかもしれないので、結果画面で再スキャンも促します。
+  - 錠剤ではない:アプリ自身も疑っていた領域(①)なら、結果から外します。それ以外の領域は「不明」として残します。
 - **判定に失敗したとき:** 結果としては表示しません。同じ写真でもう一度試せます。
 
 ## ③ 今飲むか決める
