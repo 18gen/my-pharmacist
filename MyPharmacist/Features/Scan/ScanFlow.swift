@@ -39,7 +39,6 @@ struct PillScanResult {
     var dosesToTake: [Dose] {
         pills.compactMap { if case .take(let dose) = $0.verdict { dose } else { nil } }
     }
-    var notToTakeCount: Int { pills.count - dosesToTake.count }
 }
 
 /// One scanning session, from opening the camera to closing it. There is no shutter:

@@ -50,5 +50,4 @@ nonisolated struct FrameQuality: Sendable, Equatable {
 
     /// The one issue to tell the person about, if any.
     var topIssue: QualityIssue? { issues.min() }
-    var isGood: Bool { issues.isEmpty }
 }
