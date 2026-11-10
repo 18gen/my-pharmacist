@@ -151,7 +151,7 @@ struct ScanFlowTests {
     @Test func nothingIsShownOrRecordedUntilThePersonSaysEveryPillIsCircled() async throws {
         flow.setOpen(true)
         let pills = [pill(TestMedications.metformin), pill(TestMedications.lisinopril, x: 0.5)]
-        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identification: identified(pills))
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identify: { identified(pills) })
         #expect(flow.phase.step == .confirming)
         if case .confirming(let found) = flow.phase {
             #expect(found.boxes.count == 2)
@@ -172,7 +172,7 @@ struct ScanFlowTests {
             for await _ in gate { break }
             return ScanFlow.Identified.success(PillIdentification(pills: pills))
         }
-        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identification: identification)
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identify: { identification })
         let confirming = Task { await flow.confirmPills() }
         for _ in 0..<100 where flow.phase.step != .checking {
             await Task.yield()
@@ -189,11 +189,32 @@ struct ScanFlowTests {
         #expect(try #require(result).pills.count == 2)
     }
 
+    @Test func tryingAgainChecksTheSamePhotoWithoutTakingAnother() async throws {
+        flow.setOpen(true)
+        let pills = [pill(TestMedications.metformin)]
+        // The first check fails (no connection, say); the second works.
+        var attempts = 0
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identify: {
+            attempts += 1
+            let failed = attempts == 1
+            return Task { failed ? .failure(.offline) : .success(PillIdentification(pills: pills)) }
+        })
+        await flow.confirmPills()
+        #expect(flow.phase.step == .retake)
+
+        await flow.checkAgain()
+        #expect(attempts == 2)
+        #expect(try #require(result).pills.count == 1)
+        // Only a failed check can be tried again.
+        await flow.checkAgain()
+        #expect(attempts == 2)
+    }
+
     @Test func aCheckThatFailedAsksForAnotherPhotoNeverAResult() async {
         flow.setOpen(true)
         let pills = [pill(TestMedications.metformin)]
         flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box),
-                          identification: Task { .failure(.offline) })
+                          identify: { Task { .failure(.offline) } })
         await flow.confirmPills()
         guard case .retake(_, let reason) = flow.phase else {
             Issue.record("Expected a retake, got \(flow.phase.step)")
@@ -207,7 +228,7 @@ struct ScanFlowTests {
     @Test func closingWhileAskedDropsThePhoto() async {
         flow.setOpen(true)
         let pills = [pill(TestMedications.metformin)]
-        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identification: identified(pills))
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identify: { identified(pills) })
         flow.setOpen(false)
         // Saying yes now does nothing: there is nothing left to confirm.
         await flow.confirmPills()
@@ -235,7 +256,7 @@ struct ScanFlowTests {
         flow.setOpen(true)
         let pills = [pill(TestMedications.metformin)]
         flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box),
-                          identification: Task { .success(PillIdentification(pills: pills, mayHaveMissedPill: true)) })
+                          identify: { Task { .success(PillIdentification(pills: pills, mayHaveMissedPill: true)) } })
         await flow.confirmPills()
         #expect(try #require(result).mayHaveMissedPill)
     }

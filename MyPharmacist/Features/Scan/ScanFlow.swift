@@ -111,6 +111,10 @@ final class ScanFlow {
     @ObservationIgnored private var checkTask: Task<Void, Never>?
     /// The pills being recognized while the person is asked whether all were found.
     @ObservationIgnored private var identification: Task<Identified, Never>?
+    /// Starts recognizing the confirmed photo's pills again, and those pills, after a
+    /// check that failed: the photo was fine, so it needn't be taken again.
+    @ObservationIgnored private var identify: (() -> Task<Identified, Never>)?
+    @ObservationIgnored private var unchecked: FoundPills?
     /// Doses this session recorded as scanned, so a retake can replace them.
     @ObservationIgnored private var recordedThisSession: [Dose] = []
 
@@ -208,23 +212,41 @@ final class ScanFlow {
         // Step 3: ask whether these are all the pills, and start checking each one
         // meanwhile so the answer isn't waited for twice.
         let analyzer = analyzer
-        askToConfirm(photo: photo, boxes: found.map(\.box),
-                     identification: Task { await analyzer.identify(found, in: captured) })
+        askToConfirm(photo: photo, boxes: found.map(\.box)) {
+            Task { await analyzer.identify(found, in: captured) }
+        }
     }
 
     /// Shows the photo with the pills found circled. Nothing is recorded, and no result
     /// shown, until the person says every pill is circled.
-    func askToConfirm(photo: CGImage, boxes: [CGRect], identification: Task<Identified, Never>) {
-        self.identification = identification
+    /// - Parameter identify: Starts recognizing the pills. Called now, and again if the
+    ///   check fails and the person tries again.
+    func askToConfirm(photo: CGImage, boxes: [CGRect], identify: @escaping () -> Task<Identified, Never>) {
+        self.identify = identify
+        identification = identify()
         phase = .confirming(FoundPills(photo: photo, boxes: boxes))
     }
 
     /// The person says every pill in the photo is circled: on to the results, as soon
-    /// as the pills are recognized. If they couldn't be, the photo has to be taken again;
-    /// a check that didn't happen is never shown as a result.
+    /// as the pills are recognized. If they couldn't be, the person is asked to try
+    /// again; a check that didn't happen is never shown as a result.
     func confirmPills() async {
         guard case .confirming(let found) = phase, let identification else { return }
+        await showResults(of: found, when: identification)
+    }
+
+    /// After a check that failed: checks the same photo's pills again, without taking
+    /// another photo.
+    func checkAgain() async {
+        guard case .retake(_, .checkFailed) = phase, let unchecked, let identify else { return }
+        let identification = identify()
+        self.identification = identification
+        await showResults(of: unchecked, when: identification)
+    }
+
+    private func showResults(of found: FoundPills, when identification: Task<Identified, Never>) async {
         phase = .checking(found)
+        unchecked = nil
         let task = Task { [weak self] in
             let identified = await identification.value
             guard let self, !Task.isCancelled else { return }
@@ -233,6 +255,7 @@ final class ScanFlow {
             case .success(let pills):
                 showResults(pills.pills, photo: found.photo, mayHaveMissedPill: pills.mayHaveMissedPill)
             case .failure:
+                unchecked = found
                 phase = .retake(found.photo, .checkFailed)
             }
         }
@@ -250,6 +273,8 @@ final class ScanFlow {
         checkTask = nil
         identification?.cancel()
         identification = nil
+        identify = nil
+        unchecked = nil
     }
 
     /// Back to aiming when the camera couldn't take the photo. The quality check starts

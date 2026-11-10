@@ -273,13 +273,21 @@ struct CameraLens: View {
     }
 
     /// In place of the close button, for a photo that has to be taken again: Retake
-    /// first, and a smaller Cancel that closes the camera, as on the results page.
+    /// first, and a smaller Cancel that closes the camera, as on the results page. A
+    /// photo that was fine but couldn't be checked is checked again instead.
     private var retakeButtons: some View {
         HStack(spacing: 10) {
-            WideButton(title: "Retake", systemImage: "arrow.counterclockwise") {
-                Task { await scan.retake() }
+            if case .retake(_, .checkFailed) = scan.phase {
+                WideButton(title: "Try again", systemImage: "arrow.clockwise") {
+                    Task { await scan.checkAgain() }
+                }
+                .accessibilityHint("Checks the same photo again")
+            } else {
+                WideButton(title: "Retake", systemImage: "arrow.counterclockwise") {
+                    Task { await scan.retake() }
+                }
+                .accessibilityHint("Opens the camera again")
             }
-            .accessibilityHint("Opens the camera again")
             SecondaryButton(title: "Cancel", action: onDone)
                 .accessibilityHint("Closes the camera")
         }
