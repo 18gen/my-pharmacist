@@ -48,7 +48,6 @@ struct CameraLens: View {
                 lens(open: isOpen)
             }
         }
-        .ignoresSafeArea(edges: .bottom)
         .accessibilityHidden(!isOpen)
         // Hide the focus square a moment after each tap.
         .task(id: focusTapCount) {

@@ -50,7 +50,7 @@ struct RootView: View {
                 TimelineView(.everyMinute) { context in
                     // Not tied to the camera being open: changing together with it, the
                     // colour's animation would replace the camera's opening spring.
-                    screen(in: proxy.size, isDue: store.hasDoseDueNow(now: context.date))
+                    screen(in: proxy.size, bottomInset: proxy.safeAreaInsets.bottom, isDue: store.hasDoseDueNow(now: context.date))
                 }
                 // Known before the camera is first opened: it zooms for this shape.
                 .onChange(of: proxy.size, initial: true) { _, size in
@@ -111,16 +111,23 @@ struct RootView: View {
     }
 
     /// The home screen with the scan button, which grows into the scan over it.
-    /// - Parameter isDue: A dose is due now: the scan button is blue.
-    private func screen(in size: CGSize, isDue: Bool) -> some View {
+    /// - Parameters:
+    ///   - size: The screen inside its safe area.
+    ///   - bottomInset: The home indicator's strip under that. The scan and its button
+    ///     are measured from the screen's physical bottom, so the screen is laid out
+    ///     down to there: the same on every iOS version, which letting each of them
+    ///     reach into the safe area by itself was not.
+    ///   - isDue: A dose is due now: the scan button is blue.
+    private func screen(in size: CGSize, bottomInset: CGFloat, isDue: Bool) -> some View {
         ZStack(alignment: .bottom) {
             Palette.background.ignoresSafeArea()
 
             if !scan.isOpen {
                 HomeView(store: store, onShowMedications: showMedications)
                     .padding(.top, 8)
-                    // Keep clear of the "Scan Pills" hint and button.
-                    .padding(.bottom, ScanLayout.homeReservedHeight)
+                    // Keep clear of the "Scan Pills" hint and button, and of the home
+                    // indicator's strip.
+                    .padding(.bottom, ScanLayout.homeReservedHeight + bottomInset)
                     .frame(maxHeight: .infinity, alignment: .top)
                     .transition(CameraButton.hintTransition)
             }
@@ -137,7 +144,7 @@ struct RootView: View {
             CameraLens(
                 scan: scan,
                 isOpen: scan.isOpen,
-                openSize: scan.phase.step.isResultsPage ? ScanLayout.resultsPageSize(in: size)
+                openSize: scan.phase.step.isResultsPage ? ScanLayout.resultsPageSize(in: size, bottomInset: bottomInset)
                                                       : ScanLayout.openLensSize(in: size, largeText: largeText),
                 onDone: { setScanning(false) },
                 closedColor: isDue ? Palette.due : .black
@@ -152,6 +159,8 @@ struct RootView: View {
                 setScanning(!scan.isOpen)
             }
         }
+        // A geometry reader puts its content at its top, so this reaches down past it.
+        .frame(width: size.width, height: size.height + bottomInset)
     }
 
     /// A page pushed over the home screen.

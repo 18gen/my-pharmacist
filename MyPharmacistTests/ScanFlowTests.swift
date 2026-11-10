@@ -286,6 +286,9 @@ struct ScanFlowTests {
         // camera view at both ends.
         #expect(page.height == screen.height - ScanLayout.resultsTopGap - ScanLayout.lensEdgeGap)
         #expect(page.height > open.height + ScanLayout.lensLift)
+        // It reaches into the home indicator's strip, so that it starts just under the
+        // status bar and ends the sides' gap from the screen's physical bottom.
+        #expect(ScanLayout.resultsPageSize(in: screen, bottomInset: 34).height == page.height + 34)
     }
 
     @Test func liftingTheCameraPictureKeepsItsSize() {

@@ -72,6 +72,5 @@ struct CameraButton: View {
         // A light tap of vibration each time the camera opens or closes.
         .sensoryFeedback(.impact(weight: .light), trigger: isScanning)
         .padding(.bottom, ScanLayout.buttonBottomInset)
-        .ignoresSafeArea(edges: .bottom)
     }
 }

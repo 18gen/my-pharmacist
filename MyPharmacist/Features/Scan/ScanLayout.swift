@@ -65,10 +65,14 @@ enum ScanLayout {
     static let resultsTopGap: CGFloat = 8
 
     /// The results page: from just under the status bar, where the scan's instruction
-    /// was, down to the sides' gap from the bottom. It has no close button under it, so it
-    /// takes that room too. The page says what to do at its own top.
-    static func resultsPageSize(in container: CGSize) -> CGSize {
-        CGSize(width: container.width - 2 * lensEdgeGap, height: max(0, container.height - resultsTopGap - lensEdgeGap))
+    /// was, down to the sides' gap from the screen's physical bottom. It has no close
+    /// button under it, so it takes that room too. The page says what to do at its own top.
+    /// - Parameters:
+    ///   - container: The screen inside its safe area.
+    ///   - bottomInset: The home indicator's strip under it, which the page reaches into.
+    static func resultsPageSize(in container: CGSize, bottomInset: CGFloat = 0) -> CGSize {
+        CGSize(width: container.width - 2 * lensEdgeGap,
+               height: max(0, container.height + bottomInset - resultsTopGap - lensEdgeGap))
     }
 
     /// Width over height of the camera picture: the open camera view above its bar.
@@ -78,10 +82,9 @@ enum ScanLayout {
         return height > 0 ? Double(width / height) : 9.0 / 16.0
     }
 
-    /// The space between the status bar and the top of the open camera view, where the
-    /// scan's instruction goes. The camera view ends `lensEdgeGap` above the bottom of the
-    /// safe area (it doesn't reach into the home indicator's strip), so that is all there
-    /// is below it.
+    /// The room for the scan's instruction, from the status bar down. The camera view is
+    /// as tall as the safe area less this and `lensEdgeGap`, and ends `lensEdgeGap` above
+    /// the screen's physical bottom.
     static func headerHeight(in container: CGSize, largeText: Bool = false) -> CGFloat {
         max(0, container.height - openLensSize(in: container, largeText: largeText).height - lensEdgeGap)
     }
