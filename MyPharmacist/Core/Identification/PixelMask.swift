@@ -75,38 +75,44 @@ nonisolated struct PixelMask: Sendable, Equatable {
         dilated(by: radius).eroded(by: radius)
     }
 
-    /// One pass along rows, then one along columns: a square neighbourhood.
+    /// One pass along rows, then one along columns: a square neighbourhood. Written
+    /// against raw memory and running totals because it runs over every pixel of a
+    /// photo-sized mask several times a scan, in debug builds too.
     private func spread(_ radius: Int, growing: Bool) -> PixelMask {
-        let hit: UInt8 = growing ? 1 : 0
-        var rows = pixels
-        for y in 0..<height {
-            let row = y * width
-            for x in 0..<width {
-                var value = 1 - hit
-                if !growing, x < radius || x + radius >= width {
-                    value = hit
-                } else {
-                    for k in max(0, x - radius)...min(width - 1, x + radius) where pixels[row + k] == hit {
-                        value = hit
-                        break
-                    }
-                }
-                rows[row + x] = value
-            }
-        }
+        let width = width, height = height
+        var rows = [UInt8](repeating: 0, count: width * height)
         var result = rows
-        for x in 0..<width {
-            for y in 0..<height {
-                var value = 1 - hit
-                if !growing, y < radius || y + radius >= height {
-                    value = hit
-                } else {
-                    for k in max(0, y - radius)...min(height - 1, y + radius) where rows[k * width + x] == hit {
-                        value = hit
-                        break
+        // totals[k] is how many of the first k pixels of the line are set.
+        var totals = [Int32](repeating: 0, count: max(width, height) + 1)
+        pixels.withUnsafeBufferPointer { source in
+            rows.withUnsafeMutableBufferPointer { rows in
+                result.withUnsafeMutableBufferPointer { result in
+                    totals.withUnsafeMutableBufferPointer { totals in
+                        for y in 0..<height {
+                            let row = y * width
+                            for x in 0..<width { totals[x + 1] = totals[x] + Int32(source[row + x]) }
+                            for x in 0..<width {
+                                let low = x - radius, high = x + radius
+                                if growing {
+                                    rows[row + x] = totals[min(width, high + 1)] - totals[max(0, low)] > 0 ? 1 : 0
+                                } else if low >= 0, high < width {
+                                    rows[row + x] = totals[high + 1] - totals[low] == Int32(2 * radius + 1) ? 1 : 0
+                                }
+                            }
+                        }
+                        for x in 0..<width {
+                            for y in 0..<height { totals[y + 1] = totals[y] + Int32(rows[y * width + x]) }
+                            for y in 0..<height {
+                                let low = y - radius, high = y + radius
+                                if growing {
+                                    result[y * width + x] = totals[min(height, high + 1)] - totals[max(0, low)] > 0 ? 1 : 0
+                                } else if low >= 0, high < height {
+                                    result[y * width + x] = totals[high + 1] - totals[low] == Int32(2 * radius + 1) ? 1 : 0
+                                }
+                            }
+                        }
                     }
                 }
-                result[y * width + x] = value
             }
         }
         return PixelMask(width: width, height: height, pixels: result)
@@ -116,35 +122,38 @@ nonisolated struct PixelMask: Sendable, Equatable {
     /// printed on a pill. Clear areas that reach the mask's edge stay clear.
     func fillingHoles() -> PixelMask {
         // Flood the clear pixels in from the edge; whatever clear the flood can't reach
-        // is a hole.
-        var outside = [Bool](repeating: false, count: pixels.count)
-        var stack: [Int] = []
-        func visit(_ x: Int, _ y: Int) {
-            let index = y * width + x
-            guard pixels[index] == 0, !outside[index] else { return }
-            outside[index] = true
-            stack.append(index)
+        // is a hole. 0 clear, 1 set, 2 clear and reached.
+        let width = width, height = height
+        var marks = pixels
+        var stack: [Int32] = []
+        marks.withUnsafeMutableBufferPointer { marks in
+            func reach(_ index: Int) {
+                if marks[index] == 0 {
+                    marks[index] = 2
+                    stack.append(Int32(index))
+                }
+            }
+            for x in 0..<width {
+                reach(x)
+                reach((height - 1) * width + x)
+            }
+            for y in 0..<height {
+                reach(y * width)
+                reach(y * width + width - 1)
+            }
+            while let last = stack.popLast() {
+                let index = Int(last)
+                let x = index % width
+                if x > 0 { reach(index - 1) }
+                if x < width - 1 { reach(index + 1) }
+                if index >= width { reach(index - width) }
+                if index < (height - 1) * width { reach(index + width) }
+            }
+            for index in 0..<(width * height) {
+                marks[index] = marks[index] == 2 ? 0 : 1
+            }
         }
-        for x in 0..<width {
-            visit(x, 0)
-            visit(x, height - 1)
-        }
-        for y in 0..<height {
-            visit(0, y)
-            visit(width - 1, y)
-        }
-        while let index = stack.popLast() {
-            let x = index % width, y = index / width
-            if x > 0 { visit(x - 1, y) }
-            if x < width - 1 { visit(x + 1, y) }
-            if y > 0 { visit(x, y - 1) }
-            if y < height - 1 { visit(x, y + 1) }
-        }
-        var filled = pixels
-        for index in filled.indices where filled[index] == 0 && !outside[index] {
-            filled[index] = 1
-        }
-        return PixelMask(width: width, height: height, pixels: filled)
+        return PixelMask(width: width, height: height, pixels: marks)
     }
 
     // MARK: Separate areas
@@ -152,35 +161,46 @@ nonisolated struct PixelMask: Sendable, Equatable {
     /// Each separate set area (pixels touching along a side or at a corner belong
     /// together), from the top down. Areas smaller than `minimumPixels` are left out.
     func blobs(minimumPixels: Int = 1) -> [Blob] {
+        let width = width, height = height
         var seen = [Bool](repeating: false, count: pixels.count)
         var blobs: [Blob] = []
-        var stack: [Int] = []
-        for start in pixels.indices where pixels[start] != 0 && !seen[start] {
-            var members: [Int] = []
-            var minX = width, minY = height, maxX = 0, maxY = 0
-            seen[start] = true
-            stack.append(start)
-            while let index = stack.popLast() {
-                members.append(index)
-                let x = index % width, y = index / width
-                minX = min(minX, x); maxX = max(maxX, x)
-                minY = min(minY, y); maxY = max(maxY, y)
-                for ny in max(0, y - 1)...min(height - 1, y + 1) {
-                    for nx in max(0, x - 1)...min(width - 1, x + 1) {
-                        let next = ny * width + nx
-                        if pixels[next] != 0, !seen[next] {
-                            seen[next] = true
-                            stack.append(next)
+        var stack: [Int32] = []
+        var members: [Int32] = []
+        pixels.withUnsafeBufferPointer { pixels in
+            seen.withUnsafeMutableBufferPointer { seen in
+                for start in 0..<(width * height) where pixels[start] != 0 && !seen[start] {
+                    members.removeAll(keepingCapacity: true)
+                    var minX = width, minY = height, maxX = 0, maxY = 0
+                    seen[start] = true
+                    stack.append(Int32(start))
+                    while let last = stack.popLast() {
+                        members.append(last)
+                        let index = Int(last)
+                        let x = index % width, y = index / width
+                        if x < minX { minX = x }
+                        if x > maxX { maxX = x }
+                        if y < minY { minY = y }
+                        if y > maxY { maxY = y }
+                        for ny in max(0, y - 1)...min(height - 1, y + 1) {
+                            for nx in max(0, x - 1)...min(width - 1, x + 1) {
+                                let next = ny * width + nx
+                                if pixels[next] != 0, !seen[next] {
+                                    seen[next] = true
+                                    stack.append(Int32(next))
+                                }
+                            }
                         }
                     }
+                    guard members.count >= minimumPixels else { continue }
+                    let patchWidth = maxX - minX + 1
+                    var patch = [UInt8](repeating: 0, count: patchWidth * (maxY - minY + 1))
+                    for member in members {
+                        let index = Int(member)
+                        patch[(index / width - minY) * patchWidth + index % width - minX] = 1
+                    }
+                    blobs.append(Blob(x: minX, y: minY, mask: PixelMask(width: patchWidth, height: maxY - minY + 1, pixels: patch)))
                 }
             }
-            guard members.count >= minimumPixels else { continue }
-            var patch = PixelMask(width: maxX - minX + 1, height: maxY - minY + 1)
-            for index in members {
-                patch[index % width - minX, index / width - minY] = true
-            }
-            blobs.append(Blob(x: minX, y: minY, mask: patch))
         }
         return blobs
     }
@@ -197,6 +217,18 @@ nonisolated struct Blob: Sendable, Equatable {
     /// The area's box in the picture, in pixels.
     var bounds: CGRect {
         CGRect(x: x, y: y, width: mask.width, height: mask.height)
+    }
+
+    /// The same area with `margin` clear pixels added on every side, so that tidying it
+    /// has room to work. Its place in the picture moves out to match.
+    func padded(by margin: Int) -> Blob {
+        var wider = PixelMask(width: mask.width + 2 * margin, height: mask.height + 2 * margin)
+        for py in 0..<mask.height {
+            for px in 0..<mask.width where mask[px, py] {
+                wider[px + margin, py + margin] = true
+            }
+        }
+        return Blob(x: x - margin, y: y - margin, mask: wider)
     }
 
     /// The area drawn back into a clear mask of the picture's size.
