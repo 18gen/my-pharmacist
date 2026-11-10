@@ -103,8 +103,12 @@ struct CameraLens: View {
                                             removal: .opacity.animation(.easeOut(duration: 0.1))))
             }
         }
+        // Top-aligned, so the picture starts at the top of the camera view whatever the bar
+        // under it holds. Centred, a bar with nothing in it (while "Checking…") let the
+        // stack shrink to the picture and drop it by half the bar's height.
         .frame(width: open ? openSize.width : ScanLayout.buttonSize,
-               height: open ? openSize.height : ScanLayout.buttonSize)
+               height: open ? openSize.height : ScanLayout.buttonSize,
+               alignment: .top)
         // Open: same gap from the bottom as from the sides.
         .padding(.bottom, open ? ScanLayout.lensEdgeGap : ScanLayout.buttonBottomInset)
         .animation(.spring(duration: 0.4), value: scan.phase.step)
@@ -139,13 +143,14 @@ struct CameraLens: View {
     }
 
     /// Under the picture, beside the close button: the light while aiming, Retake and
-    /// Cancel for a photo to take again.
+    /// Cancel for a photo to take again. An empty bar is `Color.clear`, not `EmptyView`:
+    /// it still takes its room, so the layout never depends on what the bar holds.
     @ViewBuilder
     private var bar: some View {
         switch scan.phase {
         case .aiming: lightButton
         case .retake: retakeButtons
-        default: EmptyView()
+        default: Color.clear
         }
     }
 
@@ -225,6 +230,9 @@ struct CameraLens: View {
             }
             .padding(.leading, 22)
             .closeButtonRow()
+        } else {
+            // No light: the bar's room stays taken (see `bar`).
+            Color.clear
         }
     }
 
