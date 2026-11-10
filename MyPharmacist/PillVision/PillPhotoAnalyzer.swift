@@ -3,6 +3,7 @@
 //  MyPharmacist
 //
 
+import os
 import UIKit
 import Vision
 
@@ -71,7 +72,7 @@ actor PillPhotoAnalyzer {
             } catch {
                 // Offline, or the service failed: fall back to the device's own check,
                 // which leans to "Unknown" rather than guessing.
-                print("OpenAI pill check failed, checking on the device: \(error)")
+                ScanLog.logger.error("Cloud pill check failed, checking on the device: \(String(describing: error), privacy: .public)")
             }
         }
         return PillIdentification(pills: identifyOnDevice(pills))
