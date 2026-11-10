@@ -16,7 +16,7 @@ enum ScanInstruction {
     static let aim = Line(text: "Point the camera at your pills", pictogram: .aim)
     static let noPills = Line(text: "No pills found", pictogram: .noPills)
     /// The photo couldn't be searched, so it says nothing about the pills either way.
-    static let cantCheck = Line(text: "Couldn't check this photo", pictogram: .noPills)
+    static let cantCheck = Line(text: "Couldn't check this photo", pictogram: .again)
     /// While the photo is taken and searched for pills.
     static let checking = Line(text: "Checking your pills…", pictogram: .checking)
 
@@ -36,10 +36,10 @@ enum ScanInstruction {
         switch reason {
         case .noPills: noPills
         case .cantCheck: cantCheck
-        case .touching: Line(text: "Spread the pills apart", pictogram: .noPills)
-        case .cutOff: Line(text: "Move the pills to the middle", pictogram: .aim)
-        case .tooFar: Line(text: "Move the phone closer", pictogram: .aim)
-        case .hardToSee: Line(text: "Put the pills on a plain surface", pictogram: .noPills)
+        case .touching: Line(text: "Spread the pills apart", pictogram: .spreadApart)
+        case .cutOff: Line(text: "Move the pills to the middle", pictogram: .toTheMiddle)
+        case .tooFar: Line(text: "Move the phone closer", pictogram: .moveCloser)
+        case .hardToSee: Line(text: "Put the pills on a plain surface", pictogram: .plainSurface)
         }
     }
 
@@ -53,7 +53,7 @@ enum ScanInstruction {
 }
 
 /// The pictures, each a symbol that moves the way the person should.
-enum ScanPictogram: Equatable {
+enum ScanPictogram: Hashable {
     /// Pills inside a viewfinder that gently closes in on them.
     case aim
     /// The same viewfinder, with the pills fading in and out: none were seen.
@@ -70,6 +70,16 @@ enum ScanPictogram: Equatable {
     case moveBack
     /// A magnifying glass looking around.
     case checking
+    /// Two pills moving away from each other.
+    case spreadApart
+    /// Pills moving from the viewfinder's corner to its middle.
+    case toTheMiddle
+    /// A phone getting larger: closer.
+    case moveCloser
+    /// Pills settling onto a plain sheet.
+    case plainSurface
+    /// An arrow going round: once more.
+    case again
 }
 
 extension QualityIssue {

@@ -40,8 +40,8 @@ struct ScanPictogramView: View {
     private var duration: Double {
         switch pictogram {
         case .holdStill: 0.6
-        case .tilt, .moveBack: 0.9
-        case .aim, .noPills, .checking: 1.0
+        case .tilt, .moveBack, .moveCloser: 0.9
+        case .aim, .noPills, .checking, .spreadApart, .toTheMiddle, .plainSurface, .again: 1.0
         case .moreLight, .lessLight: 1.2
         }
     }
@@ -91,6 +91,39 @@ struct ScanPictogramView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: symbolSize * 0.9, weight: .semibold))
                 .offset(x: phase ? 5 : -5, y: phase ? -3 : 3)
+        case .spreadApart:
+            HStack(spacing: 0) {
+                Image(systemName: "pill.fill")
+                    .offset(x: phase ? -symbolSize * 0.22 : 0)
+                Image(systemName: "pill.fill")
+                    .offset(x: phase ? symbolSize * 0.22 : 0)
+            }
+            .font(.system(size: symbolSize * 0.5))
+        case .toTheMiddle:
+            ZStack {
+                Image(systemName: "viewfinder")
+                    .font(.system(size: symbolSize * 1.25, weight: .light))
+                Image(systemName: "pills.fill")
+                    .font(.system(size: symbolSize * 0.5))
+                    .offset(x: phase ? 0 : -symbolSize * 0.42, y: phase ? 0 : -symbolSize * 0.3)
+            }
+        case .moveCloser:
+            Image(systemName: "iphone")
+                .font(.system(size: symbolSize))
+                .scaleEffect(phase ? 1.1 : 0.68)
+        case .plainSurface:
+            ZStack {
+                Image(systemName: "rectangle")
+                    .font(.system(size: symbolSize * 1.2, weight: .light))
+                Image(systemName: "pills.fill")
+                    .font(.system(size: symbolSize * 0.5))
+                    .offset(y: phase ? 0 : -symbolSize * 0.45)
+                    .opacity(phase ? 1 : 0.35)
+            }
+        case .again:
+            Image(systemName: "arrow.counterclockwise")
+                .font(.system(size: symbolSize * 0.9, weight: .semibold))
+                .rotationEffect(.degrees(phase ? -40 : 20))
         }
     }
 }

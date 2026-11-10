@@ -122,6 +122,14 @@ struct ScanFlowTests {
         #expect(ScanInstruction.retake(.cantCheck).text != ScanInstruction.noPills.text)
     }
 
+    @Test func everyReasonToRetakeSaysAndShowsItsOwnThingToDo() {
+        let reasons: [RetakeReason] = [.noPills, .cantCheck, .touching, .cutOff, .tooFar, .hardToSee]
+        let lines = reasons.map(ScanInstruction.retake)
+        #expect(Set(lines.map(\.text)).count == reasons.count)
+        #expect(Set(lines.compactMap(\.pictogram)).count == reasons.count)
+        #expect(ScanInstruction.retake(.touching).text == "Spread the pills apart")
+    }
+
     private func identified(_ pills: [AnalyzedPill]) -> Task<PillIdentification, Never> {
         Task { PillIdentification(pills: pills) }
     }
