@@ -32,7 +32,7 @@ struct ResultsSkeletonLayoutTests {
     @Test func theSummaryAndThePhotoStayWhereTheyAre() throws {
         let sample = DemoScan.samplePills()
         let scanned = sample.pills.enumerated().map { index, pill in
-            ScannedPill(id: index + 1, box: pill.box, crop: pill.crop, medication: nil, verdict: .unidentified, match: pill.match)
+            ScannedPill(id: index + 1, box: pill.box, crop: pill.crop, medication: nil, verdict: .unidentified)
         }
         let checking = try render(.checking(FoundPills(photo: sample.photo, boxes: sample.pills.map(\.box))))
         let ready = try render(.ready(PillScanResult(photo: sample.photo, pills: scanned)))

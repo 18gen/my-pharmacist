@@ -121,7 +121,7 @@ enum DemoScan {
                             width: item.rect.width / size.width, height: item.rect.height / size.height)
                     .insetBy(dx: 0.02, dy: 0.02),
                 crop: pillImage(item.photo, side: item.rect.width).cgImage!,
-                match: PillMatch(medicationID: item.id, distance: nil)
+                medicationID: item.id
             )
         }
         return (photo.cgImage!, pills)

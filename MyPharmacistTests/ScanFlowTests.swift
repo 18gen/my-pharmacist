@@ -20,8 +20,7 @@ struct ScanFlowTests {
     }
 
     private func pill(_ medication: Medication?, x: Double = 0.1) -> AnalyzedPill {
-        AnalyzedPill(box: CGRect(x: x, y: 0.4, width: 0.1, height: 0.1), crop: testImage(),
-                     match: PillMatch(medicationID: medication?.id, distance: 0.2))
+        AnalyzedPill(box: CGRect(x: x, y: 0.4, width: 0.1, height: 0.1), crop: testImage(), medicationID: medication?.id)
     }
 
     private var result: PillScanResult? {
@@ -145,8 +144,8 @@ struct ScanFlowTests {
         }
     }
 
-    private func identified(_ pills: [AnalyzedPill]) -> Task<PillIdentification, Never> {
-        Task { PillIdentification(pills: pills) }
+    private func identified(_ pills: [AnalyzedPill]) -> Task<ScanFlow.Identified, Never> {
+        Task { .success(PillIdentification(pills: pills)) }
     }
 
     @Test func nothingIsShownOrRecordedUntilThePersonSaysEveryPillIsCircled() async throws {
@@ -171,7 +170,7 @@ struct ScanFlowTests {
         let (gate, release) = AsyncStream.makeStream(of: Void.self)
         let identification = Task {
             for await _ in gate { break }
-            return PillIdentification(pills: pills)
+            return ScanFlow.Identified.success(PillIdentification(pills: pills))
         }
         flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identification: identification)
         let confirming = Task { await flow.confirmPills() }
@@ -188,6 +187,21 @@ struct ScanFlowTests {
         release.finish()
         await confirming.value
         #expect(try #require(result).pills.count == 2)
+    }
+
+    @Test func aCheckThatFailedAsksForAnotherPhotoNeverAResult() async {
+        flow.setOpen(true)
+        let pills = [pill(TestMedications.metformin)]
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box),
+                          identification: Task { .failure(.offline) })
+        await flow.confirmPills()
+        guard case .retake(_, let reason) = flow.phase else {
+            Issue.record("Expected a retake, got \(flow.phase.step)")
+            return
+        }
+        #expect(reason == .checkFailed)
+        #expect(store.todayList(now: Date()).allSatisfy { !$0.state.isScanned })
+        #expect(ScanInstruction.retake(.checkFailed).spoken?.contains("internet") == true)
     }
 
     @Test func closingWhileAskedDropsThePhoto() async {
@@ -221,7 +235,7 @@ struct ScanFlowTests {
         flow.setOpen(true)
         let pills = [pill(TestMedications.metformin)]
         flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box),
-                          identification: Task { PillIdentification(pills: pills, mayHaveMissedPill: true) })
+                          identification: Task { .success(PillIdentification(pills: pills, mayHaveMissedPill: true)) })
         await flow.confirmPills()
         #expect(try #require(result).mayHaveMissedPill)
     }

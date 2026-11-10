@@ -302,11 +302,11 @@ private enum ResultsPreview {
         let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
         let sample = DemoScan.samplePills()
         let pills = keeping.map { $0.map { sample.pills[$0] } } ?? sample.pills
-        let identities = pills.map { pill in store.medications.first { $0.id == pill.match.medicationID } }
+        let identities = pills.map { pill in store.medications.first { $0.id == pill.medicationID } }
         let check = store.check(identities, now: morning)
         let scanned = pills.indices.map { index in
             ScannedPill(id: index + 1, box: pills[index].box, crop: pills[index].crop, medication: identities[index],
-                        verdict: check.verdicts[index], match: pills[index].match)
+                        verdict: check.verdicts[index])
         }
         return PillScanResult(photo: sample.photo, pills: scanned, mayHaveMissedPill: mayHaveMissedPill)
     }

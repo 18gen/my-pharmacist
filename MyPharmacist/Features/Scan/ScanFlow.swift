@@ -17,7 +17,6 @@ struct ScannedPill: Identifiable {
     let crop: CGImage
     let medication: Medication?
     let verdict: PillVerdict
-    let match: PillMatch
 }
 
 /// The pills found in a photo, before they are recognized: what the person is asked to
@@ -112,9 +111,12 @@ final class ScanFlow {
     @ObservationIgnored private var analyzedMedicationIDs: [String]
     @ObservationIgnored private var checkTask: Task<Void, Never>?
     /// The pills being recognized while the person is asked whether all were found.
-    @ObservationIgnored private var identification: Task<PillIdentification, Never>?
+    @ObservationIgnored private var identification: Task<Identified, Never>?
     /// Doses this session recorded as scanned, so a retake can replace them.
     @ObservationIgnored private var recordedThisSession: [Dose] = []
+
+    /// What recognizing the pills came to.
+    typealias Identified = Result<PillIdentification, PillCheckClient.Failure>
 
     init(store: MedicationStore, scanner: ScannerModel = ScannerModel()) {
         self.store = store
@@ -125,9 +127,9 @@ final class ScanFlow {
 
     private static func makeAnalyzer(_ medications: [Medication]) -> PillPhotoAnalyzer {
         #if DEBUG
-        // For trying the scan without sending anything anywhere.
+        // For trying the scan without sending anything anywhere: every pill is unknown.
         if ProcessInfo.processInfo.arguments.contains("-noCloud") {
-            return PillPhotoAnalyzer(medications: medications, cloud: nil)
+            return PillPhotoAnalyzer(medications: medications, client: nil, answersUnknown: true)
         }
         #endif
         return PillPhotoAnalyzer(medications: medications)
@@ -213,13 +215,14 @@ final class ScanFlow {
 
     /// Shows the photo with the pills found circled. Nothing is recorded, and no result
     /// shown, until the person says every pill is circled.
-    func askToConfirm(photo: CGImage, boxes: [CGRect], identification: Task<PillIdentification, Never>) {
+    func askToConfirm(photo: CGImage, boxes: [CGRect], identification: Task<Identified, Never>) {
         self.identification = identification
         phase = .confirming(FoundPills(photo: photo, boxes: boxes))
     }
 
     /// The person says every pill in the photo is circled: on to the results, as soon
-    /// as the pills are recognized.
+    /// as the pills are recognized. If they couldn't be, the photo has to be taken again;
+    /// a check that didn't happen is never shown as a result.
     func confirmPills() async {
         guard case .confirming(let found) = phase, let identification else { return }
         phase = .checking(found)
@@ -227,7 +230,12 @@ final class ScanFlow {
             let identified = await identification.value
             guard let self, !Task.isCancelled else { return }
             self.identification = nil
-            showResults(identified.pills, photo: found.photo, mayHaveMissedPill: identified.mayHaveMissedPill)
+            switch identified {
+            case .success(let pills):
+                showResults(pills.pills, photo: found.photo, mayHaveMissedPill: pills.mayHaveMissedPill)
+            case .failure:
+                phase = .retake(found.photo, .checkFailed)
+            }
         }
         checkTask = task
         await task.value
@@ -269,11 +277,11 @@ final class ScanFlow {
             store.removeScans(of: recordedThisSession)
             recordedThisSession = []
         }
-        let identities = pills.map { pill in store.medications.first { $0.id == pill.match.medicationID } }
+        let identities = pills.map { pill in store.medications.first { $0.id == pill.medicationID } }
         let check = store.check(identities, now: now)
         let scanned = pills.indices.map { index in
             ScannedPill(id: index + 1, box: pills[index].box, crop: pills[index].crop, medication: identities[index],
-                        verdict: check.verdicts[index], match: pills[index].match)
+                        verdict: check.verdicts[index])
         }
         let result = PillScanResult(photo: photo, pills: scanned, mayHaveMissedPill: mayHaveMissedPill)
         if records {

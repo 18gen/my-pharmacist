@@ -18,4 +18,7 @@ nonisolated enum RetakeReason: Hashable, Sendable {
     case tooFar
     /// Something that may be a pill barely differs from what it lies on.
     case hardToSee
+    /// The pills were found but couldn't be checked: no connection, or the checker
+    /// didn't answer.
+    case checkFailed
 }

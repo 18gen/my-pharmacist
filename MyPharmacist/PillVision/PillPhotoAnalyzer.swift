@@ -5,42 +5,47 @@
 
 import os
 import UIKit
-import Vision
 
 /// One pill from the photo and what it was recognized as.
 nonisolated struct AnalyzedPill: Sendable {
     let box: CGRect
     let crop: CGImage
-    let match: PillMatch
+    /// The medication it is, or nil when it isn't one of the person's, or the checker
+    /// wasn't sure.
+    let medicationID: String?
 }
 
 /// Every pill found in a photo, recognized.
 nonisolated struct PillIdentification: Sendable {
     let pills: [AnalyzedPill]
-    /// The vision model saw something pill-like in the photo that wasn't found as a
-    /// pill. Only ever a reason for more care.
+    /// The checker saw something pill-like in the photo that wasn't found as a pill.
+    /// Only ever a reason for more care.
     var mayHaveMissedPill = false
 }
 
-/// Finds the pills in a photo and recognizes each one by comparing it with the
-/// medications' reference photos. With an OpenAI key in Secrets.plist, a vision model
-/// does the comparing (temporary, for demos); otherwise, or if it can't be reached,
-/// Vision image feature prints on the device do. This is the swap point for a model
-/// trained on ePillID later.
+/// Finds the pills in a photo (on the device) and has each one recognized by the pill
+/// check server, against the person's medications and their photos. This is the place
+/// to swap in a recognizer that runs on the device later.
 ///
-/// An actor so the Vision work runs off the main thread and the references are prepared
-/// once and reused.
+/// An actor so the work runs off the main thread and the medications' pictures are
+/// prepared once and reused.
 actor PillPhotoAnalyzer {
     private let medications: [Medication]
-    private let rule = PillMatchRule()
-    private let cloud: OpenAIPillIdentifier?
-    private var references: [(medicationID: String, print: VNFeaturePrintObservation)]?
-    private var cloudCandidates: [OpenAIPillIdentifier.Candidate]?
+    private let client: PillCheckClient?
+    private var candidates: [PillCheckClient.Candidate]?
+    #if DEBUG
+    /// Debug demos (-noCloud): every pill comes back unknown, without the server.
+    private let answersUnknown: Bool
+    #endif
 
     init(medications: [Medication],
-         cloud: OpenAIPillIdentifier? = OpenAIPillIdentifier.Configuration.fromBundle().map { OpenAIPillIdentifier(configuration: $0) }) {
+         client: PillCheckClient? = PillCheckClient.Configuration.fromBundle().map { PillCheckClient(configuration: $0) },
+         answersUnknown: Bool = false) {
         self.medications = medications
-        self.cloud = cloud
+        self.client = client
+        #if DEBUG
+        self.answersUnknown = answersUnknown
+        #endif
     }
 
     /// Step 2 of a scan: the pills in the photo, each cut out, or why there are none
@@ -49,102 +54,51 @@ actor PillPhotoAnalyzer {
         PillFinder.find(in: photo)
     }
 
-    /// Step 3 of a scan: recognizes each pill, in the order given.
-    func identify(_ pills: [FoundPill], in photo: CapturedPhoto) async -> PillIdentification {
-        if let cloud, !pills.isEmpty {
-            do {
-                // Each pill cut from the full-size photo, in the middle of its own picture.
-                let photos = pills.compactMap { pill in
-                    PillCropper.picture(of: pill, in: photo).flatMap { OpenAIPillIdentifier.jpeg($0, maxSide: PillCropper.largestSide) }
-                }
-                if photos.count == pills.count {
-                    // And all of them together, numbered, so the model can say whether
-                    // something pill-like was left out.
-                    let overview = PillCropper.overview(of: pills, in: photo).flatMap { OpenAIPillIdentifier.jpeg($0, maxSide: PillCropper.overviewSide) }
-                    let reading = try await cloud.identify(photos, overview: overview, among: cloudReferences())
-                    return PillIdentification(
-                        pills: zip(pills, reading.medicationIDs).map { pill, id in
-                            AnalyzedPill(box: pill.box, crop: pill.crop, match: PillMatch(medicationID: id, distance: nil))
-                        },
-                        mayHaveMissedPill: reading.mayHaveMissedPill
-                    )
-                }
-            } catch {
-                // Offline, or the service failed: fall back to the device's own check,
-                // which leans to "Unknown" rather than guessing.
-                ScanLog.logger.error("Cloud pill check failed, checking on the device: \(String(describing: error), privacy: .public)")
-            }
+    /// Step 3 of a scan: recognizes each pill, in the order given, or says why it
+    /// couldn't. With no medications on the list there's nothing to compare with, and
+    /// every pill is unknown without asking.
+    func identify(_ pills: [FoundPill], in photo: CapturedPhoto) async -> Result<PillIdentification, PillCheckClient.Failure> {
+        let unknown = PillIdentification(pills: pills.map { AnalyzedPill(box: $0.box, crop: $0.crop, medicationID: nil) })
+        #if DEBUG
+        if answersUnknown { return .success(unknown) }
+        #endif
+        guard !medications.isEmpty, !pills.isEmpty else { return .success(unknown) }
+        guard let client else { return .failure(.notConfigured) }
+
+        // Each pill cut from the full-size photo, in the middle of its own picture, and
+        // all of them together, numbered, so the checker can say whether something
+        // pill-like was left out.
+        let pictures = pills.compactMap { pill in
+            PillCropper.picture(of: pill, in: photo).flatMap { PillCheckClient.jpeg($0, maxSide: PillCropper.largestSide) }
         }
-        return PillIdentification(pills: identifyOnDevice(pills))
+        guard pictures.count == pills.count else { return .failure(.unusable) }
+        let overview = PillCropper.overview(of: pills, in: photo).flatMap { PillCheckClient.jpeg($0, maxSide: PillCropper.overviewSide) }
+
+        do {
+            let reading = try await client.check(pictures, overview: overview, among: candidateList())
+            return .success(PillIdentification(
+                pills: zip(pills, reading.medicationIDs).map { pill, id in
+                    AnalyzedPill(box: pill.box, crop: pill.crop, medicationID: id)
+                },
+                mayHaveMissedPill: reading.mayHaveMissedPill
+            ))
+        } catch {
+            ScanLog.logger.error("Pill check failed: \(String(describing: error), privacy: .public)")
+            return .failure(error)
+        }
     }
 
-    /// The medications as the cloud model sees them: a line each and their photos.
-    private func cloudReferences() -> [OpenAIPillIdentifier.Candidate] {
-        if let cloudCandidates { return cloudCandidates }
-        let candidates = medications.map { medication in
+    /// The medications as the checker sees them: a line each and their photos.
+    private func candidateList() -> [PillCheckClient.Candidate] {
+        if let candidates { return candidates }
+        let made = medications.map { medication in
             let description = [medication.displayName, medication.appearance].filter { !$0.isEmpty }.joined(separator: " · ")
-            let photos = medication.photos.compactMap { MedicationPhotoStore.standard.image($0)?.cgImage }.compactMap { OpenAIPillIdentifier.jpeg($0, maxSide: 256) }
-            return OpenAIPillIdentifier.Candidate(id: medication.id, description: description, photos: photos)
+            let photos = medication.photos
+                .compactMap { MedicationPhotoStore.standard.image($0)?.cgImage }
+                .compactMap { PillCheckClient.jpeg($0, maxSide: 256) }
+            return PillCheckClient.Candidate(id: medication.id, description: description, photos: photos)
         }
-        cloudCandidates = candidates
-        return candidates
-    }
-
-    private func identifyOnDevice(_ pills: [FoundPill]) -> [AnalyzedPill] {
-        let references = loadReferences()
-        return pills.map { pill in
-            var distances: [String: Float] = [:]
-            if let print = Self.featurePrint(of: pill.crop, padding: Self.cropPadding) {
-                for reference in references {
-                    var distance: Float = 0
-                    guard (try? print.computeDistance(&distance, to: reference.print)) != nil else { continue }
-                    distances[reference.medicationID] = min(distances[reference.medicationID] ?? .infinity, distance)
-                }
-            }
-            return AnalyzedPill(box: pill.box, crop: pill.crop, match: rule.match(distances))
-        }
-    }
-
-    private func loadReferences() -> [(medicationID: String, print: VNFeaturePrintObservation)] {
-        if let references { return references }
-        var loaded: [(medicationID: String, print: VNFeaturePrintObservation)] = []
-        for medication in medications {
-            for photo in medication.photos {
-                guard let image = MedicationPhotoStore.standard.image(photo)?.cgImage,
-                      let print = Self.featurePrint(of: image, padding: 1) else { continue }
-                loaded.append((medication.id, print))
-            }
-        }
-        references = loaded
-        return loaded
-    }
-
-    /// Every image is drawn the same way before comparing: centred on a small black
-    /// square. Feature prints react strongly to resolution and framing (the same photo at
-    /// half size measured 0.7 away), so the high-resolution reference photos and the
-    /// smaller camera cut-outs are brought to one size, with the same margin around the
-    /// pill. The reference photos already have that margin; tight cut-outs get it here.
-    private static let normalizedSide = 128
-    private static let cropPadding = 1.12
-
-    private static func featurePrint(of image: CGImage, padding: Double) -> VNFeaturePrintObservation? {
-        guard let normalized = normalized(image, padding: padding) else { return nil }
-        let request = VNGenerateImageFeaturePrintRequest()
-        try? VNImageRequestHandler(cgImage: normalized).perform([request])
-        return request.results?.first
-    }
-
-    private static func normalized(_ image: CGImage, padding: Double) -> CGImage? {
-        let side = Double(normalizedSide)
-        let scale = side / (Double(max(image.width, image.height)) * padding)
-        let width = Double(image.width) * scale, height = Double(image.height) * scale
-        guard let context = CGContext(data: nil, width: normalizedSide, height: normalizedSide, bitsPerComponent: 8,
-                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        context.interpolationQuality = .high
-        context.setFillColor(gray: 0, alpha: 1)
-        context.fill(CGRect(x: 0, y: 0, width: side, height: side))
-        context.draw(image, in: CGRect(x: (side - width) / 2, y: (side - height) / 2, width: width, height: height))
-        return context.makeImage()
+        candidates = made
+        return made
     }
 }

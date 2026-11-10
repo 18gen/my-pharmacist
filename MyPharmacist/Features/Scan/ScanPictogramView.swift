@@ -55,7 +55,7 @@ struct ScanPictogramView: View {
         switch pictogram {
         case .holdStill: 0.6
         case .tilt, .moveBack, .moveCloser: 0.9
-        case .aim, .noPills, .checking, .spreadApart, .toTheMiddle, .plainSurface, .again: 1.0
+        case .aim, .noPills, .checking, .spreadApart, .toTheMiddle, .plainSurface, .again, .offline: 1.0
         case .moreLight, .lessLight: 1.2
         }
     }
@@ -134,6 +134,10 @@ struct ScanPictogramView: View {
                     .offset(y: phase ? 0 : -symbolSize * 0.45)
                     .opacity(phase ? 1 : 0.35)
             }
+        case .offline:
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: symbolSize * 0.9, weight: .semibold))
+                .opacity(phase ? 1 : 0.5)
         case .again:
             Image(systemName: "arrow.counterclockwise")
                 .font(.system(size: symbolSize * 0.9, weight: .semibold))

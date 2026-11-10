@@ -26,7 +26,7 @@ struct ScanFeedback: ViewModifier {
     private func announcement(for step: ScanFlow.Step) -> String? {
         switch scan.phase {
         case .retake(_, let reason) where step == .retake:
-            ScanInstruction.retake(reason).text
+            ScanInstruction.retake(reason).spoken ?? ScanInstruction.retake(reason).text
         case .confirming(let found) where step == .confirming:
             ScanInstruction.confirm(count: found.boxes.count).spoken
         case .checking where step == .checking:

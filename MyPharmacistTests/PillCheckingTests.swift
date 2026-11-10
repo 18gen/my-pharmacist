@@ -70,26 +70,6 @@ struct PillSetVerifierTests {
     }
 }
 
-struct PillMatchRuleTests {
-    private let rule = PillMatchRule()
-
-    @Test func aCloseAndClearMatch() {
-        #expect(rule.match(["a": 0.3, "b": 0.7]) == PillMatch(medicationID: "a", distance: 0.3))
-    }
-
-    @Test func tooFarFromEverythingIsNoMatch() {
-        #expect(rule.match(["a": 0.95, "b": 1.2]).medicationID == nil)
-    }
-
-    @Test func twoMedicationsTooAlikeIsNoMatch() {
-        #expect(rule.match(["a": 0.40, "b": 0.42]).medicationID == nil)
-    }
-
-    @Test func nothingToCompareWith() {
-        #expect(rule.match([:]) == PillMatch(medicationID: nil, distance: nil))
-    }
-}
-
 struct InstanceBoxesTests {
     @Test func measuresEachLabelledObject() {
         // 4×2 mask: object 1 in the top-left 2×1, object 2 a single pixel bottom-right.

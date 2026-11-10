@@ -41,6 +41,8 @@ enum ScanInstruction {
         case .cutOff: Line(text: "Pills to the middle", pictogram: .toTheMiddle)
         case .tooFar: Line(text: "Move closer", pictogram: .moveCloser)
         case .hardToSee: Line(text: "Use a plain surface", pictogram: .plainSurface)
+        case .checkFailed: Line(text: "Couldn't check. Try again", pictogram: .offline,
+                                spoken: "Couldn't check the pills. Check the internet connection and try again.")
         }
     }
 
@@ -87,6 +89,8 @@ enum ScanPictogram: Hashable {
     case plainSurface
     /// An arrow going round: once more.
     case again
+    /// A Wi-Fi sign with a warning: no connection to the checker.
+    case offline
 }
 
 extension QualityIssue {
