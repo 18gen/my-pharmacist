@@ -185,6 +185,15 @@ struct ScanFlowTests {
         #expect(try #require(result).mayHaveMissedPill)
     }
 
+    @Test func theResultsPageGrowsUpToWhereTheInstructionWas() {
+        let screen = CGSize(width: 393, height: 759)
+        let open = ScanLayout.openLensSize(in: screen)
+        let page = ScanLayout.resultsPageSize(in: screen)
+        #expect(page.width == open.width)
+        #expect(page.height == open.height + ScanLayout.headerHeight(in: screen) - ScanLayout.resultsTopGap)
+        #expect(page.height < screen.height)
+    }
+
     @Test func theQuestionSaysHowManyPillsWereFound() {
         #expect(ScanInstruction.confirm(count: 3).text == "3 pills found. Is every pill circled?")
         #expect(ScanInstruction.confirm(count: 1).text == "1 pill found. Is it your only pill?")

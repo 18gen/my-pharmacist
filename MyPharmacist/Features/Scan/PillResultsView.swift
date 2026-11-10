@@ -21,6 +21,7 @@ struct PillResultsView: View {
 
     var body: some View {
         VStack(spacing: 12) {
+            summary
             ResultPhoto(photo: result.photo, pills: result.pills, highlighted: highlighted)
 
             ScrollView {
@@ -47,6 +48,26 @@ struct PillResultsView: View {
 
             nextStep
         }
+    }
+
+    /// What to do, in one line, with its level's icon: the page's heading. Spoken when
+    /// the page appears (`ScanFeedback`).
+    private var summary: some View {
+        let level = result.summaryLevel
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: level.icon)
+                .foregroundStyle(level.color)
+                .accessibilityHidden(true)
+            Text(result.summary)
+                .foregroundStyle(Palette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .font(.title2.bold())
+        .padding(.horizontal, 10)
+        .padding(.top, 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     @ViewBuilder

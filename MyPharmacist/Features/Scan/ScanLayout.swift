@@ -30,6 +30,17 @@ enum ScanLayout {
         CGSize(width: container.width - 2 * lensEdgeGap, height: container.height * 0.8)
     }
 
+    /// Gap between the status bar and the top of the results page.
+    static let resultsTopGap: CGFloat = 8
+
+    /// The results page: the open camera view grown upward to just under the status bar,
+    /// where the scan's instruction was. Its bottom stays where it was. The page says
+    /// what to do at its own top, so the photo sits higher.
+    static func resultsPageSize(in container: CGSize) -> CGSize {
+        let open = openLensSize(in: container)
+        return CGSize(width: open.width, height: open.height + max(0, headerHeight(in: container) - resultsTopGap))
+    }
+
     /// Width over height of the open camera view.
     static func lensAspect(in container: CGSize) -> Double {
         let size = openLensSize(in: container)

@@ -6,9 +6,10 @@
 import SwiftUI
 
 /// Everything the person reads during a scan, above the camera view: what to do now
-/// (shown as a moving picture and in a few words), that the pills are being checked, or
-/// what to do with them. Nothing is drawn over the camera picture. A new instruction fades
-/// in only after the old one has faded out, so two never overlap.
+/// (shown as a moving picture and in a few words) or that the pills are being checked.
+/// The results page says what to do with the pills at its own top. Nothing is drawn over
+/// the camera picture. A new instruction fades in only after the old one has faded out,
+/// so two never overlap.
 struct ScanHeader: View {
     let scan: ScanFlow
 
@@ -43,18 +44,9 @@ struct ScanHeader: View {
     }
 
     private func words(_ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            // The results' line comes with its level's icon: the same one the page's
-            // sections use.
-            if let level {
-                Image(systemName: level.icon)
-                    .foregroundStyle(level.color)
-                    .accessibilityHidden(true)
-            }
-            Text(text)
-                .foregroundStyle(Palette.textPrimary)
-        }
-        .font(.title2.bold())
+        Text(text)
+            .foregroundStyle(Palette.textPrimary)
+            .font(.title2.bold())
         .multilineTextAlignment(.center)
         .minimumScaleFactor(0.7)
     }
@@ -76,12 +68,9 @@ struct ScanHeader: View {
             ScanInstruction.confirm(count: found.boxes.count)
         case .checking(let count):
             ScanInstruction.checking(count: count)
-        case .results(let result):
-            ScanInstruction.Line(text: result.summary, pictogram: nil)
+        case .results:
+            // Not shown: the results page has its own heading.
+            ScanInstruction.Line(text: "", pictogram: nil)
         }
-    }
-
-    private var level: ResultLevel? {
-        if case .results(let result) = scan.phase { result.summaryLevel } else { nil }
     }
 }
