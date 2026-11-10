@@ -90,6 +90,14 @@ final class ScanFlow {
 
     private(set) var isOpen = false
     private(set) var phase: Phase = .aiming
+
+    #if DEBUG
+    /// For previews: open, in the given step, without the camera.
+    func showForPreview(_ phase: Phase) {
+        isOpen = true
+        self.phase = phase
+    }
+    #endif
     let scanner: ScannerModel
     /// Width over height of the camera view, set by the screen that lays it out. The
     /// camera zooms for it and photos are kept to it, so the photo is what the person saw.

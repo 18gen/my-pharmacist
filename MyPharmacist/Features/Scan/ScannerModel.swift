@@ -41,6 +41,15 @@ final class ScannerModel {
         }
     }
 
+    #if DEBUG
+    /// For previews: what the camera picture would be like, without a camera.
+    func showForPreview(status: QualityGate.Status, hasLight: Bool, isLightOn: Bool = false) {
+        captureStatus = status
+        self.hasLight = hasLight
+        self.isLightOn = isLightOn
+    }
+    #endif
+
     func toggleLight() {
         guard hasLight else { return }
         isLightOn.toggle()

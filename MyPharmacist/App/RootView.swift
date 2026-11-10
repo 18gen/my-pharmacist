@@ -19,10 +19,12 @@ struct RootView: View {
     /// One of the accessibility text sizes: the instruction gets more room.
     private var largeText: Bool { typeSize.isAccessibilitySize }
 
+    /// - Parameter scan: A scan already in some step, for previews; nil for a new one.
     init(store: MedicationStore = MedicationStore(startingIDs: SampleMedications.startingIDs,
-                                                  listStorage: UserDefaultsMedicationListStorage())) {
+                                                  listStorage: UserDefaultsMedicationListStorage()),
+         scan: ScanFlow? = nil) {
         _store = State(initialValue: store)
-        _scan = State(initialValue: ScanFlow(store: store))
+        _scan = State(initialValue: scan ?? ScanFlow(store: store))
     }
 
     var body: some View {
@@ -91,8 +93,8 @@ struct RootView: View {
             .modifier(ScanFeedback(scan: scan))
             .task(id: scan.isOpen) {
                 #if DEBUG
-                // The demo shows results without the camera.
-                if DemoScan.isRequested { return }
+                // The demo shows results without the camera, and previews never start it.
+                if DemoScan.isRequested || ScanPreview.isRunning { return }
                 #endif
                 await scan.syncCamera()
             }
