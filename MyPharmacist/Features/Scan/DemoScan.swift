@@ -19,8 +19,9 @@ import UIKit
 ///   later, to watch (or record) the button growing into the camera picture and back.
 /// - `-demoChecking` opens on the results page standing ready while the pills are
 ///   checked, and stays there.
-/// - `-demoMedications` opens My Medications, and `-demoNewMedication` the page to add
-///   one, with the demo medications.
+/// - `-demoMedications` opens My Medications, `-demoNewMedication` the page to add one,
+///   and `-demoAbout` About & privacy, with the demo medications. `-demoConsent` opens
+///   the question asked before the first scan.
 enum DemoScan {
     static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses || checks || pages != nil }
 
@@ -28,6 +29,8 @@ enum DemoScan {
     static var pages: [AppRoute]? {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
+        if arguments.contains("-demoAbout") { return [.medications, .about] }
+        if arguments.contains("-demoConsent") { return [] }
         if arguments.contains("-demoMedications") { return [.medications] }
         return nil
     }

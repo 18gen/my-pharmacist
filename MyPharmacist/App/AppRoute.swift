@@ -12,4 +12,6 @@ enum AppRoute: Hashable {
     case medication(id: String)
     /// An empty medication page, to add a new one.
     case newMedication
+    /// "About & privacy".
+    case about
 }

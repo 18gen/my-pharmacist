@@ -47,6 +47,14 @@ struct MedicationsPage: View {
                 .font(.body)
                 .foregroundStyle(Palette.textSecondary)
                 .frame(maxWidth: .infinity, minHeight: 44)
+
+                NavigationLink(value: AppRoute.about) {
+                    Label("About & privacy", systemImage: "info.circle")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Palette.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)

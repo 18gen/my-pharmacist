@@ -16,6 +16,9 @@ struct RootView: View {
     @State private var lastHintAnnouncement = Date.distantPast
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(PillCheckConsent.key) private var allowsChecking = false
+    /// Asking to allow pill checking, before the camera opens for the first time.
+    @State private var isAskingConsent = false
 
     /// One of the accessibility text sizes: the instruction gets more room.
     private var largeText: Bool { typeSize.isAccessibilitySize }
@@ -123,10 +126,21 @@ struct RootView: View {
             .onAppear {
                 if DemoScan.isRequested { DemoScan.run(in: scan) }
                 if let pages = DemoScan.pages { path = pages }
+                if ProcessInfo.processInfo.arguments.contains("-demoConsent") { isAskingConsent = true }
             }
             #endif
             // Home has its own header instead of a navigation bar.
             .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $isAskingConsent) {
+                PillCheckConsentSheet(
+                    onAllow: {
+                        allowsChecking = true
+                        isAskingConsent = false
+                        setScanning(true)
+                    },
+                    onNotNow: { isAskingConsent = false }
+                )
+            }
             // Every page pushed over the home screen is declared here, once, and opened by
             // adding to `path`. A page shown by a flag (`navigationDestination(isPresented:)`)
             // can't share a stack with pages pushed by value: pushing a medication's page from
@@ -141,6 +155,8 @@ struct RootView: View {
                     }
                 case .newMedication:
                     MedicationEditor(store: store, onDone: { path.removeAll { $0 == route } })
+                case .about:
+                    AboutPage()
                 }
             }
         }
@@ -162,7 +178,14 @@ struct RootView: View {
         path.append(.medications)
     }
 
+    /// Opens or closes the camera. Opening asks first, until the person has allowed pill
+    /// pictures to be sent to be checked (guideline: explicit permission before sharing
+    /// with a third-party AI).
     private func setScanning(_ open: Bool) {
+        if open, !allowsChecking {
+            isAskingConsent = true
+            return
+        }
         withAnimation(ScanLayout.openingAnimation) {
             scan.setOpen(open)
         }
