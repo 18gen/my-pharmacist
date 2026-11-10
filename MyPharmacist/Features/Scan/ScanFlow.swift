@@ -132,6 +132,7 @@ final class ScanFlow {
         cancelChecks()
         if open {
             phase = .aiming
+            scanner.turnLightOff()
             refreshAnalyzer()
         }
         recordedThisSession = []

@@ -13,6 +13,10 @@ final class ScannerModel {
     private(set) var cameraMessage: String?
     /// Whether the picture is good enough yet, or what to fix first.
     private(set) var captureStatus: QualityGate.Status = .checking
+    /// Whether the camera has a light, and whether the person turned it on. The choice
+    /// lasts through retakes in one scan, and the next scan starts with it off.
+    private(set) var hasLight = false
+    private(set) var isLightOn = false
 
     @ObservationIgnored private let camera = CameraSession()
     @ObservationIgnored private var qualityGate = QualityGate()
@@ -29,7 +33,24 @@ final class ScannerModel {
         startReadingQuality()
         if await !camera.start(visibleAspect: visibleAspect) {
             cameraMessage = "No camera is available on this device."
+            return
         }
+        hasLight = await camera.hasTorch()
+        if isLightOn {
+            camera.setTorch(true)
+        }
+    }
+
+    func toggleLight() {
+        guard hasLight else { return }
+        isLightOn.toggle()
+        camera.setTorch(isLightOn)
+    }
+
+    /// For a new scan: the light starts off.
+    func turnLightOff() {
+        isLightOn = false
+        camera.setTorch(false)
     }
 
     func stop() {

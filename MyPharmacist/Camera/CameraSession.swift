@@ -74,6 +74,8 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
 
     func stop() {
         sessionQueue.async {
+            // The light goes off with the camera; it doesn't stay on after a scan.
+            self.applyTorch(false)
             if self.session.isRunning {
                 self.session.stopRunning()
             }
@@ -112,6 +114,32 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
                 self.photoOutput.capturePhoto(with: settings, delegate: delegate)
             }
         }
+    }
+
+    /// Whether the camera has a light that can be switched on (no for the Simulator and
+    /// for front cameras). Known once the camera has started.
+    func hasTorch() async -> Bool {
+        await withCheckedContinuation { continuation in
+            sessionQueue.async {
+                let device = self.device
+                continuation.resume(returning: device.map { $0.hasTorch && $0.isTorchModeSupported(.on) } ?? false)
+            }
+        }
+    }
+
+    /// Switches the camera's light on or off. Ignored if there is no light.
+    func setTorch(_ on: Bool) {
+        sessionQueue.async { self.applyTorch(on) }
+    }
+
+    /// On `sessionQueue`. A torch mode the camera doesn't support raises an exception,
+    /// so it is checked first, and the device is locked for the change as required.
+    private func applyTorch(_ on: Bool) {
+        let mode: AVCaptureDevice.TorchMode = on ? .on : .off
+        guard let device, device.hasTorch, device.isTorchModeSupported(mode), device.torchMode != mode,
+              (try? device.lockForConfiguration()) != nil else { return }
+        device.torchMode = mode
+        device.unlockForConfiguration()
     }
 
     /// Focuses (and exposes) on a point in device coordinates, e.g. from a tap.
