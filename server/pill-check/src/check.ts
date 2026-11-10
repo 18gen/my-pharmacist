@@ -16,9 +16,15 @@ export interface CheckRequest {
   candidates: Candidate[];
 }
 
-/** The model's answer for one pill. */
+/** What the bright middle of a pill's picture shows. */
+export const pictureShows = ["one_pill", "several_pills", "part_of_pill", "no_pill"] as const;
+export type PictureShows = (typeof pictureShows)[number];
+
+/** The answer for one pill. */
 export interface PillAnswer {
   pill: number;
+  picture_shows: PictureShows;
+  /** `picture_shows` as yes or no, which is all version 1.0 of the app reads. */
   shows_one_whole_pill: boolean;
   imprint: string;
   medication_id: string;
@@ -114,7 +120,8 @@ export const instructions = [
   'If the imprint you can read contradicts it, if no candidate fits, or if you are unsure, answer "none".',
   "Report the imprint you can read, or an empty string.",
   'Confidence is "high" only when shape, colour and any visible imprint all agree, "medium" when they agree but the imprint can\'t be read, otherwise "low".',
-  "Set shows_one_whole_pill to false when the bright middle of a photo shows no pill, only part of a pill, or more than one pill.",
+  'Say in picture_shows what the bright middle of each photo shows: "one_pill" for one whole pill, "several_pills" for more than one, "part_of_pill" for a pill that is cut off or half hidden, and "no_pill" when it is not a pill at all (skin, a shadow, a crease, anything else). A printed picture of a pill counts as a pill.',
+  'Unless it is "one_pill", answer "none".',
   "The last picture shows all the pills together, each in a box with its number beside it.",
   "Count in unnumbered_pill_like_objects the things in it that look like a pill or capsule but have no box and number; 0 if there are none or there is no such picture.",
 ].join(" ");
@@ -168,12 +175,12 @@ export function openAIRequest(request: CheckRequest, model: string): Record<stri
                 type: "object",
                 properties: {
                   pill: { type: "integer" },
-                  shows_one_whole_pill: { type: "boolean" },
+                  picture_shows: { type: "string", enum: [...pictureShows] },
                   imprint: { type: "string" },
                   medication_id: { type: "string", enum: [...request.candidates.map((candidate) => candidate.id), "none"] },
                   confidence: { type: "string", enum: ["high", "medium", "low"] },
                 },
-                required: ["pill", "shows_one_whole_pill", "imprint", "medication_id", "confidence"],
+                required: ["pill", "picture_shows", "imprint", "medication_id", "confidence"],
                 additionalProperties: false,
               },
             },
@@ -189,11 +196,12 @@ export function openAIRequest(request: CheckRequest, model: string): Record<stri
 
 export class ReplyError extends Error {}
 
-function isAnswer(value: unknown): value is PillAnswer {
+/** One pill's answer as the model gives it: everything but the yes or no. */
+function isModelAnswer(value: unknown): value is Omit<PillAnswer, "shows_one_whole_pill"> {
   return (
     isRecord(value) &&
     typeof value.pill === "number" &&
-    typeof value.shows_one_whole_pill === "boolean" &&
+    pictureShows.some((shows) => shows === value.picture_shows) &&
     typeof value.imprint === "string" &&
     typeof value.medication_id === "string" &&
     (value.confidence === "high" || value.confidence === "medium" || value.confidence === "low")
@@ -220,12 +228,22 @@ export function checkReply(openAIReply: unknown): CheckReply {
   if (
     !isRecord(answer) ||
     !Array.isArray(answer.pills) ||
-    !answer.pills.every(isAnswer) ||
+    !answer.pills.every(isModelAnswer) ||
     typeof answer.unnumbered_pill_like_objects !== "number"
   ) {
     throw new ReplyError("The output isn't in the expected shape");
   }
-  return { pills: answer.pills, unnumbered_pill_like_objects: answer.unnumbered_pill_like_objects };
+  return {
+    pills: answer.pills.map((pill) => ({
+      pill: pill.pill,
+      picture_shows: pill.picture_shows,
+      shows_one_whole_pill: pill.picture_shows === "one_pill",
+      imprint: pill.imprint,
+      medication_id: pill.medication_id,
+      confidence: pill.confidence,
+    })),
+    unnumbered_pill_like_objects: answer.unnumbered_pill_like_objects,
+  };
 }
 
 /** Compares two strings in time that doesn't depend on where they differ. */

@@ -52,7 +52,12 @@ describe("openAIRequest", () => {
     model: string;
     store: boolean;
     input: { content: { type: string; image_url?: string; detail?: string }[] }[];
-    text: { format: { strict: boolean; schema: { properties: { pills: { items: { properties: { medication_id: { enum: string[] } } } } } } } };
+    text: {
+      format: {
+        strict: boolean;
+        schema: { properties: { pills: { items: { required: string[]; properties: { medication_id: { enum: string[] }; picture_shows: { enum: string[] } } } } } };
+      };
+    };
   };
 
   it("keeps nothing and allows only the candidates or none", () => {
@@ -64,6 +69,13 @@ describe("openAIRequest", () => {
       "ondansetron-8",
       "none",
     ]);
+  });
+
+  it("asks what each picture shows, not for a yes or no", () => {
+    const pill = body.text.format.schema.properties.pills.items;
+    expect(pill.properties.picture_shows.enum).toEqual(["one_pill", "several_pills", "part_of_pill", "no_pill"]);
+    expect(pill.required).toContain("picture_shows");
+    expect(pill.required).not.toContain("shows_one_whole_pill");
   });
 
   it("sends every picture at high detail, with its type", () => {
@@ -81,12 +93,26 @@ describe("checkReply", () => {
     return { output: [{ type: "reasoning" }, { type: "message", content: [...extra, { type: "output_text", text }] }] };
   }
 
-  it("reads the answer", () => {
+  it("reads the answer, and adds the yes or no that version 1.0 of the app reads", () => {
     const answer = {
-      pills: [{ pill: 1, shows_one_whole_pill: true, imprint: "XELODA", medication_id: "capecitabine-500", confidence: "high" }],
+      pills: [
+        { pill: 1, picture_shows: "one_pill", imprint: "XELODA", medication_id: "capecitabine-500", confidence: "high" },
+        { pill: 2, picture_shows: "no_pill", imprint: "", medication_id: "none", confidence: "high" },
+      ],
       unnumbered_pill_like_objects: 0,
     };
-    expect(checkReply(reply(JSON.stringify(answer)))).toEqual(answer);
+    expect(checkReply(reply(JSON.stringify(answer)))).toEqual({
+      pills: [
+        { ...answer.pills[0], shows_one_whole_pill: true },
+        { ...answer.pills[1], shows_one_whole_pill: false },
+      ],
+      unnumbered_pill_like_objects: 0,
+    });
+  });
+
+  it("rejects an answer that doesn't say what the picture shows", () => {
+    const pill = { pill: 1, picture_shows: "a_cat", imprint: "", medication_id: "none", confidence: "low" };
+    expect(() => checkReply(reply(JSON.stringify({ pills: [pill], unnumbered_pill_like_objects: 0 })))).toThrow(ReplyError);
   });
 
   it("rejects a refusal, text that isn't JSON, or the wrong shape", () => {
