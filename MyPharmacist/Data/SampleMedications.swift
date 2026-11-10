@@ -18,8 +18,19 @@ nonisolated enum SampleMedications {
     /// Every medication that can be put on the list.
     static let all: [Medication] = sampleList + more
 
-    /// What a new (or restored) list starts with.
+    /// What a new list starts with.
     static let startingIDs = sampleList.map(\.id)
+
+    /// What "Restore the sample list" sets, times included, for demos: the C3PI tablets
+    /// and the as-needed ondansetron. Two doses at 12 AM, so something is due around
+    /// midnight as well as in the morning and evening.
+    static let restorePlans: [MedicationPlan] = [
+        MedicationPlan(medicationID: "capecitabine-500", doseTimes: [DoseTime(0), DoseTime(20)], isAsNeeded: false),
+        MedicationPlan(medicationID: "dexamethasone-4", doseTimes: [DoseTime(0)], isAsNeeded: false),
+        MedicationPlan(medicationID: "allopurinol-300", doseTimes: [DoseTime(8)], isAsNeeded: false),
+        // Kept with a morning time, used only if it's switched to set times.
+        MedicationPlan(medicationID: "ondansetron-8", doseTimes: [DoseTime(8)], isAsNeeded: true),
+    ]
 
     /// From ePillID: two photos each, front and back.
     private static let sampleList: [Medication] = [

@@ -64,7 +64,7 @@ struct MedicationsPage: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Every sample medication comes back at its usual times, replacing your changes.")
+            Text("Your list becomes capecitabine, dexamethasone, allopurinol and ondansetron at their sample times, replacing your changes.")
         }
         // The system back button can't be enlarged, so this page draws its own header.
         .toolbar(.hidden, for: .navigationBar)

@@ -21,6 +21,7 @@ struct RootView: View {
 
     /// - Parameter scan: A scan already in some step, for previews; nil for a new one.
     init(store: MedicationStore = MedicationStore(startingIDs: SampleMedications.startingIDs,
+                                                  restorePlans: SampleMedications.restorePlans,
                                                   listStorage: UserDefaultsMedicationListStorage()),
          scan: ScanFlow? = nil) {
         _store = State(initialValue: store)

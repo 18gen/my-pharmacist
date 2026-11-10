@@ -158,6 +158,28 @@ struct MedicationListTests {
         #expect(store.medications == catalog)
     }
 
+    @Test func restoringSetsTheGivenPlansAndTimes() {
+        let plans = [
+            MedicationPlan(medicationID: TestMedications.lisinopril.id, doseTimes: [DoseTime(20), DoseTime(0)], isAsNeeded: false),
+            MedicationPlan(medicationID: "not-in-the-catalog", doseTimes: [DoseTime(8)], isAsNeeded: false),
+        ]
+        let store = MedicationStore(medications: catalog, restorePlans: plans, storage: InMemoryDoseLogStorage())
+        #expect(store.medications.count == catalog.count)
+        store.restoreSampleList()
+        // Only the given plan, its times in order; the one not in the catalog is left out.
+        #expect(store.medications.map(\.id) == [TestMedications.lisinopril.id])
+        #expect(store.medications.first?.doseTimes == [DoseTime(0), DoseTime(20)])
+    }
+
+    @Test func theAppsSampleListIsTheC3PITabletsAndOndansetron() {
+        let store = MedicationStore(startingIDs: SampleMedications.startingIDs, restorePlans: SampleMedications.restorePlans,
+                                    storage: InMemoryDoseLogStorage())
+        store.restoreSampleList()
+        #expect(store.medications.map(\.id) == ["capecitabine-500", "dexamethasone-4", "allopurinol-300", "ondansetron-8"])
+        #expect(store.medications.map(\.doseTimes) == [[DoseTime(0), DoseTime(20)], [DoseTime(0)], [DoseTime(8)], []])
+        #expect(store.asNeededMedications.map(\.id) == ["ondansetron-8"])
+    }
+
     @Test func userDefaultsListStorageRoundTrips() {
         let storage = UserDefaultsMedicationListStorage(defaults: isolatedDefaults())
         #expect(storage.load() == nil)

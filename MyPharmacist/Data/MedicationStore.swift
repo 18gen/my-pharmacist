@@ -19,8 +19,11 @@ final class MedicationStore {
 
     /// Every medication that can be on the list, with the times each usually starts with.
     let catalog: [Medication]
-    /// The catalog medications a new or restored list starts with.
+    /// The catalog medications a new list starts with.
     @ObservationIgnored private let startingIDs: [String]
+    /// What restoring the sample list sets, times included; nil to restore the starting
+    /// medications at their usual times.
+    @ObservationIgnored private let restorePlans: [MedicationPlan]?
 
     /// The person's list, in their order: which medications, and when.
     private(set) var plans: [MedicationPlan] {
@@ -47,10 +50,12 @@ final class MedicationStore {
     /// - Parameters:
     ///   - medications: The catalog.
     ///   - startingIDs: What a list that was never saved starts with; nil for the whole catalog.
+    ///   - restorePlans: What "Restore the sample list" sets; nil for the starting list.
     ///   - listStorage: In memory unless given, so tests never touch the app's saved list.
     ///   - now: When the store is created; records older than `keepDays` before it are dropped.
     init(medications: [Medication] = SampleMedications.all,
          startingIDs: [String]? = nil,
+         restorePlans: [MedicationPlan]? = nil,
          listStorage: any MedicationListStorage = InMemoryMedicationListStorage(),
          storage: any DoseLogStorage = UserDefaultsDoseLogStorage(),
          calendar: Calendar = .current,
@@ -59,6 +64,7 @@ final class MedicationStore {
         let plans = listStorage.load() ?? Self.startingPlans(startingIDs, catalog: medications)
         self.catalog = medications
         self.startingIDs = startingIDs
+        self.restorePlans = restorePlans
         self.plans = plans
         self.medications = Self.resolve(plans, catalog: medications)
         self.listStorage = listStorage
@@ -134,9 +140,15 @@ final class MedicationStore {
         plans.removeAll { $0.medicationID == medicationID }
     }
 
-    /// Back to the sample list at its usual times, for starting a demo over.
+    /// Back to the sample list, for starting a demo over: the restore plans if given (any
+    /// not in the catalog left out), otherwise the starting medications at their usual
+    /// times.
     func restoreSampleList() {
-        plans = Self.startingPlans(startingIDs, catalog: catalog)
+        if let restorePlans {
+            plans = restorePlans.filter { catalogEntry($0.medicationID) != nil }.map(Self.tidy)
+        } else {
+            plans = Self.startingPlans(startingIDs, catalog: catalog)
+        }
     }
 
     private static func startingPlans(_ ids: [String], catalog: [Medication]) -> [MedicationPlan] {
