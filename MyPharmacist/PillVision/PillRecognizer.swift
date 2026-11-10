@@ -5,11 +5,24 @@
 
 import CoreGraphics
 
+/// What a recognizer says about one pill's picture.
+nonisolated enum PillAnswer: Equatable, Sendable {
+    /// It is this medication, by its ID.
+    case medication(String)
+    /// A pill, but not one of the medications, or the recognizer wasn't sure.
+    case unknown
+    /// The picture shows no pill at all: skin, a shadow, something else.
+    case notAPill
+
+    var medicationID: String? {
+        if case .medication(let id) = self { id } else { nil }
+    }
+}
+
 /// What a recognizer says about the pills of one photo.
 nonisolated struct PillReading: Equatable, Sendable {
-    /// One medication ID, or nil, per pill picture, in order. Nil when the pill isn't
-    /// one of the medications, or the recognizer wasn't sure.
-    let medicationIDs: [String?]
+    /// One answer per pill picture, in order.
+    let answers: [PillAnswer]
     /// The recognizer saw something pill-like that the app didn't number, or a pill's
     /// picture that doesn't show one whole pill (two lying together, say, where one
     /// would go unchecked). This can only make the result more careful, never less.

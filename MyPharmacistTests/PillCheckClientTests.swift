@@ -63,8 +63,28 @@ struct PillCheckClientTests {
             Client.Answer(pill: 6, showsOneWholePill: false, imprint: "2858", medicationID: "exemestane-25", confidence: "high"),
             // Pill 7 got no answer at all.
         ]
-        let ids = Client.medicationIDs(from: answers, pillCount: 7, candidateIDs: ["exemestane-25", "ondansetron-8"])
-        #expect(ids == ["exemestane-25", "ondansetron-8", nil, nil, nil, nil, nil])
+        let read = Client.answers(from: answers, pillCount: 7, candidateIDs: ["exemestane-25", "ondansetron-8"])
+        #expect(read == [.medication("exemestane-25"), .medication("ondansetron-8"), .unknown, .unknown, .unknown, .unknown, .unknown])
+    }
+
+    @Test func aPictureOfNoPillIsNotAPillAndLeavesNothingUnchecked() throws {
+        let data = Data("""
+            {"pills": [
+              {"pill": 1, "picture_shows": "one_pill", "shows_one_whole_pill": true, "imprint": "2858", "medication_id": "exemestane-25", "confidence": "high"},
+              {"pill": 2, "picture_shows": "no_pill", "shows_one_whole_pill": false, "imprint": "", "medication_id": "none", "confidence": "high"}],
+             "unnumbered_pill_like_objects": 0}
+            """.utf8)
+        let reading = Client.reading(of: try Client.reply(in: data), pillCount: 2, candidateIDs: ["exemestane-25"])
+        #expect(reading.answers == [.medication("exemestane-25"), .notAPill])
+        #expect(!reading.mayHaveMissedPill)
+        // Several pills in one picture, or part of one: unknown, and one may be unchecked.
+        for shows in ["several_pills", "part_of_pill", "something new"] {
+            let answer = Client.Answer(pill: 1, showsOneWholePill: false, imprint: "", medicationID: "exemestane-25", confidence: "high",
+                                       pictureShows: shows)
+            let reading = Client.reading(of: Client.Reply(pills: [answer]), pillCount: 1, candidateIDs: ["exemestane-25"])
+            #expect(reading.answers == [.unknown])
+            #expect(reading.mayHaveMissedPill)
+        }
     }
 
     @Test func aPictureThatIsntOneWholePillMeansAPillMayBeUnchecked() {
@@ -73,7 +93,7 @@ struct PillCheckClientTests {
         let two = Client.Answer(pill: 2, showsOneWholePill: false, imprint: "", medicationID: "exemestane-25", confidence: "high")
         #expect(!Client.reading(of: Client.Reply(pills: [whole]), pillCount: 1, candidateIDs: ids).mayHaveMissedPill)
         let reading = Client.reading(of: Client.Reply(pills: [whole, two]), pillCount: 2, candidateIDs: ids)
-        #expect(reading.medicationIDs == ["exemestane-25", nil])
+        #expect(reading.answers == [.medication("exemestane-25"), .unknown])
         #expect(reading.mayHaveMissedPill)
         // So does something pill-like that has no number.
         #expect(Client.reading(of: Client.Reply(pills: [whole], unnumberedPillLikeObjects: 1), pillCount: 1, candidateIDs: ids).mayHaveMissedPill)

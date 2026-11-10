@@ -71,10 +71,16 @@ actor PillPhotoAnalyzer {
 
         do {
             let reading = try await recognizer.recognize(pictures, overview: PillCropper.overview(of: pills, in: photo), among: medications)
-            guard reading.medicationIDs.count == pills.count else { return .failure(.unusable) }
+            guard reading.answers.count == pills.count else { return .failure(.unusable) }
+            // What the app itself doubted, and the recognizer says is no pill, isn't
+            // one: skin or a shadow that was cut out. Either doubt alone isn't enough.
+            let kept = zip(pills, reading.answers).filter { pill, answer in !(pill.isRough && answer == .notAPill) }
+            if kept.count < pills.count {
+                ScanLog.logger.info("left out \(pills.count - kept.count) rough areas the recognizer says are no pill")
+            }
             return .success(PillIdentification(
-                pills: zip(pills, reading.medicationIDs).map { pill, id in
-                    AnalyzedPill(box: pill.box, crop: pill.crop, medicationID: id)
+                pills: kept.map { pill, answer in
+                    AnalyzedPill(box: pill.box, crop: pill.crop, medicationID: answer.medicationID)
                 },
                 mayHaveMissedPill: reading.mayHaveMissedPill
             ))

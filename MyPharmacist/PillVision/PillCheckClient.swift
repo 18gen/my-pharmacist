@@ -52,6 +52,14 @@ nonisolated struct PillCheckClient: Sendable {
         let photos: [Data]
     }
 
+    /// What the bright middle of a pill's picture shows, as the checker names it.
+    enum PictureShows: String, Sendable {
+        case onePill = "one_pill"
+        case severalPills = "several_pills"
+        case partOfPill = "part_of_pill"
+        case noPill = "no_pill"
+    }
+
     /// The checker's answer for one pill, before the confidence rule.
     struct Answer: Decodable, Equatable, Sendable {
         let pill: Int
@@ -61,11 +69,21 @@ nonisolated struct PillCheckClient: Sendable {
         let imprint: String
         let medicationID: String
         let confidence: String
+        /// Which of those it is, as a `PictureShows`. A server from before it said so
+        /// sends none.
+        var pictureShows: String?
+
+        /// What the picture shows. Nil when all that is known is that it isn't one
+        /// whole pill.
+        var shows: PictureShows? {
+            pictureShows.flatMap(PictureShows.init) ?? (showsOneWholePill ? .onePill : nil)
+        }
 
         enum CodingKeys: String, CodingKey {
             case pill, imprint, confidence
             case showsOneWholePill = "shows_one_whole_pill"
             case medicationID = "medication_id"
+            case pictureShows = "picture_shows"
         }
     }
 
@@ -135,24 +153,31 @@ nonisolated struct PillCheckClient: Sendable {
         try JSONDecoder().decode(Reply.self, from: data)
     }
 
-    /// What the app takes from a reply about `pillCount` pill photos.
+    /// What the app takes from a reply about `pillCount` pill photos. A picture of
+    /// several pills, or of part of one, means a pill may have gone unchecked; one of
+    /// no pill at all doesn't.
     static func reading(of reply: Reply, pillCount: Int, candidateIDs: Set<String>) -> PillReading {
         PillReading(
-            medicationIDs: medicationIDs(from: reply.pills, pillCount: pillCount, candidateIDs: candidateIDs),
-            mayHaveMissedPill: reply.unnumberedPillLikeObjects > 0 || reply.pills.contains { !$0.showsOneWholePill }
+            answers: answers(from: reply.pills, pillCount: pillCount, candidateIDs: candidateIDs),
+            mayHaveMissedPill: reply.unnumberedPillLikeObjects > 0
+                || reply.pills.contains { $0.shows != .onePill && $0.shows != .noPill }
         )
     }
 
-    /// Each pill's medication, or nil when the checker said none, was unsure, named
-    /// something that isn't a candidate, didn't answer for that pill, or said its photo
-    /// doesn't show one whole pill.
-    static func medicationIDs(from answers: [Answer], pillCount: Int, candidateIDs: Set<String>) -> [String?] {
+    /// Each pill's answer. A medication only when the picture shows one whole pill and
+    /// the checker was sure of one of the candidates; unknown when it said none, was
+    /// unsure, named something else or didn't answer for that pill.
+    static func answers(from answers: [Answer], pillCount: Int, candidateIDs: Set<String>) -> [PillAnswer] {
         (0..<pillCount).map { index in
-            guard let answer = answers.first(where: { $0.pill == index + 1 }),
-                  answer.showsOneWholePill,
-                  candidateIDs.contains(answer.medicationID),
-                  acceptedConfidence.contains(answer.confidence) else { return nil }
-            return answer.medicationID
+            guard let answer = answers.first(where: { $0.pill == index + 1 }) else { return .unknown }
+            switch answer.shows {
+            case .noPill:
+                return .notAPill
+            case .onePill where candidateIDs.contains(answer.medicationID) && acceptedConfidence.contains(answer.confidence):
+                return .medication(answer.medicationID)
+            default:
+                return .unknown
+            }
         }
     }
 
