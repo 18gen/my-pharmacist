@@ -64,13 +64,10 @@ struct PillConfirmView: View {
         .accessibilityHidden(true)
     }
 
-    /// A white ring with a dark edge, so it shows on light and dark pills and skin
-    /// alike, a little clear of the pill so the pill itself stays in plain view.
+    /// A neutral ring, a little clear of the pill so the pill itself stays in plain view.
     private func ring(_ rect: CGRect) -> some View {
         let rect = rect.insetBy(dx: -10, dy: -10)
-        return Capsule()
-            .strokeBorder(.white, lineWidth: 3)
-            .background(Capsule().strokeBorder(.black.opacity(0.45), lineWidth: 5))
+        return PillRing()
             .frame(width: rect.width, height: rect.height)
             .position(x: rect.midX, y: rect.midY)
     }
