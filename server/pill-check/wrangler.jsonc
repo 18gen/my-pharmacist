@@ -1,0 +1,23 @@
+{
+  // The server between the My Pharmacist app and OpenAI. It holds the OpenAI key, so the
+  // key is never inside the app. Deploy steps are in README.md.
+  "name": "my-pharmacist-pill-check",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-01",
+  "observability": { "enabled": true },
+  "vars": {
+    // The OpenAI model that checks the pills.
+    "OPENAI_MODEL": "gpt-6.1-sol",
+    // Shown on the support and privacy pages. Set it to the address you answer.
+    "SUPPORT_EMAIL": "REPLACE_WITH_YOUR_SUPPORT_EMAIL"
+  },
+  // Secrets, set with `npx wrangler secret put`: OPENAI_API_KEY and APP_TOKEN.
+  "ratelimits": [
+    {
+      // Checks per phone network address: 20 a minute is far more than a person scans.
+      "name": "CHECK_LIMITER",
+      "namespace_id": "4801",
+      "simple": { "limit": 20, "period": 60 }
+    }
+  ]
+}
