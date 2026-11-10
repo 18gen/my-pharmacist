@@ -6,6 +6,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import UIKit
 import UniformTypeIdentifiers
 
 /// Asks the pill check server (`server/pill-check`) which of the person's medications
@@ -13,8 +14,7 @@ import UniformTypeIdentifiers
 /// pictures and the medications, and gets back one answer per pill, which can only be
 /// one of the medications or "none". An unsure answer counts as none.
 ///
-/// Whether to take a pill is never the checker's call: it only says which medication a
-/// pill is; the schedule decides the rest.
+/// The app's `PillRecognizer` unless another is given.
 nonisolated struct PillCheckClient: Sendable {
     struct Configuration: Sendable, Equatable {
         /// The server's address, like "https://my-pharmacist-pill-check.example.workers.dev".
@@ -82,29 +82,6 @@ nonisolated struct PillCheckClient: Sendable {
         }
     }
 
-    /// What the app takes from a reply.
-    struct Reading: Equatable, Sendable {
-        /// One medication ID, or nil, per pill photo, in order.
-        let medicationIDs: [String?]
-        /// The checker saw something pill-like that the app didn't number, or a pill's
-        /// picture that doesn't show one whole pill (two lying together, say, where one
-        /// would go unchecked). This can only make the result more careful, never less.
-        let mayHaveMissedPill: Bool
-    }
-
-    /// Why the pills couldn't be checked. Every one of them means "take another photo";
-    /// none is ever shown as a result.
-    enum Failure: Error, Equatable {
-        /// The app has no server address (Secrets.plist).
-        case notConfigured
-        /// No connection, or the server didn't answer in time.
-        case offline
-        /// The server answered with an error.
-        case server(status: Int)
-        /// The server's answer couldn't be read, or the pictures couldn't be made.
-        case unusable
-    }
-
     /// Only these count; "low" means unsure, and unsure is "none".
     static let acceptedConfidence: Set<String> = ["high", "medium"]
 
@@ -115,7 +92,7 @@ nonisolated struct PillCheckClient: Sendable {
     /// - Parameters:
     ///   - pills: A JPEG of each pill, in order.
     ///   - overview: A JPEG of all the pills together, numbered in the same order.
-    func check(_ pills: [Data], overview: Data?, among candidates: [Candidate]) async throws(Failure) -> Reading {
+    func check(_ pills: [Data], overview: Data?, among candidates: [Candidate]) async throws(PillRecognitionFailure) -> PillReading {
         var request = URLRequest(url: configuration.checkURL, timeoutInterval: timeout)
         request.httpMethod = "POST"
         request.setValue(configuration.token, forHTTPHeaderField: "X-App-Token")
@@ -159,8 +136,8 @@ nonisolated struct PillCheckClient: Sendable {
     }
 
     /// What the app takes from a reply about `pillCount` pill photos.
-    static func reading(of reply: Reply, pillCount: Int, candidateIDs: Set<String>) -> Reading {
-        Reading(
+    static func reading(of reply: Reply, pillCount: Int, candidateIDs: Set<String>) -> PillReading {
+        PillReading(
             medicationIDs: medicationIDs(from: reply.pills, pillCount: pillCount, candidateIDs: candidateIDs),
             mayHaveMissedPill: reply.unnumberedPillLikeObjects > 0 || reply.pills.contains { !$0.showsOneWholePill }
         )
@@ -179,24 +156,44 @@ nonisolated struct PillCheckClient: Sendable {
         }
     }
 
+    /// The medications as the checker sees them: a line each and their photos.
+    static func candidates(_ medications: [Medication]) -> [Candidate] {
+        medications.map { medication in
+            let description = [medication.displayName, medication.appearance].filter { !$0.isEmpty }.joined(separator: " · ")
+            let photos = medication.photos
+                .compactMap { MedicationPhotoStore.standard.image($0)?.cgImage }
+                .compactMap { jpeg($0, maxSide: referenceSide) }
+            return Candidate(id: medication.id, description: description, photos: photos)
+        }
+    }
+
     // MARK: Images
+
+    /// The longer side of a medication's reference photo as it is sent.
+    static let referenceSide = 256
 
     /// A JPEG no bigger than `maxSide`, with any transparency on light grey, as the
     /// reference photos' cut-outs would otherwise turn black.
     static func jpeg(_ image: CGImage, maxSide: Int = 384) -> Data? {
         let scale = min(1, Double(maxSide) / Double(max(image.width, image.height)))
         let width = max(1, Int(Double(image.width) * scale)), height = max(1, Int(Double(image.height) * scale))
-        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        guard let context = CGContext.bitmap(width: width, height: height) else { return nil }
         context.setFillColor(gray: 0.85, alpha: 1)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-        context.interpolationQuality = .high
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         guard let flattened = context.makeImage() else { return nil }
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
         CGImageDestinationAddImage(destination, flattened, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
         return CGImageDestinationFinalize(destination) ? data as Data : nil
+    }
+}
+
+extension PillCheckClient: PillRecognizer {
+    func recognize(_ pictures: [CGImage], overview: CGImage?, among medications: [Medication]) async throws(PillRecognitionFailure) -> PillReading {
+        let pills = pictures.compactMap { Self.jpeg($0, maxSide: PillCropper.largestSide) }
+        guard pills.count == pictures.count else { throw .unusable }
+        return try await check(pills, overview: overview.flatMap { Self.jpeg($0, maxSide: PillCropper.overviewSide) },
+                               among: Self.candidates(medications))
     }
 }

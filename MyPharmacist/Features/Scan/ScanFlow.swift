@@ -119,7 +119,7 @@ final class ScanFlow {
     @ObservationIgnored private var recordedThisSession: [Dose] = []
 
     /// What recognizing the pills came to.
-    typealias Identified = Result<PillIdentification, PillCheckClient.Failure>
+    typealias Identified = Result<PillIdentification, PillRecognitionFailure>
 
     init(store: MedicationStore, scanner: ScannerModel = ScannerModel()) {
         self.store = store
@@ -132,7 +132,7 @@ final class ScanFlow {
         #if DEBUG
         // For trying the scan without sending anything anywhere: every pill is unknown.
         if ProcessInfo.processInfo.arguments.contains("-noCloud") {
-            return PillPhotoAnalyzer(medications: medications, client: nil, answersUnknown: true)
+            return PillPhotoAnalyzer(medications: medications, recognizer: nil, answersUnknown: true)
         }
         #endif
         return PillPhotoAnalyzer(medications: medications)
