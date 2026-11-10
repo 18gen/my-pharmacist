@@ -180,6 +180,13 @@ struct MedicationListTests {
         #expect(store.asNeededMedications.map(\.id) == ["ondansetron-8"])
     }
 
+    @Test func midnightIsBedtimeNotMorning() {
+        #expect(DayPeriod(DoseTime(0)).name == "Bedtime")
+        #expect(DayPeriod(DoseTime(4, 59)).name == "Bedtime")
+        #expect(DayPeriod(DoseTime(5)).name == "Morning")
+        #expect(DayPeriod(DoseTime(22)).name == "Bedtime")
+    }
+
     @Test func userDefaultsListStorageRoundTrips() {
         let storage = UserDefaultsMedicationListStorage(defaults: isolatedDefaults())
         #expect(storage.load() == nil)

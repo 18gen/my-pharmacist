@@ -158,6 +158,8 @@ struct DayPeriod {
 
     init(_ time: DoseTime) {
         switch time.hour {
+        // Midnight and the small hours belong with the night before, not the morning.
+        case ..<5: (name, symbol) = ("Bedtime", "bed.double.fill")
         case ..<11: (name, symbol) = ("Morning", "sunrise.fill")
         case ..<15: (name, symbol) = ("Midday", "sun.max.fill")
         case ..<18: (name, symbol) = ("Afternoon", "sun.min.fill")
