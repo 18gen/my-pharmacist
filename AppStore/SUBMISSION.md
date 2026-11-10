@@ -223,7 +223,7 @@ Apple works out the rating from these answers.
 
 ### Notes (paste)
 ```
-My Pharmacist is a patient-facing double-check: the person photographs the pills in their hand, and the app says which of THEIR OWN registered medications each pill is and whether it is due now. It does not diagnose, dose or recommend treatment, and every result screen says "A double-check, not medical advice. Ask your pharmacist if unsure."
+My Pharmacist is a patient-facing double-check: the person photographs the pills in their hand, and the app says which of THEIR OWN registered medications each pill is and whether it is due now. It does not diagnose, dose or recommend treatment, and every result screen says "Not medical advice. Ask your pharmacist if unsure."
 
 HOW TO TRY IT (no account needed)
 1. Tap the pills button (top right) > "Load sample list" > confirm. This loads four sample medications with photos of their pills and sample times.

@@ -70,7 +70,7 @@ struct PillResultsView: View {
             ResultPhoto(photo: photo, rings: rings, highlighted: highlighted)
             list
             // Guideline 1.4.1: a reminder to check with a professional.
-            Text("A double-check, not medical advice.\nAsk your pharmacist if unsure.")
+            Text("Not medical advice. Ask your pharmacist if unsure.")
                 .font(.footnote)
                 .foregroundStyle(Palette.textTertiary)
                 .multilineTextAlignment(.center)
@@ -117,7 +117,7 @@ struct PillResultsView: View {
         }
         .font(.title2.bold())
         .padding(.horizontal, 10)
-        .padding(.top, 18)
+        .padding(.top, 6)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(result?.summary ?? "Checking your pills")
         .accessibilityAddTraits(.isHeader)
