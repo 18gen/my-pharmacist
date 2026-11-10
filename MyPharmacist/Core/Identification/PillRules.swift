@@ -55,6 +55,12 @@ nonisolated struct PillRules: Sendable {
     /// Touching pills still fill most of their outline. An area found by colour alone
     /// that fills less than this is a crease, a shadow or a blotch on the skin.
     var leastJoinedSolidity = 0.78
+    /// A pill with its shadow attached still fills this much of its outline. An area
+    /// found by colour alone has to, to be taken for one pill with a rough outline.
+    var leastShadowedSolidity = 0.88
+    /// What joins two pills that don't touch (a shadow, a crease) is thin: narrower than
+    /// this share of the area's width. Taking it off leaves the pills.
+    var widestBridge = 0.3
     /// Something that barely differs from the surface is taken for a possible pill only
     /// if it is this round: at least this wide for its length.
     var leastFaintWidth = 0.5

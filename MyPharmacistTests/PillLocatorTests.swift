@@ -67,6 +67,51 @@ struct PillLocatorTests {
         #expect(locate(lifted: blobs([(100, 200, 16), (122, 200, 16), (250, 400, 14)])) == .unclear(.touching))
     }
 
+    @Test func aSinglePillWithARoughOutlineIsStillAPill() throws {
+        // A bite out of its side (a shine, a score line, its shadow cut away): it looks
+        // joined, but has one middle and is no larger than a pill. The checker is asked
+        // whether its cut-out shows one whole pill.
+        var rough = discs(width: width, height: height, [(100, 200, 18)])
+        for x in 108..<120 {
+            for y in 197..<203 { rough[x, y] = false }
+        }
+        let blob = try #require(rough.blobs().max { $0.mask.count < $1.mask.count })
+        #expect(rules.judge(blob, pictureWidth: width, pictureHeight: height) == .touching)
+        #expect(pills(locate(lifted: [blob])).count == 1)
+        #expect(pills(locate(colour: [blob])).count == 1)
+    }
+
+    @Test func pillsJoinedByAThinShadowAreTwoPills() {
+        // Apart, with a crooked line of shadow from one to the other.
+        var joined = discs(width: width, height: height, [(100, 200, 16), (160, 200, 16)])
+        for x in 110..<150 {
+            for y in 207..<211 { joined[x, y] = true }
+        }
+        #expect(joined.blobs().count == 1)
+        #expect(pills(locate(lifted: joined.blobs())).count == 2)
+        #expect(pills(locate(colour: joined.blobs())).count == 2)
+    }
+
+    @Test func aLargeRaggedObjectIsPartOfTheHandNotPills() throws {
+        // Longer than any pill, with one middle: a finger, not pills in a clump.
+        var finger = ellipse(width: width, height: height, x: 180, y: 320, a: 75, b: 26, degrees: 20)
+        for x in 150..<215 {
+            for y in 300..<318 { finger[x, y] = false }
+        }
+        let blob = try #require(finger.blobs().max { $0.mask.count < $1.mask.count })
+        #expect(rules.judge(blob, pictureWidth: width, pictureHeight: height) == .touching)
+        #expect(locate(lifted: [blob]) == .noPills)
+        // Beside a real pill it doesn't spoil the photo.
+        #expect(pills(locate(lifted: [blob] + blobs([(80, 120, 14)]))).count == 1)
+    }
+
+    @Test func everyAreaIsReportedWithWhatBecameOfIt() {
+        let examined = PillLocator.examine(lifted: blobs([(100, 200, 16), (122, 200, 16), (250, 400, 14), (300, 100, 2)]), colour: nil,
+                                           rules: rules, pictureWidth: width, pictureHeight: height)
+        #expect(examined.location == .unclear(.touching))
+        #expect(Set(examined.areas.map(\.outcome)) == [.retake(.touching), .pills(1), .ignored])
+    }
+
     @Test func aPillLyingHalfOverAnotherLooksLikeOneOvalPill() {
         // A known limit: by outline alone this is one pill. The vision model is asked
         // whether each cut-out shows one whole pill, which is where this is caught.

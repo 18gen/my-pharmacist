@@ -229,6 +229,12 @@ nonisolated struct Blob: Sendable, Equatable {
         CGRect(x: x, y: y, width: mask.width, height: mask.height)
     }
 
+    /// The area's box as shares of the picture: 0–1, origin at the top left.
+    func normalizedBounds(pictureWidth: Int, pictureHeight: Int) -> CGRect {
+        CGRect(x: bounds.minX / Double(pictureWidth), y: bounds.minY / Double(pictureHeight),
+               width: bounds.width / Double(pictureWidth), height: bounds.height / Double(pictureHeight))
+    }
+
     /// The same area with `margin` clear pixels added on every side, so that tidying it
     /// has room to work. Its place in the picture moves out to match.
     func padded(by margin: Int) -> Blob {

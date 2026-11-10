@@ -80,7 +80,7 @@ nonisolated enum PillFinder {
         settings.blockSize = max(32, Int(surfaceSquareMillimeters * rules.pixelsPerMillimeter))
         let colour = SurfaceOutliers.find(in: picture, within: lift.surface, settings: settings)
 
-        let location = PillLocator.locate(lifted: lift.objects, colour: colour, rules: rules, pictureWidth: width, pictureHeight: height)
+        let (location, areas) = PillLocator.examine(lifted: lift.objects, colour: colour, rules: rules, pictureWidth: width, pictureHeight: height)
         let took = ContinuousClock.now - started
         ScanLog.logger.info("""
             search \(width)x\(height) at \(rules.pixelsPerMillimeter, format: .fixed(precision: 1)) px/mm: \
@@ -90,6 +90,7 @@ nonisolated enum PillFinder {
             reliable \(colour.isReliable) spread \(colour.spread) standing out \(colour.shareStandingOut, format: .fixed(precision: 3)) \
             in \(colour.areas), took \(took)
             """)
+        log(areas, rules: rules)
 
         // Vision couldn't tell the pills from what they lie on, and the surface is too
         // patterned for colour to: nothing here can say there are no more pills.
@@ -117,14 +118,28 @@ nonisolated enum PillFinder {
                 // A pill that can't be cut out fails the whole search: leaving it out
                 // would show the rest as if they were all the pills there are.
                 guard let crop = cutOut(pill.blob, from: working, searchedWidth: width) else { return .failed }
-                let bounds = pill.blob.bounds
                 pills.append(FoundPill(
-                    box: CGRect(x: bounds.minX / Double(width), y: bounds.minY / Double(height),
-                                width: bounds.width / Double(width), height: bounds.height / Double(height)),
+                    box: pill.blob.normalizedBounds(pictureWidth: width, pictureHeight: height),
                     crop: crop, outline: pill.blob, shape: pill.shape,
                     searchedSize: CGSize(width: width, height: height), sources: pill.sources))
             }
             return .found(pills)
+        }
+    }
+
+    /// One line for every area that was pill-sized, with the numbers the rules went by
+    /// and what became of it: what explains a photo that was turned away.
+    private static func log(_ areas: [ExaminedArea], rules: PillRules) {
+        let sized = areas.filter { $0.verdict != .notAPill }
+        ScanLog.logger.info("areas \(areas.count), pill-sized \(sized.count)")
+        for area in sized {
+            let dent = area.shape.deepestDent / max(1, area.shape.equivalentRadius)
+            ScanLog.logger.info("""
+                area by \(area.sources.rawValue): \(area.shape.length / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) x \
+                \(area.shape.width / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) mm, \
+                fills \(area.shape.solidity, format: .fixed(precision: 2)), dent \(dent, format: .fixed(precision: 2)), \
+                judged \(String(describing: area.verdict), privacy: .public), \(String(describing: area.outcome), privacy: .public)
+                """)
         }
     }
 
