@@ -56,6 +56,12 @@ struct ResultRow: View {
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.85)))
         case .missing(let dose):
             PillImage(medication: dose.medication, size: pictureSize)
+        case .uncheckedPill:
+            Image(systemName: "pills")
+                .font(.system(size: pictureSize * 0.45, weight: .semibold))
+                .foregroundStyle(Palette.caution)
+                .frame(width: pictureSize, height: pictureSize)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Palette.background))
         }
     }
 }

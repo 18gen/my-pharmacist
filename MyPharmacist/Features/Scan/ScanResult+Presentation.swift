@@ -88,22 +88,25 @@ extension PillVerdict {
     }
 }
 
-/// One line of the results: a pill from the photo, or a dose due now that wasn't in it.
+/// One line of the results: a pill from the photo, a dose due now that wasn't in it, or
+/// a warning that the photo may hold a pill that wasn't checked.
 enum ResultLine: Identifiable {
     case pill(ScannedPill)
     case missing(Dose)
+    case uncheckedPill
 
     var id: String {
         switch self {
         case .pill(let pill): "pill-\(pill.id)"
         case .missing(let dose): "missing-\(dose.id)"
+        case .uncheckedPill: "unchecked-pill"
         }
     }
 
     var level: ResultLevel {
         switch self {
         case .pill(let pill): pill.verdict.level
-        case .missing: .caution
+        case .missing, .uncheckedPill: .caution
         }
     }
 
@@ -111,6 +114,7 @@ enum ResultLine: Identifiable {
         switch self {
         case .pill(let pill): pill.medication?.displayName ?? "Unknown pill"
         case .missing(let dose): dose.medication.displayName
+        case .uncheckedPill: "Another pill?"
         }
     }
 
@@ -118,6 +122,7 @@ enum ResultLine: Identifiable {
         switch self {
         case .pill(let pill): pill.verdict.reason
         case .missing(let dose): "Not in the photo · \(dose.scheduled.shortTime) dose"
+        case .uncheckedPill: "The photo may have a pill that wasn't checked. Spread the pills and scan again."
         }
     }
 }
@@ -134,7 +139,7 @@ extension PillScanResult {
     /// Most serious first; empty levels are left out. Within a level, pills in reading
     /// order, then missing doses.
     var groups: [ResultGroup] {
-        let lines = pills.map(ResultLine.pill) + missing.map(ResultLine.missing)
+        let lines = pills.map(ResultLine.pill) + (mayHaveMissedPill ? [.uncheckedPill] : []) + missing.map(ResultLine.missing)
         return ResultLevel.allCases.compactMap { level in
             let matching = lines.filter { $0.level == level }
             return matching.isEmpty ? nil : ResultGroup(level: level, lines: matching)
@@ -146,12 +151,14 @@ extension PillScanResult {
         pills.filter { $0.verdict.level.isPutBack }.count
     }
 
-    /// Something goes back, so the next step is to scan what's left.
-    var needsRescan: Bool { putBackCount > 0 }
+    /// Something goes back, or a pill may not have been checked, so the next step is
+    /// to scan again.
+    var needsRescan: Bool { putBackCount > 0 || mayHaveMissedPill }
 
-    /// Every pill is OK to take and nothing is missing: the success vibration.
+    /// Every pill is OK to take, nothing is missing and no pill went unchecked: the
+    /// success vibration.
     var isAllClear: Bool {
-        missing.isEmpty && pills.allSatisfy { $0.verdict.level == .ok }
+        missing.isEmpty && !mayHaveMissedPill && pills.allSatisfy { $0.verdict.level == .ok }
     }
 
     /// What to do, in one line, for the header and VoiceOver.
@@ -159,6 +166,8 @@ extension PillScanResult {
         if putBackCount > 0 {
             return putBackCount == 1 ? "Put back 1 pill" : "Put back \(putBackCount) pills"
         }
+        // Not "OK to take" while a pill in the photo may not have been checked.
+        if mayHaveMissedPill { return "Scan again: a pill may be unchecked" }
         let okCount = dosesToTake.count
         if okCount == 0 { return "Check before taking" }
         if isAllClear { return okCount == 1 ? "OK to take this pill" : "OK to take all \(okCount)" }
@@ -168,6 +177,6 @@ extension PillScanResult {
     /// The level whose icon goes with the summary.
     var summaryLevel: ResultLevel {
         if putBackCount > 0 { return .dontTake }
-        return dosesToTake.isEmpty ? .caution : .ok
+        return dosesToTake.isEmpty || mayHaveMissedPill ? .caution : .ok
     }
 }

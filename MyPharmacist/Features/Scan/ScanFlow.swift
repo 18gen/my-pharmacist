@@ -34,6 +34,9 @@ struct PillScanResult {
     let pills: [ScannedPill]
     /// Doses due now that weren't in the photo.
     let missing: [Dose]
+    /// The vision model saw something pill-like in the photo that wasn't found as a
+    /// pill, so these may not be all the pills there are.
+    var mayHaveMissedPill = false
 
     var dosesToTake: [Dose] {
         pills.compactMap { if case .take(let dose) = $0.verdict { dose } else { nil } }
@@ -216,7 +219,7 @@ final class ScanFlow {
             let identified = await identification.value
             guard let self, !Task.isCancelled else { return }
             self.identification = nil
-            showResults(identified.pills, photo: found.photo)
+            showResults(identified.pills, photo: found.photo, mayHaveMissedPill: identified.mayHaveMissedPill)
         }
         checkTask = task
         await task.value
@@ -245,7 +248,9 @@ final class ScanFlow {
     /// Turns the analyzed pills into verdicts against today's schedule and records the
     /// doses that are OK to take as scanned.
     /// - Parameter records: false to show results without changing the record (the demo).
-    func showResults(_ pills: [AnalyzedPill], photo: CGImage, now: Date = Date(), records: Bool = true) {
+    /// - Parameter mayHaveMissedPill: Something pill-like in the photo wasn't found.
+    func showResults(_ pills: [AnalyzedPill], photo: CGImage, now: Date = Date(), records: Bool = true,
+                     mayHaveMissedPill: Bool = false) {
         guard !pills.isEmpty else {
             phase = .retake(photo, .noPills)
             return
@@ -262,7 +267,7 @@ final class ScanFlow {
             ScannedPill(id: index + 1, box: pills[index].box, crop: pills[index].crop, medication: identities[index],
                         verdict: check.verdicts[index], match: pills[index].match)
         }
-        let result = PillScanResult(photo: photo, pills: scanned, missing: check.missing)
+        let result = PillScanResult(photo: photo, pills: scanned, missing: check.missing, mayHaveMissedPill: mayHaveMissedPill)
         if records {
             store.recordScan(of: result.dosesToTake, at: now)
             recordedThisSession = result.dosesToTake

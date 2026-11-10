@@ -54,7 +54,7 @@ struct PillResultsView: View {
         if result.needsRescan {
             VStack(spacing: 4) {
                 WideButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
-                    .accessibilityHint("Put back the pills not to take first")
+                    .accessibilityHint(result.putBackCount > 0 ? "Put back the pills not to take first" : "Spread the pills apart first")
                 Button("Close", action: onDone)
                     .font(.title3)
                     .foregroundStyle(Palette.textPrimary)
