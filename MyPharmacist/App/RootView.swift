@@ -50,46 +50,7 @@ struct RootView: View {
                 TimelineView(.everyMinute) { context in
                     // Not tied to the camera being open: changing together with it, the
                     // colour's animation would replace the camera's opening spring.
-                    let isDue = store.hasDoseDueNow(now: context.date)
-                    ZStack(alignment: .bottom) {
-                        Palette.background.ignoresSafeArea()
-
-                        if !scan.isOpen {
-                            HomeView(store: store, onShowMedications: showMedications)
-                                .padding(.top, 8)
-                                // Keep clear of the "Scan Pills" hint and button.
-                                .padding(.bottom, ScanLayout.homeReservedHeight)
-                                .frame(maxHeight: .infinity, alignment: .top)
-                                .transition(CameraButton.hintTransition)
-                        }
-
-                        // The results page (and, while checking, the page standing
-                        // ready) says what to do at its own top instead.
-                        if scan.isOpen && !scan.phase.step.isResultsPage {
-                            ScanHeader(scan: scan)
-                                .frame(height: ScanLayout.headerHeight(in: proxy.size, largeText: largeText))
-                                .frame(maxHeight: .infinity, alignment: .top)
-                                .transition(.opacity)
-                        }
-
-                        CameraLens(
-                            scan: scan,
-                            isOpen: scan.isOpen,
-                            openSize: scan.phase.step.isResultsPage ? ScanLayout.resultsPageSize(in: proxy.size)
-                                                                  : ScanLayout.openLensSize(in: proxy.size, largeText: largeText),
-                            onDone: { setScanning(false) },
-                            closedColor: isDue ? Palette.due : .black
-                        )
-                        .animation(.easeInOut(duration: 0.3), value: isDue)
-
-                        CameraButton(isScanning: scan.isOpen,
-                                     isOnPage: scan.isOpen,
-                                     // The results page and a photo to retake have buttons of their own.
-                                     isHidden: scan.isOpen && (scan.phase.step == .results || scan.phase.step == .retake),
-                                     isDue: isDue) {
-                            setScanning(!scan.isOpen)
-                        }
-                    }
+                    screen(in: proxy.size, isDue: store.hasDoseDueNow(now: context.date))
                 }
                 // Known before the camera is first opened: it zooms for this shape.
                 .onChange(of: proxy.size, initial: true) { _, size in
@@ -145,20 +106,68 @@ struct RootView: View {
             // adding to `path`. A page shown by a flag (`navigationDestination(isPresented:)`)
             // can't share a stack with pages pushed by value: pushing a medication's page from
             // My Medications then showed My Medications again, or an empty page.
-            .navigationDestination(for: AppRoute.self) { route in
-                switch route {
-                case .medications:
-                    MedicationsPage(store: store)
-                case .medication(let id):
-                    if let entry = store.entry(id) {
-                        MedicationEditor(store: store, entry: entry, onDone: { path.removeAll { $0 == route } })
-                    }
-                case .newMedication:
-                    MedicationEditor(store: store, onDone: { path.removeAll { $0 == route } })
-                case .about:
-                    AboutPage()
-                }
+            .navigationDestination(for: AppRoute.self, destination: page)
+        }
+    }
+
+    /// The home screen with the scan button, which grows into the scan over it.
+    /// - Parameter isDue: A dose is due now: the scan button is blue.
+    private func screen(in size: CGSize, isDue: Bool) -> some View {
+        ZStack(alignment: .bottom) {
+            Palette.background.ignoresSafeArea()
+
+            if !scan.isOpen {
+                HomeView(store: store, onShowMedications: showMedications)
+                    .padding(.top, 8)
+                    // Keep clear of the "Scan Pills" hint and button.
+                    .padding(.bottom, ScanLayout.homeReservedHeight)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .transition(CameraButton.hintTransition)
             }
+
+            // The results page (and, while checking, the page standing ready) says
+            // what to do at its own top instead.
+            if scan.isOpen && !scan.phase.step.isResultsPage {
+                ScanHeader(scan: scan)
+                    .frame(height: ScanLayout.headerHeight(in: size, largeText: largeText))
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .transition(.opacity)
+            }
+
+            CameraLens(
+                scan: scan,
+                isOpen: scan.isOpen,
+                openSize: scan.phase.step.isResultsPage ? ScanLayout.resultsPageSize(in: size)
+                                                      : ScanLayout.openLensSize(in: size, largeText: largeText),
+                onDone: { setScanning(false) },
+                closedColor: isDue ? Palette.due : .black
+            )
+            .animation(.easeInOut(duration: 0.3), value: isDue)
+
+            CameraButton(isScanning: scan.isOpen,
+                         isOnPage: scan.isOpen,
+                         // The results page and a photo to retake have buttons of their own.
+                         isHidden: scan.isOpen && (scan.phase.step == .results || scan.phase.step == .retake),
+                         isDue: isDue) {
+                setScanning(!scan.isOpen)
+            }
+        }
+    }
+
+    /// A page pushed over the home screen.
+    @ViewBuilder
+    private func page(for route: AppRoute) -> some View {
+        switch route {
+        case .medications:
+            MedicationsPage(store: store)
+        case .medication(let id):
+            if let entry = store.entry(id) {
+                MedicationEditor(store: store, entry: entry, onDone: { path.removeAll { $0 == route } })
+            }
+        case .newMedication:
+            MedicationEditor(store: store, onDone: { path.removeAll { $0 == route } })
+        case .about:
+            AboutPage()
         }
     }
 
