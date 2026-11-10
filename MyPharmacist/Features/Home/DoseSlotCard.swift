@@ -51,7 +51,9 @@ struct DoseSlotCard: View {
     }
 
     private var rows: some View {
-        MedicationLineList(items: slot.items.map { ($0.dose.medication, $0.state.isScanned) })
+        MedicationLineList(items: slot.items.map { item in
+            if case .scanned(let time) = item.state { (item.dose.medication, time) } else { (item.dose.medication, nil) }
+        })
     }
 
     /// Opening reports back only once the card has finished growing: a scroll started
@@ -94,16 +96,19 @@ private struct SlotHeader: View {
         .accessibilityAddTraits(.isHeader)
     }
 
+    /// The darkest text only for the time of day to take now, so it stands out from the
+    /// rest, which are in the date's softer black.
     private var title: some View {
         let period = DayPeriod(slot.time)
+        let colour = slot.status == .now ? Palette.textPrimary : Palette.textSubtitle
         return Label {
             Text("\(period.name) · \(slot.scheduled.shortTime)")
                 .font(.title3.bold())
-                .foregroundStyle(Palette.textPrimary)
+                .foregroundStyle(colour)
         } icon: {
             Image(systemName: period.symbol)
                 .font(.title3)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(colour)
         }
     }
 
@@ -161,3 +166,30 @@ struct DayPeriod {
         }
     }
 }
+
+#if DEBUG
+/// For the canvas: the sample morning medications at 8 AM today, in each state.
+private enum SlotPreview {
+    static func slot(_ status: DoseSlot.Status, scanned: Bool = false) -> DoseSlot {
+        let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
+        let medications = SampleMedications.all.filter { $0.doseTimes.contains(DoseTime(8)) }.prefix(2)
+        let items = medications.enumerated().map { index, medication in
+            ScheduledDose(dose: Dose(medication: medication, time: DoseTime(8), day: morning),
+                          state: scanned ? .scanned(at: morning.addingTimeInterval(Double(index + 2) * 60)) : .due)
+        }
+        return DoseSlot(time: DoseTime(8), scheduled: morning, items: Array(items), status: status)
+    }
+}
+
+#Preview("Now, then scanned") {
+    let now = Calendar.current.date(bySettingHour: 8, minute: 3, second: 0, of: Date()) ?? Date()
+    ScrollView {
+        VStack(spacing: 16) {
+            DoseSlotCard(slot: SlotPreview.slot(.now), isExpanded: .constant(true), onOpened: {})
+            DoseSlotCard(slot: SlotPreview.slot(.done(at: now), scanned: true), isExpanded: .constant(true), onOpened: {})
+            DoseSlotCard(slot: SlotPreview.slot(.next), isExpanded: .constant(false), onOpened: {})
+        }
+        .padding()
+    }
+}
+#endif
