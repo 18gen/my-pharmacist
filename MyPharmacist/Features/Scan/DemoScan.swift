@@ -7,11 +7,54 @@
 import SwiftUI
 import UIKit
 
-/// Debug builds only: results for a made-up photo built from the reference pictures, so
-/// the results page can be seen in the Simulator, which can't run the camera or Vision's
-/// pill finding. Launch with `-demoScan` to open straight into it. Nothing is recorded.
+/// Debug builds only, for the Simulator, which has no camera. Nothing is recorded.
+/// - `-demoScan` opens straight into the results page for a made-up photo.
+/// - `-demoFind` runs a made-up photo of pills on a palm-coloured surface through the
+///   real steps instead: finding the pills (by colour alone, as Vision's subject lifting
+///   doesn't run in the Simulator), the question whether every pill is circled, and
+///   recognizing each. Add `-noCloud` to keep it from using the OpenAI key.
 enum DemoScan {
-    static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }
+    static var isRequested: Bool { showsResults || findsPills }
+    private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }
+    private static var findsPills: Bool { ProcessInfo.processInfo.arguments.contains("-demoFind") }
+
+    static func run(in flow: ScanFlow) {
+        if findsPills {
+            Task { await find(in: flow) }
+        } else {
+            show(in: flow)
+        }
+    }
+
+    /// The sample pills at about their real sizes, two of them touching, on a surface
+    /// the colour of a palm that is lit from below.
+    static func find(in flow: ScanFlow) async {
+        let size = CGSize(width: 1134, height: 2016)   // 87.5 mm wide: about 13 pixels a millimetre
+        let placed: [(photo: String?, middle: CGPoint, millimeters: CGFloat)] = [
+            ("exemestane-25-1", CGPoint(x: 330, y: 800), 6),
+            ("dexamethasone-1-5-1", CGPoint(x: 780, y: 760), 6),
+            ("metoclopramide-10-1", CGPoint(x: 420, y: 1200), 8),
+            ("metoclopramide-10-2", CGPoint(x: 524, y: 1200), 8),
+            ("ondansetron-8-1", CGPoint(x: 800, y: 1260), 9),
+            (nil, CGPoint(x: 600, y: 1560), 7),
+        ]
+        let photo = UIGraphicsImageRenderer(size: size, format: { let f = UIGraphicsImageRendererFormat(); f.scale = 1; return f }())
+            .image { context in
+                let colours = [UIColor(red: 0.66, green: 0.50, blue: 0.42, alpha: 1).cgColor,
+                               UIColor(red: 0.84, green: 0.65, blue: 0.55, alpha: 1).cgColor] as CFArray
+                if let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colours, locations: [0, 1]) {
+                    context.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
+                }
+                for item in placed {
+                    let side = item.millimeters * size.width / 87.5
+                    pillImage(item.photo, side: side, trimmed: true)
+                        .draw(in: CGRect(x: item.middle.x - side / 2, y: item.middle.y - side / 2, width: side, height: side))
+                }
+            }
+        guard let image = photo.cgImage, let captured = CapturedPhoto(image: image) else { return }
+        flow.setOpen(true)
+        await flow.check(captured)
+    }
 
     /// One of each kind of line: two of the morning pills, a second metoclopramide, the
     /// as-needed ondansetron and a white pill not on the list. Dexamethasone is left out
@@ -48,12 +91,45 @@ enum DemoScan {
     }
 
     /// The reference picture, or a plain white pill for the one not on the list.
-    private static func pillImage(_ name: String?, side: CGFloat) -> UIImage {
-        if let name, let image = UIImage(named: name) { return image }
+    /// - Parameter trimmed: Without the clear margin around the reference picture's
+    ///   pill, so the pill itself is `side` across.
+    private static func pillImage(_ name: String?, side: CGFloat, trimmed: Bool = false) -> UIImage {
+        if let name, let image = UIImage(named: name) {
+            guard trimmed, let cgImage = image.cgImage, let tight = PillFinderTrim.tight(cgImage) else { return image }
+            return UIImage(cgImage: tight)
+        }
+        let inset = trimmed ? 0 : side * 0.1
         return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
             UIColor(white: 0.96, alpha: 1).setFill()
-            UIBezierPath(ovalIn: CGRect(x: side * 0.1, y: side * 0.1, width: side * 0.8, height: side * 0.8)).fill()
+            UIBezierPath(ovalIn: CGRect(x: inset, y: inset, width: side - 2 * inset, height: side - 2 * inset)).fill()
         }
+    }
+}
+
+/// Cuts a picture down to what isn't clear in it.
+private enum PillFinderTrim {
+    static func tight(_ image: CGImage) -> CGImage? {
+        let width = image.width, height = image.height
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        var minX = width, minY = height, maxX = -1, maxY = -1
+        for y in 0..<height {
+            for x in 0..<width where bytes[(y * width + x) * 4 + 3] > 40 {
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        guard maxX >= minX, maxY >= minY else { return nil }
+        // Square, so a round pill stays round when drawn into a square.
+        let side = max(maxX - minX, maxY - minY) + 1
+        let rect = CGRect(x: (minX + maxX + 1 - side) / 2, y: (minY + maxY + 1 - side) / 2, width: side, height: side)
+        return image.cropping(to: rect.intersection(CGRect(x: 0, y: 0, width: width, height: height)))
     }
 }
 #endif

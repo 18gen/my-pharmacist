@@ -48,14 +48,9 @@ struct ResultPhoto: View {
 
     private func ring(_ pill: ScannedPill, region: CGRect, shownSize: CGSize) -> some View {
         let level = pill.verdict.level
-        let scale = shownSize.width / region.width
-        let rect = CGRect(
-            x: (pill.box.minX * CGFloat(photo.width) - region.minX) * scale,
-            y: (pill.box.minY * CGFloat(photo.height) - region.minY) * scale,
-            width: pill.box.width * CGFloat(photo.width) * scale,
-            height: pill.box.height * CGFloat(photo.height) * scale
-        )
-        .insetBy(dx: -6, dy: -6)
+        let rect = PhotoFraming.shown(pill.box, imageSize: CGSize(width: photo.width, height: photo.height),
+                                      region: region, shownWidth: shownSize.width)
+            .insetBy(dx: -6, dy: -6)
         let isHighlighted = highlighted == pill.id
         return Capsule()
             .strokeBorder(level.color, lineWidth: isHighlighted ? 5 : 3)

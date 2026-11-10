@@ -77,21 +77,8 @@ struct RootView: View {
             .sensoryFeedback(.impact(weight: .light), trigger: scan.scanner.captureStatus) { _, status in
                 status == .ready
             }
-            // Why a photo has to be taken again is otherwise only shown, not spoken.
-            .onChange(of: scan.phase.step) { _, step in
-                guard step == .retake, case .retake(_, let reason) = scan.phase else { return }
-                AccessibilityNotification.Announcement(ScanInstruction.retake(reason).text).post()
-            }
-            .sensoryFeedback(.warning, trigger: scan.phase.step) { _, step in step == .retake }
-            .onChange(of: scan.phase.step) { _, step in
-                guard step == .results, case .results(let result) = scan.phase else { return }
-                AccessibilityNotification.Announcement(result.summary).post()
-            }
-            // Success when every pill is OK to take and nothing is missing; a warning otherwise.
-            .sensoryFeedback(trigger: scan.phase.step) { _, step in
-                guard step == .results, case .results(let result) = scan.phase else { return nil }
-                return result.isAllClear ? .success : .warning
-            }
+            // What each step of a scan says and feels like.
+            .modifier(ScanFeedback(scan: scan))
             .task(id: scan.isOpen) {
                 #if DEBUG
                 // The demo shows results without the camera.
@@ -101,7 +88,7 @@ struct RootView: View {
             }
             #if DEBUG
             .onAppear {
-                if DemoScan.isRequested { DemoScan.show(in: scan) }
+                if DemoScan.isRequested { DemoScan.run(in: scan) }
             }
             #endif
             // Home has its own header instead of a navigation bar.

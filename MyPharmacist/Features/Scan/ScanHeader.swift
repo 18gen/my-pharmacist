@@ -72,6 +72,8 @@ struct ScanHeader: View {
             ScanInstruction.checking
         case .retake(_, let reason):
             ScanInstruction.retake(reason)
+        case .confirming(let found):
+            ScanInstruction.confirm(count: found.boxes.count)
         case .checking(let count):
             ScanInstruction.checking(count: count)
         case .results(let result):

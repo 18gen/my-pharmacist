@@ -20,7 +20,13 @@ enum ScanInstruction {
     /// While the photo is taken and searched for pills.
     static let checking = Line(text: "Checking your pills…", pictogram: .checking)
 
-    /// Once the pills are found and the camera is off.
+    /// With the photo showing each pill found circled: the question only the person
+    /// can answer.
+    static func confirm(count: Int) -> Line {
+        Line(text: count == 1 ? "1 pill found. Is it your only pill?" : "\(count) pills found. Is every pill circled?", pictogram: nil)
+    }
+
+    /// Once the person has said yes, while the pills are still being checked.
     static func checking(count: Int) -> Line {
         Line(text: count == 1 ? "Checking 1 pill…" : "Checking \(count) pills…", pictogram: .checking)
     }

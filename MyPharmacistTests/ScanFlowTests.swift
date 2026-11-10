@@ -122,6 +122,43 @@ struct ScanFlowTests {
         #expect(ScanInstruction.retake(.cantCheck).text != ScanInstruction.noPills.text)
     }
 
+    private func identified(_ pills: [AnalyzedPill]) -> Task<PillIdentification, Never> {
+        Task { PillIdentification(pills: pills) }
+    }
+
+    @Test func nothingIsShownOrRecordedUntilThePersonSaysEveryPillIsCircled() async throws {
+        flow.setOpen(true)
+        let pills = [pill(TestMedications.metformin), pill(TestMedications.lisinopril, x: 0.5)]
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identification: identified(pills))
+        #expect(flow.phase.step == .confirming)
+        if case .confirming(let found) = flow.phase {
+            #expect(found.boxes.count == 2)
+        }
+        #expect(store.todayList(now: Date()).allSatisfy { !$0.state.isScanned })
+
+        await flow.confirmPills()
+        let result = try #require(result)
+        #expect(result.pills.count == 2)
+    }
+
+    @Test func closingWhileAskedDropsThePhoto() async {
+        flow.setOpen(true)
+        let pills = [pill(TestMedications.metformin)]
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identification: identified(pills))
+        flow.setOpen(false)
+        // Saying yes now does nothing: there is nothing left to confirm.
+        await flow.confirmPills()
+        #expect(flow.phase.step == .confirming)
+        flow.setOpen(true)
+        #expect(flow.phase.step == .aiming)
+        #expect(store.todayList(now: Date()).allSatisfy { !$0.state.isScanned })
+    }
+
+    @Test func theQuestionSaysHowManyPillsWereFound() {
+        #expect(ScanInstruction.confirm(count: 3).text == "3 pills found. Is every pill circled?")
+        #expect(ScanInstruction.confirm(count: 1).text == "1 pill found. Is it your only pill?")
+    }
+
     @Test func theInstructionIsTheOneThingToDoNow() {
         #expect(ScanInstruction.whileAiming(status: .checking) == ScanInstruction.aim)
         let holdStill = ScanInstruction.whileAiming(status: .needs(.moving))

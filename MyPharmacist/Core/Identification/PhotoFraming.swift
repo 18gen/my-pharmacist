@@ -33,6 +33,16 @@ nonisolated enum PhotoFraming {
         return rect
     }
 
+    /// Where a box is on screen when `region` of the photo is shown `shownWidth` wide.
+    /// - Parameter box: Normalized 0–1, origin at the top left of the photo.
+    static func shown(_ box: CGRect, imageSize: CGSize, region: CGRect, shownWidth: CGFloat) -> CGRect {
+        let scale = region.width > 0 ? shownWidth / region.width : 1
+        return CGRect(x: (box.minX * imageSize.width - region.minX) * scale,
+                      y: (box.minY * imageSize.height - region.minY) * scale,
+                      width: box.width * imageSize.width * scale,
+                      height: box.height * imageSize.height * scale)
+    }
+
     private static func grow(_ rect: CGRect, toWidth width: CGFloat, within image: CGRect) -> CGRect {
         let width = min(width, image.width)
         let x = min(max(rect.midX - width / 2, image.minX), image.maxX - width)

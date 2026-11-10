@@ -76,6 +76,11 @@ struct CameraLens: View {
                     .padding(.bottom, ScanLayout.lensButtonBottomPadding)
                     .accessibilityHint("Opens the camera again")
                 }
+        case .confirming(let found):
+            PillConfirmView(found: found, size: openSize,
+                            onYes: { Task { await scan.confirmPills() } },
+                            onNo: { Task { await scan.rejectPills() } })
+                .transition(.opacity)
         case .checking:
             ProgressView()
                 .controlSize(.large)
