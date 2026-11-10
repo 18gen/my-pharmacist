@@ -5,6 +5,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-05-01",
   "observability": { "enabled": true },
+  // Served at https://my-pharmacist-pill-check.<account>.workers.dev; no preview addresses
+  // for other versions, so only the deployed one answers.
+  "workers_dev": true,
+  "preview_urls": false,
   "vars": {
     // The OpenAI model that checks the pills.
     "OPENAI_MODEL": "gpt-6.1-sol",
