@@ -77,8 +77,29 @@ struct PillLocatorTests {
         }
         let blob = try #require(rough.blobs().max { $0.mask.count < $1.mask.count })
         #expect(rules.judge(blob, pictureWidth: width, pictureHeight: height) == .touching)
-        #expect(pills(locate(lifted: [blob])).count == 1)
-        #expect(pills(locate(colour: [blob])).count == 1)
+        #expect(pills(locate(lifted: [blob])).map(\.isRough) == [true])
+        #expect(pills(locate(colour: [blob])).map(\.isRough) == [true])
+        // A pill with a clean outline isn't doubted.
+        #expect(pills(locate(lifted: blobs([(100, 200, 18)]))).map(\.isRough) == [false])
+    }
+
+    @Test func aWedgeOfSkinIsNotAPill() throws {
+        // Pill-sized, with one middle, but a wedge with a tail: it fills too little of
+        // its outline to be one pill with a rough edge.
+        var wedge = PixelMask(width: width, height: height)
+        for y in 180..<220 {
+            for x in 80..<(80 + (y - 180)) { wedge[x, y] = true }
+        }
+        for x in 60..<90 {
+            for y in 214..<220 { wedge[x, y] = true }
+        }
+        let blob = try #require(wedge.blobs().max { $0.mask.count < $1.mask.count })
+        #expect(rules.judge(blob, pictureWidth: width, pictureHeight: height) == .touching)
+        #expect(BlobShape(blob).solidity < rules.leastRoughSolidity)
+        #expect(locate(lifted: [blob]) == .noPills)
+        #expect(locate(colour: [blob]) == .noPills)
+        // Beside a real pill it doesn't spoil the photo, and isn't circled.
+        #expect(pills(locate(lifted: [blob] + blobs([(250, 400, 14)]))).count == 1)
     }
 
     @Test func pillsJoinedByAThinShadowAreTwoPills() {

@@ -22,6 +22,8 @@ nonisolated struct FoundPill: Sendable {
     let searchedSize: CGSize
     /// Whether Vision found it, its colour did, or both.
     let sources: LocatedPill.Sources
+    /// Its outline isn't a pill's clean one (`LocatedPill.isRough`).
+    var isRough = false
 }
 
 /// What looking for pills in a photo came to.
@@ -104,7 +106,7 @@ nonisolated enum PillFinder {
                 cutOut(pill.blob, from: working, searchedWidth: width).map { crop in
                     FoundPill(box: pill.blob.normalizedBounds(pictureWidth: width, pictureHeight: height),
                               crop: crop, outline: pill.blob, shape: pill.shape,
-                              searchedSize: CGSize(width: width, height: height), sources: pill.sources)
+                              searchedSize: CGSize(width: width, height: height), sources: pill.sources, isRough: pill.isRough)
                 }
             }
             return pills.count == located.count ? .found(pills) : .failed

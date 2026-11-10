@@ -20,6 +20,9 @@ nonisolated struct LocatedPill: Sendable, Equatable {
     let blob: Blob
     let shape: BlobShape
     let sources: Sources
+    /// Its outline isn't a pill's clean one, though it is probably one pill. If the
+    /// checker then says its picture shows no pill, it isn't one.
+    var isRough = false
 }
 
 /// What looking for pills came to, before any pill is cut out.
@@ -82,8 +85,8 @@ nonisolated enum PillLocator {
             let verdict = judge(candidate.blob)
             let outcome: ExaminedArea.Outcome
             switch settle(candidate, shape: shape, verdict: verdict, rules: rules, judge: judge) {
-            case .pills(let parts):
-                pills += parts.map { LocatedPill(blob: $0, shape: BlobShape($0), sources: candidate.sources) }
+            case .pills(let parts, let isRough):
+                pills += parts.map { LocatedPill(blob: $0, shape: BlobShape($0), sources: candidate.sources, isRough: isRough) }
                 outcome = .pills(parts.count)
             case .ignored:
                 outcome = .ignored
@@ -136,7 +139,7 @@ nonisolated enum PillLocator {
     }
 
     private enum Settled {
-        case pills([Blob])
+        case pills([Blob], isRough: Bool = false)
         case ignored
         case retake(RetakeReason)
     }
@@ -166,17 +169,20 @@ nonisolated enum PillLocator {
                wideEnough(parts) {
                 return .pills(parts)
             }
-            let filled = shape.solidity >= (byColourAlone ? rules.leastShadowedSolidity : rules.leastJoinedSolidity)
-            guard filled, wideEnough([candidate.blob]) else { return .ignored }
             let middles = BlobSplitter.split(candidate.blob, minimumRise: minimumRise(shape)).parts
             if middles.count > 1 {
                 // Two middles that can't be cut apart: pills lying against or over each
-                // other, if any piece is a pill at all.
-                return middles.contains { judge($0) == .pill } ? .retake(.touching) : .ignored
+                // other, if any piece is a pill at all. What colour alone found must
+                // also fill most of its outline, as touching pills do.
+                let plausible = !byColourAlone || (shape.solidity >= rules.leastJoinedSolidity && rules.isWide(shape))
+                return plausible && middles.contains { judge($0) == .pill } ? .retake(.touching) : .ignored
             }
-            // One middle and no larger than a pill: one pill with a rough outline (its
-            // shadow, a shine, a score line). Anything longer is part of a hand.
-            return shape.length <= rules.longestPill * rules.pixelsPerMillimeter ? .pills([candidate.blob]) : .ignored
+            // One middle, no larger than a pill and nearly filling its outline: one pill
+            // with a rough outline (its shadow, a shine, a score line). Anything longer
+            // is part of a hand; anything emptier is skin, a crease or a blotch.
+            let isOnePill = shape.solidity >= rules.leastRoughSolidity && rules.isWide(shape)
+                && shape.length <= rules.longestPill * rules.pixelsPerMillimeter
+            return isOnePill ? .pills([candidate.blob], isRough: true) : .ignored
         }
     }
 
