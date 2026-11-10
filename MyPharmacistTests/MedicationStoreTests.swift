@@ -72,6 +72,18 @@ struct MedicationStoreTests {
         #expect(storage.log.isEmpty)
     }
 
+    @Test func resettingScansForgetsThemAllAndKeepsTheList() {
+        let storage = InMemoryDoseLogStorage()
+        let store = makeStore(storage)
+        store.recordScan(of: store.doses(on: morning), at: morning)
+        #expect(store.todayList(now: morning).contains { $0.state.isScanned })
+
+        store.clearScans()
+        #expect(storage.log.isEmpty)
+        #expect(!store.todayList(now: morning).contains { $0.state.isScanned })
+        #expect(store.medications == TestMedications.all)
+    }
+
     @Test func recordsOlderThanTwoWeeksAreDroppedOnLaunch() {
         let old = TestClock.calendar.date(byAdding: .day, value: -15, to: morning)!
         let recent = TestClock.calendar.date(byAdding: .day, value: -13, to: morning)!

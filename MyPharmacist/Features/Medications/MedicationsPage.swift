@@ -13,6 +13,7 @@ struct MedicationsPage: View {
     let store: MedicationStore
     @Environment(\.dismiss) private var dismiss
     @State private var isConfirmingSample = false
+    @State private var isConfirmingReset = false
 
     var body: some View {
         ScrollView {
@@ -48,6 +49,14 @@ struct MedicationsPage: View {
                 .foregroundStyle(Palette.textSecondary)
                 .frame(maxWidth: .infinity, minHeight: 44)
 
+                // For starting a demo over: no dose shows as scanned any more.
+                Button("Reset scans") {
+                    isConfirmingReset = true
+                }
+                .font(.body)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+
                 NavigationLink(value: AppRoute.about) {
                     Label("About & privacy", systemImage: "info.circle")
                         .font(.body.weight(.semibold))
@@ -68,6 +77,14 @@ struct MedicationsPage: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your list becomes four sample medications with sample times, for trying the app. Your own medications and their photos are deleted.")
+        }
+        .confirmationDialog("Reset all scans?", isPresented: $isConfirmingReset, titleVisibility: .visible) {
+            Button("Reset scans", role: .destructive) {
+                withAnimation { store.clearScans() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Every dose goes back to not scanned. Your medications stay.")
         }
         // The system back button can't be enlarged, so this page draws its own header.
         .toolbar(.hidden, for: .navigationBar)

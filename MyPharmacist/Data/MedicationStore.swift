@@ -163,6 +163,12 @@ final class MedicationStore {
         }
     }
 
+    /// Forgets every scan, so that no dose shows as scanned: for starting a demo over.
+    /// The medication list stays.
+    func clearScans() {
+        scanLog = [:]
+    }
+
     /// Decides which of the pills in a photo to take now, given what each was recognized as.
     func check(_ identities: [Medication?], now: Date = Date()) -> PillSetCheck {
         PillSetVerifier.check(identities, medications: medications,
