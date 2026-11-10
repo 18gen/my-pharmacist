@@ -13,7 +13,7 @@
     // The OpenAI model that checks the pills.
     "OPENAI_MODEL": "gpt-6.1-sol",
     // Shown on the support and privacy pages. Set it to the address you answer.
-    "SUPPORT_EMAIL": "REPLACE_WITH_YOUR_SUPPORT_EMAIL"
+    "SUPPORT_EMAIL": "ichihashigen@gmail.com"
   },
   // Secrets, set with `npx wrangler secret put`: OPENAI_API_KEY and APP_TOKEN.
   "ratelimits": [
