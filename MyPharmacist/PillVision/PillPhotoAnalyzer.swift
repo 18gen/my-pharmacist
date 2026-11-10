@@ -41,11 +41,12 @@ actor PillPhotoAnalyzer {
     }
 
     /// Step 3 of a scan: recognizes each pill, in the order given.
-    func identify(_ pills: [FoundPill], in photo: CGImage) async -> [AnalyzedPill] {
+    func identify(_ pills: [FoundPill], in photo: CapturedPhoto) async -> [AnalyzedPill] {
         if let cloud, !pills.isEmpty {
             do {
+                // Each pill cut from the full-size photo, in the middle of its own picture.
                 let photos = pills.compactMap { pill in
-                    OpenAIPillIdentifier.surroundingCrop(of: pill.box, in: photo).flatMap { OpenAIPillIdentifier.jpeg($0) }
+                    PillCropper.picture(of: pill, in: photo).flatMap { OpenAIPillIdentifier.jpeg($0, maxSide: PillCropper.largestSide) }
                 }
                 if photos.count == pills.count {
                     let ids = try await cloud.identify(photos, among: cloudReferences())

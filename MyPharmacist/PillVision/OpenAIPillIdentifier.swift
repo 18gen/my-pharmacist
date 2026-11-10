@@ -222,13 +222,4 @@ nonisolated struct OpenAIPillIdentifier: Sendable {
         CGImageDestinationAddImage(destination, flattened, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
         return CGImageDestinationFinalize(destination) ? data as Data : nil
     }
-
-    /// The pill's box in the photo with some of what's around it, so its edge and imprint
-    /// are whole even when the cut-out isn't.
-    static func surroundingCrop(of box: CGRect, in photo: CGImage, padding: Double = 0.25) -> CGImage? {
-        let width = Double(photo.width), height = Double(photo.height)
-        let rect = CGRect(x: box.minX * width, y: box.minY * height, width: box.width * width, height: box.height * height)
-        let pad = max(rect.width, rect.height) * padding
-        return photo.cropping(to: rect.insetBy(dx: -pad, dy: -pad).intersection(CGRect(x: 0, y: 0, width: width, height: height)).integral)
-    }
 }
