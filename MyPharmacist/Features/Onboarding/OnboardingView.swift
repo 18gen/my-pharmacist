@@ -26,16 +26,19 @@ enum Onboarding {
     }
 }
 
-/// The introduction shown before the home screen on the first launch: three pages on how
-/// to scan pills, check that each was found, and read the result. Swiping or Next moves
-/// on; Skip and Get Started both finish it for good.
+/// The introduction shown before the home screen on the first launch: a welcome, then
+/// three pages on how to scan pills, check that each was found, and read the result.
+/// Swiping or Next moves on; Skip and Get Started both finish it for good.
 struct OnboardingView: View {
     /// Called once the person skips or finishes, after that has been saved.
     let onDone: () -> Void
 
-    @State private var page = OnboardingPage.scan
+    @State private var page = OnboardingPage.welcome
 
     private var isLastPage: Bool { page == OnboardingPage.allCases.last }
+    /// Skip is for the pages in between: the welcome only leads on, and the last page
+    /// has Get Started.
+    private var hidesSkip: Bool { page == .welcome || isLastPage }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,10 +47,11 @@ struct OnboardingView: View {
                 .foregroundStyle(Palette.textPrimary)
                 .frame(minWidth: 44, minHeight: 44)
                 .frame(maxWidth: .infinity, alignment: .trailing)
-                // Kept in place on the last page, so nothing above the pages moves.
-                .opacity(isLastPage ? 0 : 1)
-                .disabled(isLastPage)
-                .accessibilityHidden(isLastPage)
+                // Kept in place while hidden, so nothing above the pages moves.
+                .opacity(hidesSkip ? 0 : 1)
+                .animation(.easeInOut(duration: 0.2), value: hidesSkip)
+                .disabled(hidesSkip)
+                .accessibilityHidden(hidesSkip)
                 .accessibilityHint("Skips the introduction")
 
             // `Tab` needs iOS 18; tagged views page the same way on iOS 17.
@@ -99,7 +103,7 @@ struct OnboardingView: View {
 
 /// The introduction's pages, in order.
 private enum OnboardingPage: Int, CaseIterable, Identifiable {
-    case scan, confirm, results
+    case welcome, scan, confirm, results
 
     var id: Int { rawValue }
 
@@ -108,6 +112,7 @@ private enum OnboardingPage: Int, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .welcome: "Welcome to My Pharmacist"
         case .scan: "Scan Your Pills"
         case .confirm: "Check Every Pill Is Circled"
         case .results: "Review the Results"
@@ -117,6 +122,7 @@ private enum OnboardingPage: Int, CaseIterable, Identifiable {
     /// Markdown, so the words that appear on screen can be bold.
     var text: LocalizedStringKey {
         switch self {
+        case .welcome: "A double-check for the pills in your hand, before you take them."
         case .scan: "Put your pills on your palm. Tap **Scan Pills** and hold the phone over your hand."
         case .confirm: "After the photo, look for a circle around every pill. If one is missing, take the photo again."
         case .results: "See which pills match your schedule now. If a pill is **Unknown** or has a warning, don't take it. Ask your pharmacist."
@@ -156,6 +162,17 @@ private struct OnboardingPageView: View {
     @ViewBuilder
     private var picture: some View {
         switch page {
+        case .welcome:
+            // The app's icon: a pill under a magnifying glass, white on blue.
+            ZStack {
+                RoundedRectangle(cornerRadius: 50, style: .continuous).fill(Palette.due)
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 150, weight: .medium))
+                Image(systemName: "pill.fill")
+                    .font(.system(size: 50))
+                    .offset(x: -13, y: -13)
+            }
+            .foregroundStyle(.white)
         case .scan:
             // The camera's frame around pills, as on the scan's own "aim" picture.
             ZStack {
