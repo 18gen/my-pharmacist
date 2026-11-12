@@ -14,12 +14,12 @@ import Foundation
 /// against RxNorm and the FDA labels by NDC.
 nonisolated enum SampleMedications {
     /// What "Load sample list" puts on the list, times included, for demos and App
-    /// Review: the C3PI tablets and the as-needed ondansetron. Two doses at 12 AM, so
-    /// something is due around midnight as well as in the morning and evening.
+    /// Review: the C3PI tablets and the as-needed ondansetron. Two doses at 12:30 PM and
+    /// two at 8 PM, so something is due around midday and again in the evening.
     static let sampleList: [MedicationEntry] = [
-        entry(more[0], times: [DoseTime(0), DoseTime(20)]),
-        entry(more[1], times: [DoseTime(0)]),
-        entry(more[2], times: [DoseTime(8)]),
+        entry(more[0], times: [DoseTime(12,30), DoseTime(20)]),
+        entry(more[1], times: [DoseTime(12,30)]),
+        entry(more[2], times: [DoseTime(20)]),
         MedicationEntry(ePillID[3]),
     ]
 

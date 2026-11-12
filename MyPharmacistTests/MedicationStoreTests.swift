@@ -218,7 +218,7 @@ struct MedicationListTests {
         store.add(entry(photos: [photo]))
         store.loadSampleList()
         #expect(store.medications.map(\.id) == ["capecitabine-500", "dexamethasone-4", "allopurinol-300", "ondansetron-8"])
-        #expect(store.medications.map(\.doseTimes) == [[DoseTime(0), DoseTime(20)], [DoseTime(0)], [DoseTime(8)], []])
+        #expect(store.medications.map(\.doseTimes) == [[DoseTime(12, 30), DoseTime(20)], [DoseTime(12, 30)], [DoseTime(20)], []])
         #expect(store.asNeededMedications.map(\.id) == ["ondansetron-8"])
         #expect(!FileManager.default.fileExists(atPath: photos.directory.appending(path: fileName(photo)).path))
     }
