@@ -7,18 +7,14 @@ import SwiftUI
 
 /// "My Medications": every medication on the list with what it's for and when it's taken.
 /// Tapping one opens its page to change it or remove it; "Add a medication" opens an
-/// empty one, and under it are "Load sample list" and "Reset scans" for demos. Opened from the pills button; slides in from the right. A large round "‹"
-/// button (or a swipe from the left edge) goes back.
+/// empty one, and "Sample" beside it loads the sample list, for demos. Opened from the
+/// pills button; slides in from the right. A large round "‹" button (or a swipe from the
+/// left edge) goes back.
 struct MedicationsPage: View {
     let store: MedicationStore
     @Environment(\.dismiss) private var dismiss
     @State private var isConfirmingSample = false
-    @State private var isConfirmingReset = false
     @Environment(\.dynamicTypeSize) private var typeSize
-
-    private var demoButtons: AnyLayout {
-        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
-    }
 
     var body: some View {
         ScrollView {
@@ -35,28 +31,16 @@ struct MedicationsPage: View {
 
                 list
 
-                // Its page is declared in `RootView`, with every other pushed page.
-                NavigationLink(value: AppRoute.newMedication) {
-                    Label("Add a medication", systemImage: "plus")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(Palette.onButton)
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .controlSize(.large)
-                .tint(Palette.button)
-
-                // Side by side, each half the row; one above the other at the
-                // accessibility text sizes, where two no longer fit in a row.
-                demoButtons {
-                    // For trying the app, and for App Review, without one's own pills.
-                    SecondaryButton(title: "Load sample list", fillsWidth: true) {
-                        isConfirmingSample = true
-                    }
-                    // For starting a demo over: no dose shows as scanned any more.
-                    SecondaryButton(title: "Reset scans", fillsWidth: true) {
-                        isConfirmingReset = true
+                // "Sample" takes three parts of the row to "Add a medication"'s seven. At
+                // the accessibility text sizes two no longer fit in a row: the main
+                // button first, then the other under it.
+                if typeSize.isAccessibilitySize {
+                    addButton
+                    sampleButton
+                } else {
+                    SplitRow(shares: [3, 7]) {
+                        sampleButton
+                        addButton
                     }
                 }
 
@@ -81,17 +65,34 @@ struct MedicationsPage: View {
         } message: {
             Text("Your list becomes four sample medications with sample times, for trying the app. Your own medications and their photos are deleted.")
         }
-        .confirmationDialog("Reset all scans?", isPresented: $isConfirmingReset, titleVisibility: .visible) {
-            Button("Reset scans", role: .destructive) {
-                withAnimation { store.clearScans() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Every dose goes back to not scanned. Your medications stay.")
-        }
         // The system back button can't be enlarged, so this page draws its own header.
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
+    }
+
+    /// Its page is declared in `RootView`, with every other pushed page.
+    private var addButton: some View {
+        NavigationLink(value: AppRoute.newMedication) {
+            Label("Add a medication", systemImage: "plus")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Palette.onButton)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, minHeight: 34)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
+        .controlSize(.large)
+        .tint(Palette.button)
+    }
+
+    /// For trying the app, and for App Review, without one's own pills. One word, to fit
+    /// its narrow part of the row; what it does is asked about before it is done.
+    private var sampleButton: some View {
+        SecondaryButton(title: "Sample", fillsWidth: true) {
+            isConfirmingSample = true
+        }
+        .accessibilityLabel("Load sample list")
     }
 
     @ViewBuilder
