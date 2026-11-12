@@ -29,6 +29,10 @@ enum Onboarding {
 /// The introduction shown before the home screen on the first launch: a welcome, then
 /// three pages on how to scan pills, check that each was found, and read the result.
 /// Swiping or Next moves on; Skip and Get Started both finish it for good.
+///
+/// Every page is cream words and drawings on a dark, blurred wallpaper of its own, unlike
+/// the rest of the app, which is black on white. The app shows it in the dark colour
+/// scheme, so the clock above it is white.
 struct OnboardingView: View {
     /// Called once the person skips or finishes, after that has been saved.
     let onDone: () -> Void
@@ -39,14 +43,12 @@ struct OnboardingView: View {
     /// Skip is for the pages in between: the welcome only leads on, and the last page
     /// has Get Started.
     private var hidesSkip: Bool { page == .welcome || isLastPage }
-    /// The welcome is on its wallpaper: what sits on it is light instead of dark.
-    private var onWallpaper: Bool { page == .welcome }
 
     var body: some View {
         VStack(spacing: 0) {
             Button("Skip", action: finish)
                 .font(.title3)
-                .foregroundStyle(Palette.textPrimary)
+                .foregroundStyle(OnboardingStyle.cream)
                 .frame(minWidth: 44, minHeight: 44)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 // Kept in place while hidden, so nothing above the pages moves.
@@ -63,18 +65,16 @@ struct OnboardingView: View {
                         .tag(page)
                 }
             }
-            // The system's dots are white, which can't be seen on this white page.
+            // The system's dots can't be restyled to match; `pageDots` are drawn instead.
             .tabViewStyle(.page(indexDisplayMode: .never))
 
             pageDots
                 .padding(.vertical, 16)
 
             if isLastPage {
-                WideButton(title: "Get Started", systemImage: "checkmark", action: finish)
-            } else if onWallpaper {
-                lightNextButton
+                wideButton("Get Started", systemImage: "checkmark", action: finish)
             } else {
-                WideButton(title: "Next", systemImage: "arrow.right") {
+                wideButton("Next", systemImage: "arrow.right") {
                     withAnimation { page = page.next }
                 }
             }
@@ -83,24 +83,38 @@ struct OnboardingView: View {
         .padding(.top, 8)
         .padding(.bottom, 16)
         .background {
-            // Behind the welcome only; it fades to the plain page as the pages move on.
+            // Each page's wallpaper fades into the next as the pages move on.
             ZStack {
-                Palette.background
-                OnboardingWallpaper()
-                    .opacity(onWallpaper ? 1 : 0)
+                ForEach(OnboardingPage.allCases) { wallpaper in
+                    OnboardingWallpaper(page: wallpaper)
+                        .opacity(wallpaper == page ? 1 : 0)
+                }
             }
+            .background(OnboardingStyle.dark)
             .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.35), value: onWallpaper)
+            .animation(.easeInOut(duration: 0.45), value: page)
         }
     }
 
-    /// `WideButton` in the wallpaper's cream with dark words: black would sink into the
-    /// dark picture.
-    private var lightNextButton: some View {
-        Button {
-            withAnimation { page = page.next }
-        } label: {
-            Label("Next", systemImage: "arrow.right")
+    /// Which of the pages is showing.
+    private var pageDots: some View {
+        HStack(spacing: 8) {
+            ForEach(OnboardingPage.allCases) { dot in
+                Capsule()
+                    .fill(OnboardingStyle.cream.opacity(dot == page ? 1 : 0.4))
+                    .frame(width: dot == page ? 24 : 8, height: 8)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: page)
+        .accessibilityElement()
+        .accessibilityLabel("Page \(page.rawValue + 1) of \(OnboardingPage.allCases.count)")
+    }
+
+    /// `WideButton` in the wallpaper's cream with dark words: the app's black button
+    /// would sink into the dark picture.
+    private func wideButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
@@ -110,32 +124,21 @@ struct OnboardingView: View {
         .buttonStyle(.borderedProminent)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .tint(OnboardingWallpaper.cream)
-    }
-
-    /// Which of the pages is showing.
-    private var pageDots: some View {
-        HStack(spacing: 8) {
-            ForEach(OnboardingPage.allCases) { dot in
-                Capsule()
-                    .fill(dotColour(isCurrent: dot == page))
-                    .frame(width: dot == page ? 24 : 8, height: 8)
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: page)
-        .accessibilityElement()
-        .accessibilityLabel("Page \(page.rawValue + 1) of \(OnboardingPage.allCases.count)")
-    }
-
-    private func dotColour(isCurrent: Bool) -> Color {
-        if onWallpaper { return OnboardingWallpaper.cream.opacity(isCurrent ? 1 : 0.4) }
-        return isCurrent ? Palette.textPrimary : Palette.skeleton
+        .tint(OnboardingStyle.cream)
     }
 
     private func finish() {
         Onboarding.markDone()
         onDone()
     }
+}
+
+/// The introduction's own colours.
+private enum OnboardingStyle {
+    /// The words, drawings, dots and buttons on the wallpapers.
+    static let cream = Color(red: 1.0, green: 0.97, blue: 0.90)
+    /// Under the wallpapers, and what they darken towards.
+    static let dark = Color(red: 0.16, green: 0.09, blue: 0.06)
 }
 
 /// The introduction's pages, in order.
@@ -147,13 +150,13 @@ private enum OnboardingPage: Int, CaseIterable, Identifiable {
     /// The page after this one; the last page stays.
     var next: OnboardingPage { OnboardingPage(rawValue: rawValue + 1) ?? self }
 
-    /// Markdown, for the welcome's italic line.
+    /// Markdown: the second line is italic.
     var title: LocalizedStringKey {
         switch self {
         case .welcome: "Welcome to\n*My Pharmacist*"
-        case .scan: "Scan Your Pills"
-        case .confirm: "Check Every Pill Is Circled"
-        case .results: "Review the Results"
+        case .scan: "Scan\n*Your Pills*"
+        case .confirm: "Is Every Pill\n*Circled?*"
+        case .results: "Review\n*the Results*"
         }
     }
 
@@ -168,38 +171,36 @@ private enum OnboardingPage: Int, CaseIterable, Identifiable {
     }
 }
 
-/// One page: a large picture, then what to do in a few large words.
+/// One page: a drawing, then what to do in a few large words.
 private struct OnboardingPageView: View {
     let page: OnboardingPage
 
-    /// The welcome's title is larger than any text style, and still grows with the
-    /// person's text size.
-    @ScaledMetric(relativeTo: .largeTitle) private var welcomeTitleSize: CGFloat = 46
-
-    /// The welcome is on its wallpaper: cream serif words instead of black ones.
-    private var onWallpaper: Bool { page == .welcome }
+    /// The title is larger than any text style, and still grows with the person's text size.
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 46
 
     var body: some View {
         // Scrolls at the largest text sizes, where the words no longer fit under the picture.
         ScrollView {
             VStack(spacing: 24) {
                 picture
-                    .frame(width: 220, height: onWallpaper ? 130 : 220)
+                    .frame(width: 240, height: 150)
                     // The words say the same.
                     .accessibilityHidden(true)
                 Text(page.title)
-                    .font(onWallpaper ? .system(size: welcomeTitleSize, design: .serif) : .largeTitle.weight(.bold))
-                    .foregroundStyle(onWallpaper ? OnboardingWallpaper.cream : Palette.textPrimary)
+                    .font(.system(size: titleSize, design: .serif))
+                    .foregroundStyle(OnboardingStyle.cream)
                     .accessibilityAddTraits(.isHeader)
                 Text(page.text)
                     .font(.title3)
-                    .foregroundStyle(onWallpaper ? OnboardingWallpaper.cream.opacity(0.9) : Palette.textBody)
+                    .foregroundStyle(OnboardingStyle.cream.opacity(0.92))
             }
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity)
-            .padding(.top, onWallpaper ? 96 : 24)
+            .padding(.top, 72)
             .padding(.bottom, 8)
+            // Lifts the words off the lighter parts of a wallpaper.
+            .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
         }
         .scrollBounceBehavior(.basedOnSize)
     }
@@ -208,7 +209,7 @@ private struct OnboardingPageView: View {
     private var picture: some View {
         switch page {
         case .welcome:
-            // The app icon's drawing, a pill under a magnifying glass, on the wallpaper.
+            // The app icon's drawing: a pill under a magnifying glass.
             ZStack {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 110, weight: .medium))
@@ -216,97 +217,128 @@ private struct OnboardingPageView: View {
                     .font(.system(size: 37))
                     .offset(x: -10, y: -10)
             }
-            .foregroundStyle(OnboardingWallpaper.cream)
+            .foregroundStyle(OnboardingStyle.cream)
         case .scan:
             // The camera's frame around pills, as on the scan's own "aim" picture.
             ZStack {
-                Circle().fill(Palette.cardFill)
                 Image(systemName: "viewfinder")
-                    .font(.system(size: 150, weight: .ultraLight))
+                    .font(.system(size: 124, weight: .light))
                 Image(systemName: "pills.fill")
-                    .font(.system(size: 62))
+                    .font(.system(size: 50))
             }
-            .foregroundStyle(Palette.textPrimary)
+            .foregroundStyle(OnboardingStyle.cream)
         case .confirm:
-            // A photo with each pill circled, as the scan shows it.
+            // Each pill circled, as the scan shows them on the photo.
             ZStack {
-                RoundedRectangle(cornerRadius: 44, style: .continuous).fill(Color(white: 0.2))
-                circledPill.offset(x: -46, y: -44)
-                circledPill.rotationEffect(.degrees(60)).offset(x: 50, y: -8)
-                circledPill.rotationEffect(.degrees(-25)).offset(x: -22, y: 52)
+                circledPill.offset(x: -62, y: -30)
+                circledPill.rotationEffect(.degrees(60)).offset(x: 58, y: -22)
+                circledPill.rotationEffect(.degrees(-25)).offset(x: -4, y: 38)
             }
         case .results:
-            // Two rows of the results page: one pill to take, one unknown.
-            VStack(spacing: 14) {
-                resultRow("checkmark.circle.fill", colour: Palette.ok, fill: Palette.okFill)
-                resultRow("questionmark.circle.fill", colour: Palette.danger, fill: Palette.dangerFill)
+            // Two rows of the results page: one pill to take, one unknown. Their marks
+            // keep the results page's green and red.
+            VStack(spacing: 12) {
+                resultRow("checkmark.circle.fill", colour: Palette.ok)
+                resultRow("questionmark.circle.fill", colour: Palette.danger)
             }
-            .padding(.horizontal, 10)
         }
     }
 
     private var circledPill: some View {
         Image(systemName: "pill.fill")
-            .font(.system(size: 40))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 14)
+            .font(.system(size: 34))
+            .foregroundStyle(OnboardingStyle.cream)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 13)
             .overlay(PillRing())
     }
 
-    private func resultRow(_ symbol: String, colour: Color, fill: Color) -> some View {
+    private func resultRow(_ symbol: String, colour: Color) -> some View {
         HStack(spacing: 14) {
             Image(systemName: "pill.fill")
-                .font(.system(size: 34))
-                .foregroundStyle(Palette.textSecondary)
+                .font(.system(size: 28))
+                .foregroundStyle(OnboardingStyle.cream)
             Capsule()
-                .fill(Palette.skeleton)
-                .frame(height: 14)
+                .fill(OnboardingStyle.cream.opacity(0.45))
+                .frame(height: 10)
             Image(systemName: symbol)
-                .font(.system(size: 40))
-                .foregroundStyle(colour)
+                .font(.system(size: 34))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, colour)
         }
         .padding(.horizontal, 18)
         .frame(maxWidth: .infinity)
-        .frame(height: 92)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(fill))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(colour, lineWidth: 2))
+        .frame(height: 66)
+        .background(Capsule().fill(.black.opacity(0.28)))
+        .overlay(Capsule().strokeBorder(OnboardingStyle.cream.opacity(0.85), lineWidth: 2))
     }
 }
 
-/// The picture behind the welcome: soft shapes of sky, leaves and warm evening light,
-/// blurred into each other like a photo out of focus. Drawn here rather than kept as an
-/// image, so it fits every screen. Light at the very top, where the clock is black;
-/// darker from there down, where the words are cream.
+/// The picture behind a page, out of focus and darkened so the cream words on it are easy
+/// to read. The welcome's is drawn; the others are one photo of pills being scanned,
+/// each page looking at a different part of it.
 private struct OnboardingWallpaper: View {
-    /// The words, dots and button on the wallpaper.
-    static let cream = Color(red: 1.0, green: 0.97, blue: 0.90)
+    let page: OnboardingPage
 
     var body: some View {
         GeometryReader { proxy in
-            let w = proxy.size.width, h = proxy.size.height
-            ZStack {
-                Color(red: 0.16, green: 0.09, blue: 0.06)
-                shape(Color(red: 0.36, green: 0.58, blue: 0.80), w * 1.6, h * 0.50, x: w * 0.10, y: -h * 0.42)
-                shape(Color(red: 0.86, green: 0.90, blue: 0.93), w * 0.7, h * 0.07, x: w * 0.25, y: -h * 0.36)
-                shape(Color(red: 0.30, green: 0.42, blue: 0.33), w * 0.8, h * 0.50, x: -w * 0.50, y: -h * 0.08)
-                shape(Color(red: 0.80, green: 0.45, blue: 0.14), w * 1.1, h * 0.34, x: w * 0.30, y: h * 0.16)
-                shape(Color(red: 0.93, green: 0.68, blue: 0.36), w * 0.5, h * 0.12, x: w * 0.38, y: h * 0.06)
-                shape(Color(red: 0.36, green: 0.12, blue: 0.07), w * 1.5, h * 0.40, x: -w * 0.10, y: h * 0.46)
+            Group {
+                switch page {
+                case .welcome: drawn(in: proxy.size)
+                // The whole scene: the pills on a palm under the phone.
+                case .scan: photo(zoom: 1.08, on: .center, blur: 7)
+                // Closer on the phone's screen, where the pills are framed.
+                case .confirm: photo(zoom: 1.9, on: UnitPoint(x: 0.72, y: 0.68), blur: 9)
+                // The table by the window, with the pill box and the bottle.
+                case .results: photo(zoom: 1.7, on: UnitPoint(x: 0.95, y: 0.42), blur: 11)
+                }
             }
-            .blur(radius: 60)
-            // The blur thins out at the edges; grown a little, they are off the screen.
-            .scaleEffect(1.25)
-            .overlay(
-                // Darker under the words, so cream on it is easy to read.
-                LinearGradient(stops: [.init(color: .clear, location: 0.08),
-                                       .init(color: .black.opacity(0.32), location: 0.38),
-                                       .init(color: .black.opacity(0.42), location: 1)],
-                               startPoint: .top, endPoint: .bottom)
-            )
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .overlay(shade)
             .clipped()
         }
         .accessibilityHidden(true)
+    }
+
+    /// Darker behind the clock, and from the words down.
+    private var shade: some View {
+        LinearGradient(stops: [.init(color: .black.opacity(0.30), location: 0),
+                               .init(color: .clear, location: 0.10),
+                               .init(color: .black.opacity(0.32), location: 0.38),
+                               .init(color: .black.opacity(0.42), location: 1)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+
+    /// Part of the photo, out of focus.
+    /// - Parameters:
+    ///   - zoom: How much larger than the screen it is shown.
+    ///   - anchor: The part of the photo the zoom keeps in view.
+    private func photo(zoom: CGFloat, on anchor: UnitPoint, blur: CGFloat) -> some View {
+        Image("OnboardingScene")
+            .resizable()
+            .scaledToFill()
+            .scaleEffect(zoom, anchor: anchor)
+            .blur(radius: blur)
+            // The photo is bright; the words need it dimmer than the drawn wallpaper.
+            .overlay(OnboardingStyle.dark.opacity(0.30))
+    }
+
+    /// Soft shapes of sky, leaves and warm evening light, blurred into each other like a
+    /// photo out of focus.
+    private func drawn(in size: CGSize) -> some View {
+        let w = size.width, h = size.height
+        return ZStack {
+            OnboardingStyle.dark
+            shape(Color(red: 0.36, green: 0.58, blue: 0.80), w * 1.6, h * 0.50, x: w * 0.10, y: -h * 0.42)
+            shape(Color(red: 0.86, green: 0.90, blue: 0.93), w * 0.7, h * 0.07, x: w * 0.25, y: -h * 0.36)
+            shape(Color(red: 0.30, green: 0.42, blue: 0.33), w * 0.8, h * 0.50, x: -w * 0.50, y: -h * 0.08)
+            shape(Color(red: 0.80, green: 0.45, blue: 0.14), w * 1.1, h * 0.34, x: w * 0.30, y: h * 0.16)
+            shape(Color(red: 0.93, green: 0.68, blue: 0.36), w * 0.5, h * 0.12, x: w * 0.38, y: h * 0.06)
+            shape(Color(red: 0.36, green: 0.12, blue: 0.07), w * 1.5, h * 0.40, x: -w * 0.10, y: h * 0.46)
+        }
+        .blur(radius: 60)
+        // The blur thins out at the edges; grown a little, they are off the screen.
+        .scaleEffect(1.25)
     }
 
     private func shape(_ colour: Color, _ width: CGFloat, _ height: CGFloat, x: CGFloat, y: CGFloat) -> some View {

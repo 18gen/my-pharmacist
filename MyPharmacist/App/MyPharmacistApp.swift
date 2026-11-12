@@ -28,7 +28,9 @@ struct MyPharmacistApp: App {
                         .transition(.opacity)
                 }
             }
-            .preferredColorScheme(.light)
+            // The app is black on white; the introduction is on dark wallpapers, and in
+            // the dark scheme the clock above it is white.
+            .preferredColorScheme(showsOnboarding ? .dark : .light)
         }
     }
 
