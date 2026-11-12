@@ -46,6 +46,12 @@ struct OnboardingView: View {
     /// between the scan and the circles, 3 on the results.
     @State private var progress: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The page Next is taking the pages to, until they get there.
+    @State private var nextTarget: OnboardingPage?
+    /// Counts taps on Next, Skip and Get Started, and pages reached by swiping: each is
+    /// felt as it happens.
+    @State private var taps = 0
+    @State private var swipedPages = 0
 
     /// The page that is showing, or mostly showing while swiping.
     private var page: OnboardingPage {
@@ -83,6 +89,8 @@ struct OnboardingView: View {
                     wideButton("Get Started", systemImage: "checkmark", action: finish)
                 } else {
                     wideButton("Next", systemImage: "arrow.right") {
+                        taps += 1
+                        nextTarget = page.next
                         // Slow enough to watch the picture move to the next step.
                         withAnimation(.smooth(duration: 0.9)) { scrolledPage = page.next }
                     }
@@ -92,6 +100,17 @@ struct OnboardingView: View {
         }
         .padding(.top, 8)
         .padding(.bottom, 16)
+        // A button is felt when it is tapped; a swipe when it reaches a page. Next's own
+        // move to its page isn't felt a second time.
+        .onChange(of: page) { _, page in
+            if page == nextTarget {
+                nextTarget = nil
+            } else {
+                swipedPages += 1
+            }
+        }
+        .sensoryFeedback(.impact(weight: .light), trigger: taps)
+        .sensoryFeedback(.selection, trigger: swipedPages)
         .background {
             // With Reduce Motion on, the picture changes with the page instead of moving.
             OnboardingBackdrop(progress: reduceMotion ? progress.rounded() : progress)
@@ -155,6 +174,7 @@ struct OnboardingView: View {
     }
 
     private func finish() {
+        taps += 1
         Onboarding.markDone()
         onDone()
     }
