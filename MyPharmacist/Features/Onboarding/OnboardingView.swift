@@ -6,7 +6,7 @@
 import SwiftUI
 
 /// Whether the person has been through the introduction. Shown on the first launch only;
-/// "Reset Onboarding" on the About & privacy page shows it again on the next launch.
+/// "Reset intro" on the About & privacy page shows it again on the next launch.
 /// Saved on the device.
 enum Onboarding {
     /// The UserDefaults key.

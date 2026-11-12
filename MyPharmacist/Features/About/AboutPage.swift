@@ -6,9 +6,13 @@
 import SwiftUI
 
 /// "About & privacy": what the app does and doesn't do, the switch for sending pill
-/// pictures to be checked, the privacy policy and support links, and "Reset Onboarding".
+/// pictures to be checked, the privacy policy and support links, and, for demos, "Reset
+/// scans" and "Reset intro".
 struct AboutPage: View {
+    let store: MedicationStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var isConfirmingScansReset = false
     @AppStorage(PillCheckConsent.key) private var allowsChecking = false
     /// Saying that the introduction will show again.
     @State private var didResetOnboarding = false
@@ -58,15 +62,20 @@ struct AboutPage: View {
                     .font(.title3.weight(.semibold))
                 }
 
-                // For showing the introduction again, as on a first launch: only that it
-                // was seen is forgotten.
-                Button("Reset Onboarding") {
-                    Onboarding.reset()
-                    didResetOnboarding = true
+                // Side by side, each half the row; one above the other at the
+                // accessibility text sizes, where two no longer fit in a row.
+                resetButtons {
+                    // For starting a demo over: no dose shows as scanned any more.
+                    SecondaryButton(title: "Reset scans", fillsWidth: true) {
+                        isConfirmingScansReset = true
+                    }
+                    // For showing the introduction again, as on a first launch: only
+                    // that it was seen is forgotten.
+                    SecondaryButton(title: "Reset intro", fillsWidth: true) {
+                        Onboarding.reset()
+                        didResetOnboarding = true
+                    }
                 }
-                .font(.body)
-                .foregroundStyle(Palette.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
 
                 Text(version)
                     .font(.footnote)
@@ -77,13 +86,25 @@ struct AboutPage: View {
             .padding(.bottom, 24)
         }
         .background(Palette.background)
-        .alert("Onboarding reset", isPresented: $didResetOnboarding) {
+        .confirmationDialog("Reset all scans?", isPresented: $isConfirmingScansReset, titleVisibility: .visible) {
+            Button("Reset scans", role: .destructive) {
+                withAnimation { store.clearScans() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Every dose goes back to not scanned. Your medications stay.")
+        }
+        .alert("Intro reset", isPresented: $didResetOnboarding) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("The introduction will show the next time you open the app. Your medications and scans are unchanged.")
         }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
+    }
+
+    private var resetButtons: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
     }
 
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
@@ -104,6 +125,6 @@ struct AboutPage: View {
 
 #Preview {
     NavigationStack {
-        AboutPage()
+        AboutPage(store: MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage()))
     }
 }

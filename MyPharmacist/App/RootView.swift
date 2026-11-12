@@ -176,7 +176,7 @@ struct RootView: View {
         case .newMedication:
             MedicationEditor(store: store, onDone: { path.removeAll { $0 == route } })
         case .about:
-            AboutPage()
+            AboutPage(store: store)
         }
     }
 

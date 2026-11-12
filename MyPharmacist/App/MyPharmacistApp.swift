@@ -44,7 +44,7 @@ private struct LaunchView: View {
         .preferredColorScheme(showsOnboarding ? .dark : .light)
     }
 
-    /// The first launch, or the first after "Reset Onboarding". Debug demos open where
+    /// The first launch, or the first after "Reset intro". Debug demos open where
     /// they are asked to instead; `-demoOnboarding` shows the introduction regardless.
     private static func onboardingIsNeeded() -> Bool {
         #if DEBUG
