@@ -147,7 +147,7 @@ struct RootView: View {
                 openSize: scan.phase.step.isResultsPage ? ScanLayout.resultsPageSize(in: size, bottomInset: bottomInset)
                                                       : ScanLayout.openLensSize(in: size, largeText: largeText),
                 onDone: { setScanning(false) },
-                closedColor: isDue ? Palette.due : .black
+                closedColor: isDue ? Palette.due : Palette.scanButton
             )
             .animation(.easeInOut(duration: 0.3), value: isDue)
 

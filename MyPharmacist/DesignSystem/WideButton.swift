@@ -9,13 +9,14 @@ import SwiftUI
 struct WideButton: View {
     let title: String
     let systemImage: String
-    var tint: Color = Palette.textPrimary
+    var tint: Color = Palette.button
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(.title3.weight(.semibold))
+                .foregroundStyle(Palette.onButton)
                 // At the largest text sizes, smaller words rather than cut-off ones.
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)

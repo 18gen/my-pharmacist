@@ -25,7 +25,7 @@ struct CameraLens: View {
     /// Closes the scan from the results page.
     var onDone: () -> Void = {}
     /// The button's colour while closed: blue when something is due now.
-    var closedColor: Color = .black
+    var closedColor: Color = Palette.scanButton
 
     /// Where the user last tapped to focus, shown briefly as a square.
     @State private var focusMark: CGPoint?

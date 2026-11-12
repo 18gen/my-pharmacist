@@ -118,7 +118,7 @@ private struct SlotHeader: View {
         case .now:
             Text("Now")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Palette.onDue)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .background(Capsule().fill(Palette.due))

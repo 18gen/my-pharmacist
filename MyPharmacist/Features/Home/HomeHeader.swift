@@ -44,7 +44,7 @@ struct HomeHeader: View {
             withAnimation(.easeInOut(duration: 0.2)) { use24Hour.toggle() }
         } label: {
             Text(now.clockText(use24Hour: use24Hour))
-                .font(.system(size: timeSize, weight: .bold))
+                .font(Palette.largeTitle(size: timeSize))
                 .monospacedDigit()
                 .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)

@@ -28,7 +28,7 @@ struct PillCheckConsentSheet: View {
                     .foregroundStyle(Palette.due)
                     .accessibilityHidden(true)
                 Text("Before you check pills")
-                    .font(.largeTitle.weight(.bold))
+                    .font(Palette.pageTitle)
                     .foregroundStyle(Palette.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                 VStack(alignment: .leading, spacing: 14) {

@@ -24,7 +24,7 @@ struct MedicationsPage: View {
                 }
 
                 Text("My Medications")
-                    .font(.largeTitle.weight(.bold))
+                    .font(Palette.pageTitle)
                     .foregroundStyle(Palette.textPrimary)
                     .accessibilityAddTraits(.isHeader)
 
@@ -34,12 +34,13 @@ struct MedicationsPage: View {
                 NavigationLink(value: AppRoute.newMedication) {
                     Label("Add a medication", systemImage: "plus")
                         .font(.title3.weight(.semibold))
+                        .foregroundStyle(Palette.onButton)
                         .frame(maxWidth: .infinity, minHeight: 34)
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
                 .controlSize(.large)
-                .tint(Palette.textPrimary)
+                .tint(Palette.button)
 
                 // For trying the app, and for App Review, without one's own pills.
                 Button("Load sample list") {

@@ -66,7 +66,7 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Button("Skip", action: finish)
                 .font(.title3.weight(.medium))
-                .foregroundStyle(OnboardingStyle.cream)
+                .foregroundStyle(Palette.cream)
                 // It sits on the picture.
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .frame(minWidth: 44, minHeight: 44)
@@ -147,7 +147,7 @@ struct OnboardingView: View {
         HStack(spacing: 8) {
             ForEach(OnboardingPage.allCases) { dot in
                 Capsule()
-                    .fill(OnboardingStyle.cream.opacity(dot == page ? 1 : 0.35))
+                    .fill(Palette.cream.opacity(dot == page ? 1 : 0.35))
                     .frame(width: dot == page ? 24 : 8, height: 8)
             }
         }
@@ -170,7 +170,7 @@ struct OnboardingView: View {
         .buttonStyle(.borderedProminent)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
-        .tint(OnboardingStyle.cream)
+        .tint(Palette.cream)
     }
 
     private func finish() {
@@ -204,12 +204,8 @@ private struct PagesProgress: ViewModifier {
     }
 }
 
-/// The introduction's own colours and measures.
+/// The introduction's own measures. Its cream and dark brown are the app's: `Palette`.
 private enum OnboardingStyle {
-    /// The words, drawings, dots and buttons.
-    static let cream = Color(red: 1.0, green: 0.97, blue: 0.90)
-    /// The page under the picture.
-    static let dark = Color(red: 0.13, green: 0.08, blue: 0.06)
     /// How far down the screen a step's picture reaches.
     static let pictureShare: CGFloat = 0.60
     /// Between the screen's sides and the words and buttons.
@@ -270,11 +266,11 @@ private struct OnboardingPageView: View {
                     }
                     Text(marked(page.title))
                         .font(.system(size: titleSize, design: .serif))
-                        .foregroundStyle(OnboardingStyle.cream)
+                        .foregroundStyle(Palette.cream)
                         .accessibilityAddTraits(.isHeader)
                     Text(marked(page.text))
                         .font(.title3)
-                        .foregroundStyle(OnboardingStyle.cream.opacity(0.92))
+                        .foregroundStyle(Palette.cream.opacity(0.92))
                 }
                 // Lifts the words off the lighter parts of the picture.
                 .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
@@ -298,7 +294,7 @@ private struct OnboardingPageView: View {
                 .font(.system(size: 37))
                 .offset(x: -10, y: -10)
         }
-        .foregroundStyle(OnboardingStyle.cream)
+        .foregroundStyle(Palette.cream)
         .frame(height: 150)
         .accessibilityHidden(true)
     }
@@ -345,7 +341,7 @@ private struct OnboardingBackdrop: View, Animatable {
             let pageFade = top.height * 0.20
 
             ZStack(alignment: .topLeading) {
-                OnboardingStyle.dark
+                Palette.espresso
 
                 Image("OnboardingScene")
                     .resizable()
@@ -366,10 +362,10 @@ private struct OnboardingBackdrop: View, Animatable {
                 // welcome it rises from the bottom of the screen as the photo moves up,
                 // always over the photo's bottom edge, so that edge is never seen.
                 VStack(spacing: 0) {
-                    LinearGradient(colors: [OnboardingStyle.dark.opacity(0), OnboardingStyle.dark],
+                    LinearGradient(colors: [Palette.espresso.opacity(0), Palette.espresso],
                                    startPoint: .top, endPoint: .bottom)
                         .frame(height: pageFade)
-                    OnboardingStyle.dark
+                    Palette.espresso
                 }
                 .frame(width: size.width, height: size.height, alignment: .top)
                 .offset(y: pageTop - pageFade)

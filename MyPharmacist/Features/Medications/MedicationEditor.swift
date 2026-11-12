@@ -100,7 +100,7 @@ struct MedicationEditor: View {
                 dismiss()
             }
             Text(mode == .add ? "New medication" : draft.name)
-                .font(.largeTitle.weight(.bold))
+                .font(Palette.pageTitle)
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
         }

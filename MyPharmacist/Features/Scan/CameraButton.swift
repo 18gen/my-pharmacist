@@ -37,7 +37,7 @@ struct CameraButton: View {
 
                 Image(systemName: isScanning ? "xmark" : "camera.fill")
                     .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(isScanning ? .black : .white)
+                    .foregroundStyle(isScanning ? (isOnPage ? Palette.textPrimary : .black) : Palette.onScanButton)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: ScanLayout.buttonSize, height: ScanLayout.buttonSize)
                     .background {

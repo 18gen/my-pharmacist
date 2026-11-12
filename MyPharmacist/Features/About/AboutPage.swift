@@ -28,7 +28,7 @@ struct AboutPage: View {
                     dismiss()
                 }
                 Text("About & privacy")
-                    .font(.largeTitle.weight(.bold))
+                    .font(Palette.pageTitle)
                     .foregroundStyle(Palette.textPrimary)
                     .accessibilityAddTraits(.isHeader)
 

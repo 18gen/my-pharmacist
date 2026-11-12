@@ -27,7 +27,7 @@ struct ScanHeader: View {
         let text = scan.instruction.text
         ZStack {
             Text(text)
-                .font(.system(size: textSize, weight: .bold))
+                .font(Palette.largeTitle(size: textSize))
                 .foregroundStyle(Palette.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
