@@ -21,7 +21,9 @@ enum Palette {
 
     /// OK to take, and a dose that was scanned.
     static let ok = Color(red: 0.08, green: 0.42, blue: 0.18)
-    static let due = Color(red: 0.0, green: 0.36, blue: 0.78)
+    /// Due now, and what to tap for it: an ink blue, a little deeper than the app icon's,
+    /// to sit with the cream and dark brown. Links take the same blue (`AccentColor`).
+    static let due = Color(red: 0.11, green: 0.31, blue: 0.66)
     static let late = Color(red: 0.66, green: 0.26, blue: 0.0)
     /// A pill not to take now.
     static let danger = Color(red: 0.72, green: 0.08, blue: 0.10)
