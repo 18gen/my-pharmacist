@@ -163,6 +163,23 @@ final class MedicationStore {
         }
     }
 
+    /// When a medication taken only when needed was last scanned on a day; nil if it
+    /// wasn't. It has no doses, so its scans are kept by day, under a key of their own in
+    /// the same record as the doses': "2026-10-14|ondansetron-8@needed".
+    func asNeededScan(of medication: Medication, on day: Date) -> Date? {
+        scanLog[asNeededKey(medication, on: day)]
+    }
+
+    /// Records that a medication taken only when needed was scanned at `time` on `day`,
+    /// or, given nil, that it wasn't: a retake puts back what was there before.
+    func setAsNeededScan(of medication: Medication, on day: Date, to time: Date?) {
+        scanLog[asNeededKey(medication, on: day)] = time
+    }
+
+    private func asNeededKey(_ medication: Medication, on day: Date) -> String {
+        Dose.dayKey(day, calendar: calendar) + "|\(medication.id)@needed"
+    }
+
     /// Forgets every scan, so that no dose shows as scanned: for starting a demo over.
     /// The medication list stays.
     func clearScans() {

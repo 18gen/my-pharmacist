@@ -58,7 +58,8 @@ struct HomeView: View {
                                     .id(slot.id)
                             }
                             if !asNeeded.isEmpty {
-                                WhenNeededCard(medications: asNeeded, isExpanded: $showsWhenNeeded,
+                                WhenNeededCard(items: asNeeded.map { ($0, store.asNeededScan(of: $0, on: context.date)) },
+                                               isExpanded: $showsWhenNeeded,
                                                onOpened: { scrollIntoView(Self.whenNeededID, proxy) })
                                     .id(Self.whenNeededID)
                             }

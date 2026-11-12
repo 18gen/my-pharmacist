@@ -106,6 +106,39 @@ struct ScanFlowTests {
         }
     }
 
+    @Test func aPillTakenOnlyWhenNeededIsMarkedAsScannedToday() {
+        let store = MedicationStore(medications: TestMedications.all + [TestMedications.ondansetron], storage: InMemoryDoseLogStorage())
+        let flow = ScanFlow(store: store)
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: morning)!
+        #expect(store.asNeededScan(of: TestMedications.ondansetron, on: morning) == nil)
+
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.ondansetron)], photo: testImage(), now: morning)
+        #expect(store.asNeededScan(of: TestMedications.ondansetron, on: morning) == morning)
+        // Only today's, and no dose is ticked for it.
+        #expect(store.asNeededScan(of: TestMedications.ondansetron, on: tomorrow) == nil)
+        #expect(!store.todayList(now: morning).contains { $0.state.isScanned })
+
+        store.clearScans()
+        #expect(store.asNeededScan(of: TestMedications.ondansetron, on: morning) == nil)
+    }
+
+    @Test func scanningAgainPutsBackWhenAPillTakenOnlyWhenNeededWasScannedBefore() {
+        let store = MedicationStore(medications: TestMedications.all + [TestMedications.ondansetron], storage: InMemoryDoseLogStorage())
+        let flow = ScanFlow(store: store)
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.ondansetron)], photo: testImage(), now: morning)
+        flow.setOpen(false)
+
+        // A later session scans it, then retakes the photo without it.
+        let later = morning.addingTimeInterval(3600)
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.ondansetron)], photo: testImage(), now: later)
+        #expect(store.asNeededScan(of: TestMedications.ondansetron, on: later) == later)
+        flow.showResults([pill(nil)], photo: testImage(), now: later.addingTimeInterval(60))
+        #expect(store.asNeededScan(of: TestMedications.ondansetron, on: later) == morning)
+    }
+
     @Test func theDemoRecordsNothing() {
         flow.setOpen(true)
         flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning, records: false)

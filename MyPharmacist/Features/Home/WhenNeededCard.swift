@@ -7,9 +7,12 @@ import SwiftUI
 
 /// Medications taken only when needed, below the day's times: they belong to no time of
 /// day, but it helps to remember they're there, and when they're for. Folded to its header
-/// line like every card that isn't due now; tapping it opens it.
+/// line like every card that isn't due now; tapping it opens it. One that was scanned
+/// today has a tick and the time, and the header says when the last was scanned, so it
+/// shows while the card is folded too.
 struct WhenNeededCard: View {
-    let medications: [Medication]
+    /// Each medication with when it was last scanned today, if it was.
+    let items: [(medication: Medication, scannedAt: Date?)]
     @Binding var isExpanded: Bool
     /// Called once the card has finished opening.
     let onOpened: () -> Void
@@ -24,12 +27,23 @@ struct WhenNeededCard: View {
                         Text("When needed")
                             .font(.title3.bold())
                             .foregroundStyle(Palette.textSubtitle)
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     } icon: {
                         Image(systemName: "cross.case.fill")
                             .font(.title3)
                             .foregroundStyle(Palette.textSubtitle)
                     }
                     Spacer(minLength: 8)
+                    if let lastScan {
+                        // The tick and the time only: with "Scanned" too, "When needed"
+                        // no longer fits on one line beside it.
+                        Label(lastScan.shortTime, systemImage: "checkmark.circle.fill")
+                            .font(.headline)
+                            .foregroundStyle(Palette.ok)
+                            .lineLimit(1)
+                            .accessibilityLabel("Scanned at \(lastScan.shortTime)")
+                    }
                     Image(systemName: "chevron.down")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Palette.textMuted)
@@ -43,7 +57,7 @@ struct WhenNeededCard: View {
             .accessibilityHint(isExpanded ? "Double tap to hide these medications" : "Double tap to show these medications")
 
             DrawerLayout(openFraction: isExpanded ? 1 : 0) {
-                MedicationLineList(items: medications.map { ($0, nil) })
+                MedicationLineList(items: items)
                     .padding(.top, 8)
             }
             .clipped()
@@ -52,6 +66,11 @@ struct WhenNeededCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()
+    }
+
+    /// The latest scan today of any of them.
+    private var lastScan: Date? {
+        items.compactMap(\.scannedAt).max()
     }
 
     /// Opening reports back only once the card has finished growing, so the page can

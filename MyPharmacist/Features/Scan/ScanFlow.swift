@@ -49,6 +49,7 @@ struct PillScanResult {
 ///    as nothing later can make up for a pill that wasn't found; meanwhile each pill is
 ///    already being cut out and recognized on its own;
 /// 4. on "Yes", show the results on a page of their own; on "No", take another photo.
+/// A medication taken only when needed is recorded as scanned today in the same way.
 /// The doses whose pills are OK to take are recorded as scanned as soon as the results
 /// show; there is no "taken" to confirm. A retake in the same session replaces that record.
 @Observable
@@ -117,6 +118,9 @@ final class ScanFlow {
     @ObservationIgnored private var unchecked: FoundPills?
     /// Doses this session recorded as scanned, so a retake can replace them.
     @ObservationIgnored private var recordedThisSession: [Dose] = []
+    /// The same for medications taken only when needed, each with the day it was recorded
+    /// on and when it had been scanned that day before, to put back.
+    @ObservationIgnored private var asNeededThisSession: [(medication: Medication, day: Date, before: Date?)] = []
 
     /// What recognizing the pills came to.
     typealias Identified = Result<PillIdentification, PillRecognitionFailure>
@@ -149,6 +153,7 @@ final class ScanFlow {
             refreshAnalyzer()
         }
         recordedThisSession = []
+        asNeededThisSession = []
         isOpen = open
     }
 
@@ -295,6 +300,10 @@ final class ScanFlow {
         if records {
             store.removeScans(of: recordedThisSession)
             recordedThisSession = []
+            for scan in asNeededThisSession {
+                store.setAsNeededScan(of: scan.medication, on: scan.day, to: scan.before)
+            }
+            asNeededThisSession = []
         }
         let identities = pills.map { pill in store.medications.first { $0.id == pill.medicationID } }
         let check = store.check(identities, now: now)
@@ -306,6 +315,12 @@ final class ScanFlow {
         if records {
             store.recordScan(of: result.dosesToTake, at: now)
             recordedThisSession = result.dosesToTake
+            // Pills taken only when needed have no dose to tick, so the medication
+            // itself is marked as scanned today, once however many of its pills there are.
+            for case .asNeeded(let medication) in Set(check.verdicts) {
+                asNeededThisSession.append((medication, now, store.asNeededScan(of: medication, on: now)))
+                store.setAsNeededScan(of: medication, on: now, to: now)
+            }
         }
         phase = .results(result)
     }
