@@ -34,7 +34,7 @@ struct HomeHeader: View {
     private var dateText: some View {
         // Full words ("Wednesday, October 14") are easier to read than abbreviations.
         Text(now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-            .font(.title2.weight(.semibold))
+            .font(.title3.weight(.semibold))
             .foregroundStyle(Palette.cream.opacity(0.92))
             .lineLimit(2)
             .minimumScaleFactor(0.8)
