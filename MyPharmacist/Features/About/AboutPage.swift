@@ -6,10 +6,12 @@
 import SwiftUI
 
 /// "About & privacy": what the app does and doesn't do, the switch for sending pill
-/// pictures to be checked, and the privacy policy and support links.
+/// pictures to be checked, the privacy policy and support links, and "Reset Onboarding".
 struct AboutPage: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(PillCheckConsent.key) private var allowsChecking = false
+    /// Saying that the introduction will show again.
+    @State private var didResetOnboarding = false
 
     private let server = PillCheckClient.Configuration.fromBundle()
     private var version: String {
@@ -56,6 +58,16 @@ struct AboutPage: View {
                     .font(.title3.weight(.semibold))
                 }
 
+                // For showing the introduction again, as on a first launch: only that it
+                // was seen is forgotten.
+                Button("Reset Onboarding") {
+                    Onboarding.reset()
+                    didResetOnboarding = true
+                }
+                .font(.body)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+
                 Text(version)
                     .font(.footnote)
                     .foregroundStyle(Palette.textTertiary)
@@ -65,6 +77,11 @@ struct AboutPage: View {
             .padding(.bottom, 24)
         }
         .background(Palette.background)
+        .alert("Onboarding reset", isPresented: $didResetOnboarding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("The introduction will show the next time you open the app. Your medications and scans are unchanged.")
+        }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
     }
