@@ -30,9 +30,10 @@ enum Onboarding {
 /// three pages on how to scan pills, check that each was found, and read the result.
 /// Swiping or Next moves on; Skip and Get Started both finish it for good.
 ///
-/// Every page is cream words and drawings on a dark, blurred wallpaper of its own, unlike
-/// the rest of the app, which is black on white. The app shows it in the dark colour
-/// scheme, so the clock above it is white.
+/// Each step's page is a picture of the step across the top of the screen, sharp enough
+/// to be understood without the words, fading into a dark page with a few cream words.
+/// The rest of the app is black on white; the app shows this in the dark colour scheme,
+/// so the clock above it is white.
 struct OnboardingView: View {
     /// Called once the person skips or finishes, after that has been saved.
     let onDone: () -> Void
@@ -47,8 +48,10 @@ struct OnboardingView: View {
     var body: some View {
         VStack(spacing: 0) {
             Button("Skip", action: finish)
-                .font(.title3)
+                .font(.title3.weight(.medium))
                 .foregroundStyle(OnboardingStyle.cream)
+                // It sits on the picture.
+                .shadow(color: .black.opacity(0.5), radius: 6)
                 .frame(minWidth: 44, minHeight: 44)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 // Kept in place while hidden, so nothing above the pages moves.
@@ -101,7 +104,7 @@ struct OnboardingView: View {
         HStack(spacing: 8) {
             ForEach(OnboardingPage.allCases) { dot in
                 Capsule()
-                    .fill(OnboardingStyle.cream.opacity(dot == page ? 1 : 0.4))
+                    .fill(OnboardingStyle.cream.opacity(dot == page ? 1 : 0.35))
                     .frame(width: dot == page ? 24 : 8, height: 8)
             }
         }
@@ -110,8 +113,8 @@ struct OnboardingView: View {
         .accessibilityLabel("Page \(page.rawValue + 1) of \(OnboardingPage.allCases.count)")
     }
 
-    /// `WideButton` in the wallpaper's cream with dark words: the app's black button
-    /// would sink into the dark picture.
+    /// `WideButton` in cream with dark words: the app's black button would sink into the
+    /// dark page.
     private func wideButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
@@ -133,12 +136,14 @@ struct OnboardingView: View {
     }
 }
 
-/// The introduction's own colours.
+/// The introduction's own colours and measures.
 private enum OnboardingStyle {
-    /// The words, drawings, dots and buttons on the wallpapers.
+    /// The words, drawings, dots and buttons.
     static let cream = Color(red: 1.0, green: 0.97, blue: 0.90)
-    /// Under the wallpapers, and what they darken towards.
-    static let dark = Color(red: 0.16, green: 0.09, blue: 0.06)
+    /// The page under the pictures.
+    static let dark = Color(red: 0.13, green: 0.08, blue: 0.06)
+    /// How far down the screen a step's picture reaches.
+    static let pictureShare: CGFloat = 0.60
 }
 
 /// The introduction's pages, in order.
@@ -151,7 +156,7 @@ private enum OnboardingPage: Int, CaseIterable, Identifiable {
     var next: OnboardingPage { OnboardingPage(rawValue: rawValue + 1) ?? self }
 
     /// Markdown: the second line is italic.
-    var title: LocalizedStringKey {
+    var title: String {
         switch self {
         case .welcome: "Welcome to\n*My Pharmacist*"
         case .scan: "Scan\n*Your Pills*"
@@ -161,17 +166,24 @@ private enum OnboardingPage: Int, CaseIterable, Identifiable {
     }
 
     /// Markdown, so the words that appear on screen can be bold.
-    var text: LocalizedStringKey {
+    var text: String {
         switch self {
         case .welcome: "A double-check for the pills in your hand, before you take them."
-        case .scan: "Put your pills on your palm. Tap **Scan Pills** and hold the phone over your hand."
-        case .confirm: "After the photo, look for a circle around every pill. If one is missing, take the photo again."
-        case .results: "See which pills match your schedule now. If a pill is **Unknown** or has a warning, don't take it. Ask your pharmacist."
+        case .scan: "Put your pills on your palm.\nTap **Scan Pills** and hold the phone over your hand."
+        case .confirm: "Look for a circle around every pill. If one is missing, take the photo again."
+        case .results: "Green is OK to take now.\nIf a pill is **Unknown** or has a warning, don't take it. Ask your pharmacist."
         }
     }
 }
 
-/// One page: a drawing, then what to do in a few large words.
+/// Words with Markdown's bold and italic, keeping their line breaks.
+private func marked(_ words: String) -> AttributedString {
+    let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+    return (try? AttributedString(markdown: words, options: options)) ?? AttributedString(words)
+}
+
+/// One page's words: under the app's drawing on the welcome, and at the bottom, below the
+/// picture behind them, on each step's page.
 private struct OnboardingPageView: View {
     let page: OnboardingPage
 
@@ -179,156 +191,200 @@ private struct OnboardingPageView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 46
 
     var body: some View {
-        // Scrolls at the largest text sizes, where the words no longer fit under the picture.
-        ScrollView {
-            VStack(spacing: 24) {
-                picture
-                    .frame(width: 240, height: 150)
-                    // The words say the same.
-                    .accessibilityHidden(true)
-                Text(page.title)
-                    .font(.system(size: titleSize, design: .serif))
-                    .foregroundStyle(OnboardingStyle.cream)
-                    .accessibilityAddTraits(.isHeader)
-                Text(page.text)
-                    .font(.title3)
-                    .foregroundStyle(OnboardingStyle.cream.opacity(0.92))
+        GeometryReader { proxy in
+            // Scrolls at the largest text sizes, where the words no longer fit.
+            ScrollView {
+                VStack(spacing: page == .welcome ? 24 : 14) {
+                    if page == .welcome {
+                        appDrawing
+                    }
+                    Text(marked(page.title))
+                        .font(.system(size: titleSize, design: .serif))
+                        .foregroundStyle(OnboardingStyle.cream)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(marked(page.text))
+                        .font(.title3)
+                        .foregroundStyle(OnboardingStyle.cream.opacity(0.92))
+                }
+                // Lifts the words off the lighter parts of a wallpaper.
+                .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, page == .welcome ? 72 : 0)
+                .padding(.bottom, 4)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: proxy.size.height, alignment: page == .welcome ? .top : .bottom)
             }
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 72)
-            .padding(.bottom, 8)
-            // Lifts the words off the lighter parts of a wallpaper.
-            .shadow(color: .black.opacity(0.35), radius: 8, y: 1)
-        }
-        .scrollBounceBehavior(.basedOnSize)
-    }
-
-    @ViewBuilder
-    private var picture: some View {
-        switch page {
-        case .welcome:
-            // The app icon's drawing: a pill under a magnifying glass.
-            ZStack {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 110, weight: .medium))
-                Image(systemName: "pill.fill")
-                    .font(.system(size: 37))
-                    .offset(x: -10, y: -10)
-            }
-            .foregroundStyle(OnboardingStyle.cream)
-        case .scan:
-            // The camera's frame around pills, as on the scan's own "aim" picture.
-            ZStack {
-                Image(systemName: "viewfinder")
-                    .font(.system(size: 124, weight: .light))
-                Image(systemName: "pills.fill")
-                    .font(.system(size: 50))
-            }
-            .foregroundStyle(OnboardingStyle.cream)
-        case .confirm:
-            // Each pill circled, as the scan shows them on the photo.
-            ZStack {
-                circledPill.offset(x: -62, y: -30)
-                circledPill.rotationEffect(.degrees(60)).offset(x: 58, y: -22)
-                circledPill.rotationEffect(.degrees(-25)).offset(x: -4, y: 38)
-            }
-        case .results:
-            // Two rows of the results page: one pill to take, one unknown. Their marks
-            // keep the results page's green and red.
-            VStack(spacing: 12) {
-                resultRow("checkmark.circle.fill", colour: Palette.ok)
-                resultRow("questionmark.circle.fill", colour: Palette.danger)
-            }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
-    private var circledPill: some View {
-        Image(systemName: "pill.fill")
-            .font(.system(size: 34))
-            .foregroundStyle(OnboardingStyle.cream)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 13)
-            .overlay(PillRing())
-    }
-
-    private func resultRow(_ symbol: String, colour: Color) -> some View {
-        HStack(spacing: 14) {
+    /// The app icon's drawing: a pill under a magnifying glass.
+    private var appDrawing: some View {
+        ZStack {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 110, weight: .medium))
             Image(systemName: "pill.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(OnboardingStyle.cream)
-            Capsule()
-                .fill(OnboardingStyle.cream.opacity(0.45))
-                .frame(height: 10)
-            Image(systemName: symbol)
-                .font(.system(size: 34))
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, colour)
+                .font(.system(size: 37))
+                .offset(x: -10, y: -10)
         }
-        .padding(.horizontal, 18)
-        .frame(maxWidth: .infinity)
-        .frame(height: 66)
-        .background(Capsule().fill(.black.opacity(0.28)))
-        .overlay(Capsule().strokeBorder(OnboardingStyle.cream.opacity(0.85), lineWidth: 2))
+        .foregroundStyle(OnboardingStyle.cream)
+        .frame(height: 150)
+        .accessibilityHidden(true)
     }
 }
 
-/// The picture behind a page, out of focus and darkened so the cream words on it are easy
-/// to read. The welcome's is drawn; the others are one photo of pills being scanned,
-/// each page looking at a different part of it.
+// MARK: - Pictures
+
+/// What a step looks like, drawn to fill whatever space it is given.
+private struct OnboardingScene: View {
+    let page: OnboardingPage
+
+    /// Where things are in the photo, as shares of its width and height.
+    private static let palm = UnitPoint(x: 0.305, y: 0.640)
+    private static let whitePill = UnitPoint(x: 0.2925, y: 0.6375)
+    private static let yellowPill = UnitPoint(x: 0.3265, y: 0.6475)
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+            ZStack {
+                switch page {
+                case .welcome:
+                    EmptyView()
+                case .scan:
+                    // The photo: pills on a palm, the phone held over them.
+                    PhotoPlacement(in: size, focus: UnitPoint(x: 0.5, y: 0.625), zoom: 1).image
+                case .confirm:
+                    // The palm, closer, with each pill circled as the scan shows them.
+                    let photo = PhotoPlacement(in: size, focus: Self.palm, at: UnitPoint(x: 0.5, y: 0.40), zoom: 2.3)
+                    photo.image
+                    PillRing()
+                        .frame(width: 78 * photo.scale, height: 50 * photo.scale)
+                        .rotationEffect(.degrees(-24))
+                        .position(photo.point(Self.whitePill))
+                    PillRing()
+                        .frame(width: 44 * photo.scale, height: 44 * photo.scale)
+                        .position(photo.point(Self.yellowPill))
+                case .results:
+                    // The table by the window, out of focus behind the results: two pills
+                    // to take and one unknown, in the results page's colours and words.
+                    PhotoPlacement(in: size, focus: UnitPoint(x: 0.8, y: 0.45), zoom: 1.5).image
+                        .blur(radius: 10)
+                        .overlay(.black.opacity(0.25))
+                    VStack(spacing: 12) {
+                        resultCard("checkmark.circle.fill", "OK to take", colour: Palette.ok, fill: Palette.okFill)
+                        resultCard("checkmark.circle.fill", "OK to take", colour: Palette.ok, fill: Palette.okFill)
+                        resultCard("questionmark.circle.fill", "Unknown – don't take", colour: Palette.danger, fill: Palette.dangerFill)
+                    }
+                    .frame(width: min(size.width - 56, 330))
+                    .position(x: size.width / 2, y: size.height * 0.47)
+                }
+            }
+            .frame(width: size.width, height: size.height)
+            .clipped()
+        }
+    }
+
+    /// One pill on the results page: its picture, what to do with it, and its name's place.
+    private func resultCard(_ symbol: String, _ label: String, colour: Color, fill: Color) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(white: 0.15))
+                .frame(width: 48, height: 48)
+                .overlay(Image(systemName: "pill.fill").font(.system(size: 24)).foregroundStyle(.white))
+            VStack(alignment: .leading, spacing: 6) {
+                Label(label, systemImage: symbol)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(colour)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Capsule()
+                    .fill(Palette.textMuted.opacity(0.35))
+                    .frame(width: 110, height: 8)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(11)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(fill))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(colour, lineWidth: 2))
+    }
+}
+
+/// Where the photo sits so that one part of it is at a chosen place in a space, and where
+/// anything else in the photo then is: for drawing on top of it.
+private struct PhotoPlacement {
+    /// The photo's size in pixels.
+    private static let pixels = CGSize(width: 852, height: 1846)
+
+    /// Points on screen for each pixel of the photo.
+    let scale: CGFloat
+    private let origin: CGPoint
+
+    /// - Parameters:
+    ///   - focus: The part of the photo to look at, as shares of its width and height.
+    ///   - place: Where in the space that part goes.
+    ///   - zoom: 1 just covers the space; more shows less of the photo, larger.
+    init(in size: CGSize, focus: UnitPoint, at place: UnitPoint = .center, zoom: CGFloat) {
+        scale = max(size.width / Self.pixels.width, size.height / Self.pixels.height) * zoom
+        let shown = CGSize(width: Self.pixels.width * scale, height: Self.pixels.height * scale)
+        // Never past the photo's edge.
+        origin = CGPoint(x: min(0, max(size.width - shown.width, place.x * size.width - focus.x * shown.width)),
+                         y: min(0, max(size.height - shown.height, place.y * size.height - focus.y * shown.height)))
+    }
+
+    func point(_ share: UnitPoint) -> CGPoint {
+        CGPoint(x: origin.x + share.x * Self.pixels.width * scale, y: origin.y + share.y * Self.pixels.height * scale)
+    }
+
+    var image: some View {
+        Image("OnboardingScene")
+            .resizable()
+            .frame(width: Self.pixels.width * scale, height: Self.pixels.height * scale)
+            .position(point(.center))
+    }
+}
+
+/// What is behind a page.
 private struct OnboardingWallpaper: View {
     let page: OnboardingPage
 
     var body: some View {
         GeometryReader { proxy in
             Group {
-                switch page {
-                case .welcome: drawn(in: proxy.size)
-                // The whole scene: the pills on a palm under the phone.
-                case .scan: photo(zoom: 1.08, on: .center, blur: 7)
-                // Closer on the phone's screen, where the pills are framed.
-                case .confirm: photo(zoom: 1.9, on: UnitPoint(x: 0.72, y: 0.68), blur: 9)
-                // The table by the window, with the pill box and the bottle.
-                case .results: photo(zoom: 1.7, on: UnitPoint(x: 0.95, y: 0.42), blur: 11)
+                if page == .welcome {
+                    welcome(in: proxy.size)
+                } else {
+                    step(in: proxy.size)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
-            .overlay(shade)
             .clipped()
         }
         .accessibilityHidden(true)
     }
 
-    /// Darker behind the clock, and from the words down.
-    private var shade: some View {
-        LinearGradient(stops: [.init(color: .black.opacity(0.30), location: 0),
-                               .init(color: .clear, location: 0.10),
-                               .init(color: .black.opacity(0.32), location: 0.38),
-                               .init(color: .black.opacity(0.42), location: 1)],
-                       startPoint: .top, endPoint: .bottom)
+    /// The step's picture across the top of the screen, fading into the page its words
+    /// are on.
+    private func step(in size: CGSize) -> some View {
+        ZStack(alignment: .top) {
+            OnboardingStyle.dark
+            OnboardingScene(page: page)
+                .frame(height: size.height * OnboardingStyle.pictureShare)
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0.80), .init(color: .clear, location: 1)],
+                                     startPoint: .top, endPoint: .bottom))
+            // Behind the clock and Skip, which are white.
+            LinearGradient(colors: [.black.opacity(0.45), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: size.height * 0.16)
+        }
     }
 
-    /// Part of the photo, out of focus.
-    /// - Parameters:
-    ///   - zoom: How much larger than the screen it is shown.
-    ///   - anchor: The part of the photo the zoom keeps in view.
-    private func photo(zoom: CGFloat, on anchor: UnitPoint, blur: CGFloat) -> some View {
-        Image("OnboardingScene")
-            .resizable()
-            .scaledToFill()
-            .scaleEffect(zoom, anchor: anchor)
-            .blur(radius: blur)
-            // The photo is bright; the words need it dimmer than the drawn wallpaper.
-            .overlay(OnboardingStyle.dark.opacity(0.30))
-    }
-
-    /// Soft shapes of sky, leaves and warm evening light, blurred into each other like a
-    /// photo out of focus.
-    private func drawn(in size: CGSize) -> some View {
+    /// The welcome's: soft shapes of sky, leaves and warm evening light, blurred into each
+    /// other like a photo out of focus, and darker behind the clock and from the words down.
+    private func welcome(in size: CGSize) -> some View {
         let w = size.width, h = size.height
         return ZStack {
-            OnboardingStyle.dark
+            Color(red: 0.16, green: 0.09, blue: 0.06)
             shape(Color(red: 0.36, green: 0.58, blue: 0.80), w * 1.6, h * 0.50, x: w * 0.10, y: -h * 0.42)
             shape(Color(red: 0.86, green: 0.90, blue: 0.93), w * 0.7, h * 0.07, x: w * 0.25, y: -h * 0.36)
             shape(Color(red: 0.30, green: 0.42, blue: 0.33), w * 0.8, h * 0.50, x: -w * 0.50, y: -h * 0.08)
@@ -339,6 +395,13 @@ private struct OnboardingWallpaper: View {
         .blur(radius: 60)
         // The blur thins out at the edges; grown a little, they are off the screen.
         .scaleEffect(1.25)
+        .overlay(
+            LinearGradient(stops: [.init(color: .black.opacity(0.30), location: 0),
+                                   .init(color: .clear, location: 0.10),
+                                   .init(color: .black.opacity(0.32), location: 0.38),
+                                   .init(color: .black.opacity(0.42), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+        )
     }
 
     private func shape(_ colour: Color, _ width: CGFloat, _ height: CGFloat, x: CGFloat, y: CGFloat) -> some View {
