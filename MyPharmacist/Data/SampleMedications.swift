@@ -33,7 +33,8 @@ nonisolated enum SampleMedications {
         return entry
     }
 
-    /// From ePillID: two photos each, front and back.
+    /// From ePillID: two photos each, front and back. The ondansetron is the C3PI
+    /// tablet instead, with four photos: front, front, back, back.
     private static let ePillID: [Medication] = [
         Medication(
             id: "exemestane-25",
@@ -68,8 +69,8 @@ nonisolated enum SampleMedications {
             name: "Ondansetron",
             strength: "8 mg",
             doseTimes: [],
-            appearance: "Yellow round · 93 / 7236",              // NDC 0093-7236-56
-            photos: photos("ondansetron-8", count: 2),
+            appearance: "Yellow oval · 131",                     // NDC 62756-131-01
+            photos: photos("ondansetron-8", count: 4),
             purpose: "For nausea",
             asNeeded: "Only when you feel sick"
         ),

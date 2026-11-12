@@ -29,23 +29,24 @@ PILLS = ROOT / "MyPharmacist" / "Resources" / "Assets.xcassets" / "Pills"
 HERE = Path(__file__).resolve().parent
 
 # Longest side of each tablet, from its FDA label (SPL "size", via RxNav) by NDC. The
-# pictures are ePillID's reference photos (NIH NLM), front and back.
+# pictures are ePillID's reference photos (NIH NLM), front and back; the ondansetron's
+# are C3PI's (front, front, back, back).
 TABLETS = [
     # (asset name, name, strength, when the sample patient takes it, size mm, front photo, back photo, rows)
     ("exemestane-25", "Exemestane", "25 mg", "8 AM", 6, 1, 2, 2),
     ("dexamethasone-1-5", "Dexamethasone", "1.5 mg", "8 AM", 6, 1, 2, 2),
     ("metoclopramide-10", "Metoclopramide", "10 mg", "8 AM and 8 PM", 8, 1, 2, 2),
-    ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 9, 1, 2, 2),
+    ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 13, 1, 3, 2),
 ]
 
 # What "Load sample list" loads, for App Review: its photos are from NLM C3PI (four
 # per tablet; the front and back picked by eye). Xeloda's label gives 11 mm for both
 # strengths, and that is what is printed.
 SAMPLE_LIST = [
-    ("capecitabine-500", "Capecitabine", "500 mg", "12 AM and 8 PM", 11, 1, 3, 2),
-    ("dexamethasone-4", "Dexamethasone", "4 mg", "12 AM", 6, 1, 3, 2),
-    ("allopurinol-300", "Allopurinol", "300 mg", "8 AM", 11, 1, 2, 2),
-    ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 9, 1, 2, 2),
+    ("capecitabine-500", "Capecitabine", "500 mg", "12:30 PM and 8 PM", 11, 1, 3, 2),
+    ("dexamethasone-4", "Dexamethasone", "4 mg", "12:30 PM", 6, 1, 3, 2),
+    ("allopurinol-300", "Allopurinol", "300 mg", "8 PM", 11, 1, 2, 2),
+    ("ondansetron-8", "Ondansetron", "8 mg", "only when feeling sick", 13, 1, 3, 2),
 ]
 
 SHEETS = [

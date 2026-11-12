@@ -71,7 +71,7 @@ enum DemoScan {
             ("dexamethasone-1-5-1", CGPoint(x: 780, y: 760), 6),
             ("metoclopramide-10-1", CGPoint(x: 420, y: 1200), 8),
             ("metoclopramide-10-2", CGPoint(x: 524, y: 1200), 8),
-            ("ondansetron-8-1", CGPoint(x: 800, y: 1260), 9),
+            ("ondansetron-8-1", CGPoint(x: 800, y: 1260), 13),
             (nil, CGPoint(x: 600, y: 1560), 7),
         ].filter { _ in !empty }
         let photo = UIGraphicsImageRenderer(size: size, format: { let f = UIGraphicsImageRendererFormat(); f.scale = 1; return f }())
