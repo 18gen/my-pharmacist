@@ -14,8 +14,6 @@ struct AboutPage: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var isConfirmingScansReset = false
     @AppStorage(PillCheckConsent.key) private var allowsChecking = false
-    /// Saying that the introduction will show again.
-    @State private var didResetOnboarding = false
 
     private let server = PillCheckClient.Configuration.fromBundle()
     private var version: String {
@@ -70,10 +68,9 @@ struct AboutPage: View {
                         isConfirmingScansReset = true
                     }
                     // For showing the introduction again, as on a first launch: only
-                    // that it was seen is forgotten.
+                    // that it was seen is forgotten. It fades in over this page at once.
                     SecondaryButton(title: "Reset intro", fillsWidth: true) {
                         Onboarding.reset()
-                        didResetOnboarding = true
                     }
                 }
 
@@ -93,11 +90,6 @@ struct AboutPage: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Every dose goes back to not scanned. Your medications stay.")
-        }
-        .alert("Intro reset", isPresented: $didResetOnboarding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("The introduction will show the next time you open the app. Your medications and scans are unchanged.")
         }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()

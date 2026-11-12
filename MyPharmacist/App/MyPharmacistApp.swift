@@ -18,11 +18,15 @@ struct MyPharmacistApp: App {
 
 /// What the app opens on: the introduction the first time, then the home screen. A view
 /// rather than part of the `App`, whose own changes aren't animated: the introduction
-/// fades away over the home screen.
+/// fades away over the home screen, and fades back in over it when "Reset intro" on the
+/// About & privacy page asks for it again.
 private struct LaunchView: View {
-    /// Read once, at launch: resetting the introduction on the About & privacy page shows
-    /// it the next time the app is opened, not while that page is open.
     @State private var showsOnboarding = LaunchView.onboardingIsNeeded()
+    /// Whether the introduction has been finished, as saved: "Reset intro" clears it.
+    @AppStorage(Onboarding.key) private var onboardingIsDone = false
+
+    /// How long the introduction takes to fade in or out.
+    private static let fade = 0.6
 
     var body: some View {
         ZStack {
@@ -30,14 +34,24 @@ private struct LaunchView: View {
             // behind it until then.
             if !showsOnboarding {
                 RootView()
+                    // There at once when the introduction ends; when it comes back, the
+                    // home screen stays under it until it has faded in.
+                    .transition(.asymmetric(insertion: .identity,
+                                            removal: .opacity.animation(.linear(duration: 0.01).delay(Self.fade))))
             }
             if showsOnboarding {
                 OnboardingView {
-                    withAnimation(.easeInOut(duration: 0.6)) { showsOnboarding = false }
+                    withAnimation(.easeInOut(duration: Self.fade)) { showsOnboarding = false }
                 }
                 .transition(.opacity)
                 .zIndex(1)
             }
+        }
+        // "Reset intro": the introduction again, from its welcome, without reopening the
+        // app. The home screen it returns to afterwards is a new one, back on Home.
+        .onChange(of: onboardingIsDone) { _, isDone in
+            guard !isDone, !showsOnboarding else { return }
+            withAnimation(.easeInOut(duration: Self.fade)) { showsOnboarding = true }
         }
         // The app is black on white; the introduction is on dark wallpapers, and in the
         // dark scheme the clock above it is white.
