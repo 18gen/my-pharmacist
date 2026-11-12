@@ -6,7 +6,7 @@
 import SwiftUI
 
 /// Home screen content above the scan button: date and time with the "My Medications"
-/// button, then one card per time of day ("Morning · 8:00 AM"), earliest first, and the
+/// button on a card with the onboarding's photo behind them, then one card per time of day ("Morning · 8:00 AM"), earliest first, and the
 /// medications taken only when needed. Only the time of day due now is open; the rest are
 /// folded, so what to take stands out. The header stays put; the cards scroll beneath it.
 struct HomeView: View {
@@ -33,6 +33,11 @@ struct HomeView: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 HomeHeader(now: context.date, onShowMedications: onShowMedications)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 28)
+                    .padding(.bottom, 16)
+                    .background { headerPhoto }
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .padding(.horizontal, 16)
 
                 ScrollViewReader { proxy in
@@ -74,6 +79,22 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    /// Behind the date and clock: the onboarding's photo of pills being scanned, soft and
+    /// dimmed so the cream words on it are easy to read. Home opens on the picture the
+    /// onboarding ended with.
+    private var headerPhoto: some View {
+        Image("OnboardingScene")
+            .resizable()
+            .scaledToFill()
+            // Closer on the hand and the phone, which a card this wide would otherwise
+            // show only a strip of.
+            .scaleEffect(1.5, anchor: UnitPoint(x: 0.5, y: 0.62))
+            .blur(radius: 3)
+            .overlay(LinearGradient(colors: [.black.opacity(0.25), .black.opacity(0.55)],
+                                    startPoint: .top, endPoint: .bottom))
+            .accessibilityHidden(true)
     }
 
     private func isOpen(_ slot: DoseSlot) -> Binding<Bool> {

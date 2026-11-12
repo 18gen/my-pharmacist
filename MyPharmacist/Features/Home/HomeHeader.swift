@@ -6,6 +6,7 @@
 import SwiftUI
 
 /// Today's date and the large clock, with the "My Medications" button beside them.
+/// Home puts them on a dimmed photo, so the words are cream.
 struct HomeHeader: View {
     let now: Date
     let onShowMedications: () -> Void
@@ -34,7 +35,7 @@ struct HomeHeader: View {
         // Full words ("Wednesday, October 14") are easier to read than abbreviations.
         Text(now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
             .font(.title2.weight(.semibold))
-            .foregroundStyle(Palette.textSubtitle)
+            .foregroundStyle(Palette.cream.opacity(0.92))
             .lineLimit(2)
             .minimumScaleFactor(0.8)
     }
@@ -46,7 +47,7 @@ struct HomeHeader: View {
             Text(now.clockText(use24Hour: use24Hour))
                 .font(Palette.largeTitle(size: timeSize))
                 .monospacedDigit()
-                .foregroundStyle(Palette.textPrimary)
+                .foregroundStyle(Palette.cream)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 // A quick cross-fade between "6:33 AM" and "06:33".
