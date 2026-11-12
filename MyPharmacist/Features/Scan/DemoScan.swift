@@ -22,6 +22,8 @@ import UIKit
 /// - `-demoMedications` opens My Medications, `-demoNewMedication` the page to add one,
 ///   and `-demoAbout` About & privacy, with the demo medications. `-demoConsent` opens
 ///   the question asked before the first scan.
+/// - `-demoOnboarding` shows the introduction even after it has been finished. The other
+///   arguments here skip it.
 enum DemoScan {
     static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses || checks || pages != nil }
 
