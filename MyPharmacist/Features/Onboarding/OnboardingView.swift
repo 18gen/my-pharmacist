@@ -319,6 +319,10 @@ private struct OnboardingBackdrop: View, Animatable {
             let circles = max(0, 1 - abs(progress - 2) * 3)
             let results = max(0, 1 - abs(progress - 3) * 3)
             let welcome = max(0, 1 - progress)
+            // Where the dark page under a step's picture starts, and how much of the
+            // picture above that fades into it.
+            let pageTop = size.height * (1 - (1 - OnboardingStyle.pictureShare) * min(max(progress, 0), 1))
+            let pageFade = top.height * 0.20
 
             ZStack(alignment: .topLeading) {
                 OnboardingStyle.dark
@@ -334,16 +338,21 @@ private struct OnboardingBackdrop: View, Animatable {
 
                 // The welcome's words are over the whole picture: darker from them down.
                 LinearGradient(stops: [.init(color: .clear, location: 0.10),
-                                       .init(color: .black.opacity(0.32), location: 0.38),
-                                       .init(color: .black.opacity(0.42), location: 1)],
+                                       .init(color: .black.opacity(0.36), location: 0.38),
+                                       .init(color: .black.opacity(0.46), location: 1)],
                                startPoint: .top, endPoint: .bottom)
                     .opacity(welcome)
-                // A step's words are on the dark page its picture fades into.
-                LinearGradient(stops: [.init(color: .clear, location: OnboardingStyle.pictureShare * 0.80),
-                                       .init(color: OnboardingStyle.dark, location: OnboardingStyle.pictureShare),
-                                       .init(color: OnboardingStyle.dark, location: 1)],
-                               startPoint: .top, endPoint: .bottom)
-                    .opacity(1 - welcome)
+                // A step's words are on the dark page its picture fades into. From the
+                // welcome it rises from the bottom of the screen as the photo moves up,
+                // always over the photo's bottom edge, so that edge is never seen.
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [OnboardingStyle.dark.opacity(0), OnboardingStyle.dark],
+                                   startPoint: .top, endPoint: .bottom)
+                        .frame(height: pageFade)
+                    OnboardingStyle.dark
+                }
+                .frame(width: size.width, height: size.height, alignment: .top)
+                .offset(y: pageTop - pageFade)
                 // Behind the clock and Skip, which are white.
                 LinearGradient(colors: [.black.opacity(0.40), .clear], startPoint: .top, endPoint: .bottom)
                     .frame(height: size.height * 0.16)
@@ -383,7 +392,7 @@ private struct OnboardingBackdrop: View, Animatable {
     /// The camera for `progress`: a page's own, or in between two pages'.
     private func camera(in size: CGSize, top: CGSize) -> PhotoCamera {
         let pages = [
-            PhotoCamera(in: size, focus: .center, zoom: 1.05, blur: 4, dim: 0.25),
+            PhotoCamera(in: size, focus: .center, zoom: 1.05, blur: 4, dim: 0.38),
             PhotoCamera(in: top, focus: UnitPoint(x: 0.5, y: 0.625), zoom: 1),
             PhotoCamera(in: top, focus: Self.phoneScreen, at: UnitPoint(x: 0.5, y: 0.46), zoom: 2.3),
             PhotoCamera(in: top, focus: Self.phoneScreen, at: UnitPoint(x: 0.5, y: 0.50), zoom: 3.4, blur: 9, dim: 0.30),
