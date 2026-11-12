@@ -7,13 +7,18 @@ import SwiftUI
 
 /// "My Medications": every medication on the list with what it's for and when it's taken.
 /// Tapping one opens its page to change it or remove it; "Add a medication" opens an
-/// empty one. Opened from the pills button; slides in from the right. A large round "‹"
+/// empty one, and under it are "Load sample list" and "Reset scans" for demos. Opened from the pills button; slides in from the right. A large round "‹"
 /// button (or a swipe from the left edge) goes back.
 struct MedicationsPage: View {
     let store: MedicationStore
     @Environment(\.dismiss) private var dismiss
     @State private var isConfirmingSample = false
     @State private var isConfirmingReset = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var demoButtons: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+    }
 
     var body: some View {
         ScrollView {
@@ -42,21 +47,18 @@ struct MedicationsPage: View {
                 .controlSize(.large)
                 .tint(Palette.button)
 
-                // For trying the app, and for App Review, without one's own pills.
-                Button("Load sample list") {
-                    isConfirmingSample = true
+                // Side by side, each half the row; one above the other at the
+                // accessibility text sizes, where two no longer fit in a row.
+                demoButtons {
+                    // For trying the app, and for App Review, without one's own pills.
+                    SecondaryButton(title: "Load sample list", fillsWidth: true) {
+                        isConfirmingSample = true
+                    }
+                    // For starting a demo over: no dose shows as scanned any more.
+                    SecondaryButton(title: "Reset scans", fillsWidth: true) {
+                        isConfirmingReset = true
+                    }
                 }
-                .font(.body)
-                .foregroundStyle(Palette.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
-
-                // For starting a demo over: no dose shows as scanned any more.
-                Button("Reset scans") {
-                    isConfirmingReset = true
-                }
-                .font(.body)
-                .foregroundStyle(Palette.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
 
                 NavigationLink(value: AppRoute.about) {
                     Label("About & privacy", systemImage: "info.circle")
