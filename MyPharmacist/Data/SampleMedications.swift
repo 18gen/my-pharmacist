@@ -13,8 +13,8 @@ import Foundation
 /// the printed demo pill sheet matches them. Strengths, imprints and sizes checked
 /// against RxNorm and the FDA labels by NDC.
 nonisolated enum SampleMedications {
-    /// What "Load sample list" puts on the list, times included, for demos and App
-    /// Review: the C3PI tablets and the as-needed ondansetron. Two doses at 12:30 PM and
+    /// What a new install starts with and "Reset demo" puts on the list, times included,
+    /// for demos and App Review: the C3PI tablets and the as-needed ondansetron. Two doses at 12:30 PM and
     /// two at 8 PM, so something is due around midday and again in the evening.
     static let sampleList: [MedicationEntry] = [
         entry(more[0], times: [DoseTime(12,30), DoseTime(20)]),

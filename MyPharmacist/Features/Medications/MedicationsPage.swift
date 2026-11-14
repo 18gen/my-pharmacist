@@ -7,16 +7,13 @@ import SwiftUI
 
 /// "My Medications": every medication on the list with what it's for and when it's taken.
 /// Tapping one opens its page to change it or remove it; "Add a medication" opens an
-/// empty one, and "Sample" beside it loads the sample list, for demos. Under them, the
-/// pharmacy, which opens the page to type it in. Opened from Home's "My Medications"
+/// empty one. Under it, the pharmacy, which opens the page to type it in. Opened from Home's "My Medications"
 /// button; slides in from the right. A large round "‹" button (or a swipe from the
 /// left edge) goes back.
 struct MedicationsPage: View {
     let store: MedicationStore
     var pharmacy = Pharmacy()
     @Environment(\.dismiss) private var dismiss
-    @State private var isConfirmingSample = false
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         ScrollView {
@@ -32,18 +29,7 @@ struct MedicationsPage: View {
 
                 list
 
-                // "Sample" takes three parts of the row to "Add a medication"'s seven. At
-                // the accessibility text sizes two no longer fit in a row: the main
-                // button first, then the other under it.
-                if typeSize.isAccessibilitySize {
-                    addButton
-                    sampleButton
-                } else {
-                    SplitRow(shares: [3, 7]) {
-                        sampleButton
-                        addButton
-                    }
-                }
+                addButton
 
                 pharmacyRow
 
@@ -60,14 +46,6 @@ struct MedicationsPage: View {
             .padding(.bottom, 24)
         }
         .background(Palette.background)
-        .confirmationDialog("Load the sample list?", isPresented: $isConfirmingSample, titleVisibility: .visible) {
-            Button("Load sample list", role: .destructive) {
-                withAnimation { store.loadSampleList() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Your list becomes four sample medications with sample times, for trying the app. Your own medications and their photos are deleted.")
-        }
         // The system back button can't be enlarged, so this page draws its own header.
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
@@ -87,15 +65,6 @@ struct MedicationsPage: View {
         .buttonBorderShape(.capsule)
         .controlSize(.large)
         .tint(Palette.button)
-    }
-
-    /// For trying the app, and for App Review, without one's own pills. One word, to fit
-    /// its narrow part of the row; what it does is asked about before it is done.
-    private var sampleButton: some View {
-        SecondaryButton(title: "Sample", fillsWidth: true) {
-            isConfirmingSample = true
-        }
-        .accessibilityLabel("Load sample list")
     }
 
     /// "My pharmacy" with its name and number, or what to add; opens its page.

@@ -7,12 +7,13 @@ import SwiftUI
 
 /// "About & privacy": what the app does and doesn't do, the switch for sending pill
 /// pictures to be checked, the privacy policy and support links, and, for demos, "Reset
-/// scans" and "Reset intro".
+/// demo" and "Reset intro".
 struct AboutPage: View {
     let store: MedicationStore
+    let pharmacy: PharmacyStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
-    @State private var isConfirmingScansReset = false
+    @State private var isConfirmingDemoReset = false
     @AppStorage(PillCheckConsent.key) private var allowsChecking = false
 
     private let server = PillCheckClient.Configuration.fromBundle()
@@ -63,9 +64,10 @@ struct AboutPage: View {
                 // Side by side, each half the row; one above the other at the
                 // accessibility text sizes, where two no longer fit in a row.
                 resetButtons {
-                    // For starting a demo over: no dose shows as scanned any more.
-                    SecondaryButton(title: "Reset scans", fillsWidth: true) {
-                        isConfirmingScansReset = true
+                    // For starting a demo over, in one press: the sample medications,
+                    // no dose scanned, and the sample pharmacy, as on a new install.
+                    SecondaryButton(title: "Reset demo", fillsWidth: true) {
+                        isConfirmingDemoReset = true
                     }
                     // For showing the introduction again, as on a first launch: only
                     // that it was seen is forgotten. It fades in over this page at once.
@@ -83,13 +85,17 @@ struct AboutPage: View {
             .padding(.bottom, 24)
         }
         .background(Palette.background)
-        .confirmationDialog("Reset all scans?", isPresented: $isConfirmingScansReset, titleVisibility: .visible) {
-            Button("Reset scans", role: .destructive) {
-                withAnimation { store.clearScans() }
+        .confirmationDialog("Reset the demo?", isPresented: $isConfirmingDemoReset, titleVisibility: .visible) {
+            Button("Reset demo", role: .destructive) {
+                withAnimation {
+                    store.loadSampleList()
+                    store.clearScans()
+                    pharmacy.loadSample()
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Every dose goes back to not scanned. Your medications stay.")
+            Text("Your list becomes the four sample medications, every dose goes back to not scanned, and My pharmacy becomes the Student Health Pharmacy. Your own medications and their photos are deleted.")
         }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
@@ -117,6 +123,7 @@ struct AboutPage: View {
 
 #Preview {
     NavigationStack {
-        AboutPage(store: MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage()))
+        AboutPage(store: MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage()),
+                  pharmacy: PharmacyStore(pharmacy: .sample()))
     }
 }

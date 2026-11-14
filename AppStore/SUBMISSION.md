@@ -32,7 +32,7 @@ is. The character limits are Apple's; every text here fits them.
    3. Turn the light on.
    4. Deny camera access, then use Open Settings.
    5. Leave the app and come back while aiming.
-   6. Use Load sample list.
+   6. Use Reset demo (My Medications › About & privacy).
 
 ---
 
@@ -226,7 +226,7 @@ Apple works out the rating from these answers.
 My Pharmacist is a patient-facing double-check: the person photographs the pills in their hand, and the app says which of THEIR OWN registered medications each pill is and whether it is due now. It does not diagnose, dose or recommend treatment, and every result screen says "Not medical advice. Ask your pharmacist if unsure."
 
 HOW TO TRY IT (no account needed)
-1. Tap the pills button (top right) > "Load sample list" > confirm. This loads four sample medications with photos of their pills and sample times.
+1. The app opens with four sample medications, with photos of their pills and sample times. To put them back at any time: My Medications > About & privacy > "Reset demo" > confirm.
 2. Print the attached PDF (letter size, colour) and cut out the pills, or show it on a screen. Its pictures match the sample list.
 3. Back on the home screen, tap the camera button. The first time, the app explains what is sent and asks for permission ("Allow and continue"). Then hold the printed pills in your hand under the camera; the photo is taken automatically once the picture is steady.
 4. The app circles every pill it found and asks "Is that all of them?". Tap Yes to see, pill by pill: Take now / Don't take now / Unknown.

@@ -32,7 +32,7 @@ final class MedicationStore {
     @ObservationIgnored private let storage: any DoseLogStorage
     @ObservationIgnored private let listStorage: any MedicationListStorage
     @ObservationIgnored private let photoStore: MedicationPhotoStore
-    /// What "Load sample list" puts on the list.
+    /// What "Reset demo" puts on the list.
     @ObservationIgnored private let sampleList: [MedicationEntry]
     @ObservationIgnored private let calendar: Calendar
     /// Older records are dropped on launch; only today's matter.
@@ -40,7 +40,7 @@ final class MedicationStore {
 
     /// - Parameters:
     ///   - entries: What a list that was never saved starts with: nothing, for a new person.
-    ///   - sampleList: What "Load sample list" puts on the list.
+    ///   - sampleList: What "Reset demo" puts on the list.
     ///   - listStorage: In memory unless given, so tests never touch the app's saved list.
     ///   - now: When the store is created; records older than `keepDays` before it are dropped.
     init(entries: [MedicationEntry] = [],
