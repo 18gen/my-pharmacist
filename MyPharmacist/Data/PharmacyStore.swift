@@ -56,7 +56,8 @@ final class PharmacyStore {
     @ObservationIgnored private let defaults: UserDefaults?
 
     /// - Parameters:
-    ///   - pharmacy: What to start with when nothing was saved.
+    ///   - pharmacy: What to start with when nothing was saved; it is saved then, unless
+    ///     it is empty, so that its refill date stays the one it started with.
     ///   - defaults: Where it is saved; nil keeps it in memory only, for tests, previews
     ///     and demos.
     init(pharmacy: Pharmacy = Pharmacy(), defaults: UserDefaults? = nil) {
@@ -66,7 +67,13 @@ final class PharmacyStore {
             self.pharmacy = saved
         } else {
             self.pharmacy = pharmacy
+            if !pharmacy.isEmpty { save() }
         }
+    }
+
+    /// Replaces the pharmacy with the sample one, for starting a demo over.
+    func loadSample(now: Date = Date()) {
+        pharmacy = .sample(now: now)
     }
 
     private func save() {
@@ -75,14 +82,14 @@ final class PharmacyStore {
     }
 }
 
-#if DEBUG
 extension Pharmacy {
-    /// A made-up pharmacy for previews and demos, with a refill eight days away.
-    static var sample: Pharmacy {
-        Pharmacy(name: "Maple Street Pharmacy",
-                 phone: "519-555-0142",
-                 hours: "Monday to Friday  9 AM – 6 PM\nSaturday  10 AM – 4 PM\nSunday  Closed",
-                 nextRefill: Calendar.current.date(byAdding: .day, value: 8, to: Date()))
+    /// The pharmacy a new install and "Reset demo" start with: the University of
+    /// Waterloo's Student Health Pharmacy, with a refill a week away so its card has one
+    /// to show. Its phone number and hours are from public health directories.
+    static func sample(now: Date = Date(), calendar: Calendar = .current) -> Pharmacy {
+        Pharmacy(name: "Student Health Pharmacy",
+                 phone: "519-746-4500",
+                 hours: "Monday to Friday  9 AM – 4:30 PM\nStudent Life Centre, 200 University Ave W",
+                 nextRefill: calendar.date(byAdding: .day, value: 7, to: now))
     }
 }
-#endif

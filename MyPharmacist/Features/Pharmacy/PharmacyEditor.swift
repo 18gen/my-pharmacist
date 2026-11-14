@@ -100,7 +100,7 @@ struct PharmacyEditor: View {
 #if DEBUG
 #Preview {
     NavigationStack {
-        PharmacyEditor(store: PharmacyStore(pharmacy: .sample))
+        PharmacyEditor(store: PharmacyStore(pharmacy: .sample()))
     }
 }
 #endif

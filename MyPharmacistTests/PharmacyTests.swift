@@ -51,4 +51,32 @@ struct PharmacyTests {
 
         #expect(PharmacyStore(defaults: defaults).pharmacy == store.pharmacy)
     }
+
+    @Test func aNewInstallStartsWithThePharmacyItIsGivenAndKeepsIt() throws {
+        let name = "PharmacyTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let firstLaunch = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let store = PharmacyStore(pharmacy: .sample(now: firstLaunch), defaults: defaults)
+        #expect(store.pharmacy.name == "Student Health Pharmacy")
+
+        // A later launch offers a later refill date; the first one was saved and stays.
+        let later = PharmacyStore(pharmacy: .sample(now: firstLaunch.addingTimeInterval(86_400 * 3)), defaults: defaults)
+        #expect(later.pharmacy == store.pharmacy)
+    }
+
+    @Test func loadingTheSampleReplacesThePharmacyAndSavesIt() throws {
+        let name = "PharmacyTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let store = PharmacyStore(pharmacy: Pharmacy(name: "Corner Drugs", phone: "555-0100"), defaults: defaults)
+        store.loadSample(now: now)
+
+        #expect(store.pharmacy == .sample(now: now))
+        #expect(store.pharmacy.callURL?.absoluteString == "tel:5197464500")
+        #expect(PharmacyStore(defaults: defaults).pharmacy == store.pharmacy)
+    }
 }

@@ -36,7 +36,8 @@ struct RootView: View {
         _scan = State(initialValue: scan ?? ScanFlow(store: store))
     }
 
-    /// The list and scans saved on the device. Debug demos use the demo medications in
+    /// The list and scans saved on the device; a new install starts with the sample
+    /// medications, as "Reset demo" leaves them. Debug demos use the demo medications in
     /// memory instead, leaving the saved list alone.
     static func savedStore() -> MedicationStore {
         #if DEBUG
@@ -44,15 +45,16 @@ struct RootView: View {
             return MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
         }
         #endif
-        return MedicationStore(listStorage: UserDefaultsMedicationListStorage())
+        return MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage())
     }
 
-    /// The pharmacy saved on the device. Debug demos use a made-up one in memory instead.
+    /// The pharmacy saved on the device; a new install starts with the sample one. Debug
+    /// demos use the sample one in memory instead.
     static func savedPharmacy() -> PharmacyStore {
         #if DEBUG
-        if DemoScan.isRequested { return PharmacyStore(pharmacy: .sample) }
+        if DemoScan.isRequested { return PharmacyStore(pharmacy: .sample()) }
         #endif
-        return PharmacyStore(defaults: .standard)
+        return PharmacyStore(pharmacy: .sample(), defaults: .standard)
     }
 
     var body: some View {

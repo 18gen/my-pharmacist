@@ -124,7 +124,7 @@ struct PharmacySheet: View {
 #if DEBUG
 #Preview("A pharmacy") {
     Color.clear.sheet(isPresented: .constant(true)) {
-        PharmacySheet(pharmacy: .sample, onEdit: {}, onClose: {})
+        PharmacySheet(pharmacy: .sample(), onEdit: {}, onClose: {})
     }
 }
 
