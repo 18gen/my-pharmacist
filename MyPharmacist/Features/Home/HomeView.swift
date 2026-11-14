@@ -5,14 +5,17 @@
 
 import SwiftUI
 
-/// Home screen content above the scan button: date and time with the "My Medications"
-/// button on a card with the onboarding's photo behind them, then one card per time of day ("Morning · 8:00 AM"), earliest first, and the
-/// medications taken only when needed. Only the time of day due now is open; the rest are
+/// Home screen content above the scan button: date and time with the "Pharmacy" button on
+/// a card with the onboarding's photo behind them, then one card per time of day
+/// ("Morning · 8:00 AM"), earliest first, the medications taken only when needed, and
+/// last the "My Medications" button. Only the time of day due now is open; the rest are
 /// folded, so what to take stands out. The header stays put; the cards scroll beneath it.
 struct HomeView: View {
     let store: MedicationStore
     /// Opens the "My Medications" page.
     let onShowMedications: () -> Void
+    /// Opens the pharmacy's card.
+    let onShowPharmacy: () -> Void
 
     private static let fadeHeight: CGFloat = 24
 
@@ -32,10 +35,7 @@ struct HomeView: View {
             let asNeeded = store.asNeededMedications
 
             VStack(alignment: .leading, spacing: 16) {
-                HomeHeader(now: context.date, onShowMedications: onShowMedications)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 28)
-                    .padding(.bottom, 16)
+                HomeHeader(now: context.date, onShowPharmacy: onShowPharmacy)
                     .background { headerPhoto }
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .padding(.horizontal, 16)
@@ -62,6 +62,14 @@ struct HomeView: View {
                                                isExpanded: $showsWhenNeeded,
                                                onOpened: { scrollIntoView(Self.whenNeededID, proxy) })
                                     .id(Self.whenNeededID)
+                            }
+                            // The way to the list and its settings, after everything
+                            // about today. With no medications yet, the card above
+                            // already has the button.
+                            if !store.medications.isEmpty {
+                                WideButton(title: "My Medications", systemImage: "pills.fill",
+                                           action: onShowMedications)
+                                    .padding(.top, 8)
                             }
                         }
                         .padding(.horizontal, 16)

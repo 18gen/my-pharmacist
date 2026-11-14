@@ -11,6 +11,9 @@ import SwiftUI
 struct RootView: View {
     @State private var store: MedicationStore
     @State private var scan: ScanFlow
+    @State private var pharmacy: PharmacyStore
+    /// The pharmacy's card, over Home.
+    @State private var isShowingPharmacy = false
     /// The pages pushed over the home screen, in order.
     @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
@@ -28,6 +31,7 @@ struct RootView: View {
     ///     given.
     ///   - scan: A scan already in some step, for previews; nil for a new one.
     init(store: MedicationStore = RootView.savedStore(), scan: ScanFlow? = nil) {
+        _pharmacy = State(initialValue: RootView.savedPharmacy())
         _store = State(initialValue: store)
         _scan = State(initialValue: scan ?? ScanFlow(store: store))
     }
@@ -41,6 +45,14 @@ struct RootView: View {
         }
         #endif
         return MedicationStore(listStorage: UserDefaultsMedicationListStorage())
+    }
+
+    /// The pharmacy saved on the device. Debug demos use a made-up one in memory instead.
+    static func savedPharmacy() -> PharmacyStore {
+        #if DEBUG
+        if DemoScan.isRequested { return PharmacyStore(pharmacy: .sample) }
+        #endif
+        return PharmacyStore(defaults: .standard)
     }
 
     var body: some View {
@@ -88,6 +100,7 @@ struct RootView: View {
                 if DemoScan.isRequested { DemoScan.run(in: scan) }
                 if let pages = DemoScan.pages { path = pages }
                 if ProcessInfo.processInfo.arguments.contains("-demoConsent") { isAskingConsent = true }
+                if ProcessInfo.processInfo.arguments.contains("-demoPharmacy") { isShowingPharmacy = true }
             }
             #endif
             // Home has its own header instead of a navigation bar.
@@ -100,6 +113,17 @@ struct RootView: View {
                         setScanning(true)
                     },
                     onNotNow: { isAskingConsent = false }
+                )
+            }
+            .sheet(isPresented: $isShowingPharmacy) {
+                PharmacySheet(
+                    pharmacy: pharmacy.pharmacy,
+                    // Its page is under My Medications, so Back from it leads there.
+                    onEdit: {
+                        isShowingPharmacy = false
+                        path = [.medications, .pharmacy]
+                    },
+                    onClose: { isShowingPharmacy = false }
                 )
             }
             // Every page pushed over the home screen is declared here, once, and opened by
@@ -123,7 +147,7 @@ struct RootView: View {
             Palette.background.ignoresSafeArea()
 
             if !scan.isOpen {
-                HomeView(store: store, onShowMedications: showMedications)
+                HomeView(store: store, onShowMedications: showMedications, onShowPharmacy: showPharmacy)
                     .padding(.top, 8)
                     // Keep clear of the "Scan Pills" hint and button, and of the home
                     // indicator's strip.
@@ -168,7 +192,7 @@ struct RootView: View {
     private func page(for route: AppRoute) -> some View {
         switch route {
         case .medications:
-            MedicationsPage(store: store)
+            MedicationsPage(store: store, pharmacy: pharmacy.pharmacy)
         case .medication(let id):
             if let entry = store.entry(id) {
                 MedicationEditor(store: store, entry: entry, onDone: { path.removeAll { $0 == route } })
@@ -177,6 +201,8 @@ struct RootView: View {
             MedicationEditor(store: store, onDone: { path.removeAll { $0 == route } })
         case .about:
             AboutPage(store: store)
+        case .pharmacy:
+            PharmacyEditor(store: pharmacy)
         }
     }
 
@@ -194,6 +220,12 @@ struct RootView: View {
     private func showMedications() {
         guard path.isEmpty else { return }
         path.append(.medications)
+    }
+
+    /// Shows the pharmacy's card; ignored while a page is open.
+    private func showPharmacy() {
+        guard path.isEmpty else { return }
+        isShowingPharmacy = true
     }
 
     /// Opens or closes the camera. Opening asks first, until the person has allowed pill

@@ -21,7 +21,8 @@ import UIKit
 ///   checked, and stays there.
 /// - `-demoMedications` opens My Medications, `-demoNewMedication` the page to add one,
 ///   and `-demoAbout` About & privacy, with the demo medications. `-demoConsent` opens
-///   the question asked before the first scan.
+///   the question asked before the first scan. `-demoHome` stays on Home, `-demoPharmacy`
+///   opens the pharmacy's card over it and `-demoPharmacyEditor` the page to type it in.
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
@@ -32,7 +33,8 @@ enum DemoScan {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
         if arguments.contains("-demoAbout") { return [.medications, .about] }
-        if arguments.contains("-demoConsent") { return [] }
+        if arguments.contains("-demoPharmacyEditor") { return [.medications, .pharmacy] }
+        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || arguments.contains("-demoPharmacy") { return [] }
         if arguments.contains("-demoMedications") { return [.medications] }
         return nil
     }
