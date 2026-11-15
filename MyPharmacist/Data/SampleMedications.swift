@@ -27,6 +27,12 @@ nonisolated enum SampleMedications {
     /// scan, as the demo pill sheet prints them.
     static let demoList: [MedicationEntry] = ePillID.map(MedicationEntry.init)
 
+    /// A medication the app has photos of, by its name in code: what a keychain card
+    /// can add. As the sample list has it, if it is there.
+    static func builtIn(_ id: String) -> MedicationEntry? {
+        (sampleList + demoList + more.map(MedicationEntry.init)).first { $0.id == id }
+    }
+
     private static func entry(_ medication: Medication, times: [DoseTime]) -> MedicationEntry {
         var entry = MedicationEntry(medication)
         entry.doseTimes = times
