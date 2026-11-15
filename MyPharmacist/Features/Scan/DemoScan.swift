@@ -23,18 +23,26 @@ import UIKit
 ///   and `-demoAbout` About & privacy, with the demo medications. `-demoConsent` opens
 ///   the question asked before the first scan. `-demoHome` stays on Home, `-demoPharmacy`
 ///   opens the pharmacy's card over it and `-demoPharmacyEditor` the same card on its
-///   fields.
+///   fields. `-demoCard <code>` shows what a keychain card with that code would do.
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
     static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses || checks || pages != nil }
+
+    /// The text after `-demoCard`: a keychain card's code to show as if just scanned.
+    static var card: String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "-demoCard"), arguments.indices.contains(index + 1) else { return nil }
+        return arguments[index + 1]
+    }
+
 
     /// Pages to open on launch, if asked for.
     static var pages: [AppRoute]? {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
         if arguments.contains("-demoAbout") { return [.about] }
-        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || showsPharmacy { return [] }
+        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || showsPharmacy || card != nil { return [] }
         if arguments.contains("-demoMedications") { return [.medications] }
         return nil
     }

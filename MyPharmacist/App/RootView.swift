@@ -14,6 +14,8 @@ struct RootView: View {
     @State private var pharmacy: PharmacyStore
     /// The pharmacy's card, over Home.
     @State private var isShowingPharmacy = false
+    /// A keychain card's code that was just scanned, shown to be agreed to.
+    @State private var scannedCard: ScannedCard?
     /// The pages pushed over the home screen, in order.
     @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
@@ -103,6 +105,7 @@ struct RootView: View {
                 if let pages = DemoScan.pages { path = pages }
                 if ProcessInfo.processInfo.arguments.contains("-demoConsent") { isAskingConsent = true }
                 if DemoScan.showsPharmacy { isShowingPharmacy = true }
+                if let card = DemoScan.card { scannedCard = ScannedCard(text: card) }
             }
             #endif
             // Home has its own header instead of a navigation bar.
@@ -123,6 +126,17 @@ struct RootView: View {
                     startsEditing: startsEditingPharmacy,
                     onSave: { pharmacy.pharmacy = $0 },
                     onClose: { isShowingPharmacy = false }
+                )
+            }
+            .sheet(item: $scannedCard) { card in
+                let outcome = store.outcome(ofCard: card.text)
+                MedicationCardSheet(
+                    outcome: outcome,
+                    onConfirm: {
+                        withAnimation { store.apply(outcome) }
+                        scannedCard = nil
+                    },
+                    onClose: { scannedCard = nil }
                 )
             }
             // Every page pushed over the home screen is declared here, once, and opened by
@@ -252,6 +266,13 @@ struct RootView: View {
             scan.setOpen(open)
         }
     }
+}
+
+/// A scanned code, with an identity of its own so that scanning the same card twice
+/// shows it twice.
+struct ScannedCard: Identifiable {
+    let id = UUID()
+    let text: String
 }
 
 #Preview {
