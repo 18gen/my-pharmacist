@@ -16,6 +16,38 @@ struct PharmacyTests {
         #expect(!Pharmacy(nextRefill: Date()).isEmpty)
     }
 
+    @Test func aPharmacySavedBeforeItHadAnAddressStillLoads() throws {
+        let saved = Data(#"{"name":"Corner Drugs","phone":"555-0100","hours":"9 to 5"}"#.utf8)
+        let pharmacy = try JSONDecoder().decode(Pharmacy.self, from: saved)
+        #expect(pharmacy == Pharmacy(name: "Corner Drugs", phone: "555-0100", hours: "9 to 5"))
+        #expect(pharmacy.coordinate == nil)
+    }
+
+    @Test func aPharmacyWithEverythingSurvivesSavingAndLoading() throws {
+        let pharmacy = Pharmacy.sample(now: Date(timeIntervalSince1970: 1_800_000_000))
+        let loaded = try JSONDecoder().decode(Pharmacy.self, from: JSONEncoder().encode(pharmacy))
+        #expect(loaded == pharmacy)
+        #expect(loaded.coordinate != nil)
+        #expect(!loaded.address.isEmpty)
+    }
+
+    @Test func googleMapsIsAskedForTheNameAndAddress() throws {
+        let urls = try #require(Pharmacy(name: "Corner Drugs", address: "12 Main St, Waterloo").googleMapsURLs)
+        #expect(urls.web.absoluteString == "https://www.google.com/maps/search/?api=1&query=Corner%20Drugs,%2012%20Main%20St,%20Waterloo")
+        #expect(urls.app.scheme == "comgooglemaps")
+        #expect(URLComponents(url: urls.app, resolvingAgainstBaseURL: false)?.queryItems?.first?.value == "Corner Drugs, 12 Main St, Waterloo")
+
+        // The address alone, without a name.
+        let unnamed = try #require(Pharmacy(address: "12 Main St").googleMapsURLs)
+        #expect(URLComponents(url: unnamed.web, resolvingAgainstBaseURL: false)?.queryItems?.last?.value == "12 Main St")
+    }
+
+    @Test func googleMapsIsAskedForThePointWhenThereIsNoAddress() throws {
+        let urls = try #require(Pharmacy(name: "Corner Drugs", latitude: 43.5, longitude: -80.5).googleMapsURLs)
+        #expect(URLComponents(url: urls.web, resolvingAgainstBaseURL: false)?.queryItems?.last?.value == "43.5,-80.5")
+        #expect(Pharmacy(name: "Corner Drugs").googleMapsURLs == nil)
+    }
+
     @Test func theCallURLKeepsOnlyDigitsAndALeadingPlus() {
         #expect(Pharmacy(phone: "(519) 555-0142").callURL?.absoluteString == "tel:5195550142")
         #expect(Pharmacy(phone: " +1 519 555 0142").callURL?.absoluteString == "tel:+15195550142")
