@@ -16,6 +16,10 @@ struct RootView: View {
     @State private var isShowingPharmacy = false
     /// A keychain card's code that was just scanned, shown to be agreed to.
     @State private var scannedCard: ScannedCard?
+    /// The camera for a keychain card's code.
+    @State private var isScanningCard = false
+    /// A code the camera read, kept until the camera has closed: one sheet at a time.
+    @State private var codeJustRead: String?
     /// The pages pushed over the home screen, in order.
     @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
@@ -128,6 +132,21 @@ struct RootView: View {
                     onClose: { isShowingPharmacy = false }
                 )
             }
+            .sheet(isPresented: $isScanningCard, onDismiss: {
+                if let code = codeJustRead {
+                    codeJustRead = nil
+                    scannedCard = ScannedCard(text: code)
+                }
+            }) {
+                CardScanner(
+                    onFound: { code in
+                        codeJustRead = code
+                        isScanningCard = false
+                    },
+                    onCancel: { isScanningCard = false }
+                )
+            }
+            .sensoryFeedback(.success, trigger: codeJustRead) { _, code in code != nil }
             .sheet(item: $scannedCard) { card in
                 let outcome = store.outcome(ofCard: card.text)
                 MedicationCardSheet(
@@ -160,7 +179,8 @@ struct RootView: View {
             Palette.background.ignoresSafeArea()
 
             if !scan.isOpen {
-                HomeView(store: store, onShowMedications: showMedications, onShowPharmacy: showPharmacy, onShowAbout: showAbout)
+                HomeView(store: store, onShowMedications: showMedications, onShowPharmacy: showPharmacy, onShowAbout: showAbout,
+                         onScanCard: { isScanningCard = true })
                     .padding(.top, 8)
                     // Keep clear of the "Scan Pills" hint and button, and of the home
                     // indicator's strip.
@@ -205,7 +225,7 @@ struct RootView: View {
     private func page(for route: AppRoute) -> some View {
         switch route {
         case .medications:
-            MedicationsPage(store: store)
+            MedicationsPage(store: store, onScanCard: { isScanningCard = true })
         case .medication(let id):
             if let entry = store.entry(id) {
                 MedicationEditor(store: store, entry: entry, onDone: { path.removeAll { $0 == route } })

@@ -7,10 +7,12 @@ import SwiftUI
 
 /// "My Medications": every medication on the list with what it's for and when it's taken.
 /// Tapping one opens its page to change it or remove it; "Add a medication" opens an
-/// empty one. Opened from Home's "My Medications" button; slides in from the right. A large round "‹" button (or a swipe from the
+/// empty one, and "Scan a card" adds one from the code on its keychain card. Opened from Home's "My Medications" button; slides in from the right. A large round "‹" button (or a swipe from the
 /// left edge) goes back.
 struct MedicationsPage: View {
     let store: MedicationStore
+    /// Opens the camera for a keychain card's code.
+    var onScanCard: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -28,7 +30,8 @@ struct MedicationsPage: View {
                 list
 
                 addButton
-
+                // A keychain card adds its medication, pictures and times in one scan.
+                SecondaryButton(title: "Scan a card", fillsWidth: true, action: onScanCard)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)

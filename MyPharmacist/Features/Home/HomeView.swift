@@ -18,6 +18,8 @@ struct HomeView: View {
     let onShowPharmacy: () -> Void
     /// Opens "About & privacy".
     let onShowAbout: () -> Void
+    /// Opens the camera for a keychain card's code.
+    var onScanCard: () -> Void = {}
 
     private static let fadeHeight: CGFloat = 24
 
@@ -46,7 +48,7 @@ struct HomeView: View {
                     ScrollView {
                         VStack(spacing: 12) {
                             if store.medications.isEmpty {
-                                FirstStepsCard(onAddMedications: onShowMedications)
+                                FirstStepsCard(onAddMedications: onShowMedications, onScanCard: onScanCard)
                             } else if slots.isEmpty {
                                 Text("No medications scheduled today.")
                                     .font(.body)
@@ -141,6 +143,7 @@ struct HomeView: View {
 /// thing to do first.
 private struct FirstStepsCard: View {
     let onAddMedications: () -> Void
+    let onScanCard: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -153,6 +156,8 @@ private struct FirstStepsCard: View {
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             WideButton(title: "Add medications", systemImage: "plus", action: onAddMedications)
+            // For someone with the keychain: each card adds its medication in one scan.
+            SecondaryButton(title: "Scan a card", fillsWidth: true, action: onScanCard)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()
