@@ -149,7 +149,7 @@ struct RootView: View {
             Palette.background.ignoresSafeArea()
 
             if !scan.isOpen {
-                HomeView(store: store, onShowMedications: showMedications, onShowPharmacy: showPharmacy)
+                HomeView(store: store, onShowMedications: showMedications, onShowPharmacy: showPharmacy, onShowAbout: showAbout)
                     .padding(.top, 8)
                     // Keep clear of the "Scan Pills" hint and button, and of the home
                     // indicator's strip.
@@ -222,6 +222,12 @@ struct RootView: View {
     private func showMedications() {
         guard path.isEmpty else { return }
         path.append(.medications)
+    }
+
+    /// Opens About & privacy; ignored if a page is already open.
+    private func showAbout() {
+        guard path.isEmpty else { return }
+        path.append(.about)
     }
 
     /// Shows the pharmacy's card; ignored while a page is open.

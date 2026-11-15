@@ -8,7 +8,7 @@ import SwiftUI
 /// Home screen content above the scan button: date and time with the "Pharmacy" button on
 /// a card with the onboarding's photo behind them, then one card per time of day
 /// ("Morning · 8:00 AM"), earliest first, the medications taken only when needed, and
-/// last the "My Medications" button. Only the time of day due now is open; the rest are
+/// last the "My Medications" button and the way to "About & privacy". Only the time of day due now is open; the rest are
 /// folded, so what to take stands out. The header stays put; the cards scroll beneath it.
 struct HomeView: View {
     let store: MedicationStore
@@ -16,6 +16,8 @@ struct HomeView: View {
     let onShowMedications: () -> Void
     /// Opens the pharmacy's card.
     let onShowPharmacy: () -> Void
+    /// Opens "About & privacy".
+    let onShowAbout: () -> Void
 
     private static let fadeHeight: CGFloat = 24
 
@@ -71,6 +73,16 @@ struct HomeView: View {
                                            action: onShowMedications)
                                     .padding(.top, 8)
                             }
+                            // Last of all, with or without medications: under the
+                            // button above, or under the first-steps card.
+                            Button(action: onShowAbout) {
+                                Label("About & privacy", systemImage: "info.circle")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(Palette.textSecondary)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 16)
                         // Room to scroll the last card clear of the fade.

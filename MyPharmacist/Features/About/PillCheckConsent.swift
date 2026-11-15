@@ -41,7 +41,7 @@ struct PillCheckConsentSheet: View {
                     Link("Read the privacy policy", destination: privacyURL)
                         .font(.body.weight(.semibold))
                 }
-                Text("You can turn this off any time in My Medications › About & privacy.")
+                Text("You can turn this off any time in About & privacy, on the home screen.")
                     .font(.body)
                     .foregroundStyle(Palette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)

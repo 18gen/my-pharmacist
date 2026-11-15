@@ -32,7 +32,7 @@ is. The character limits are Apple's; every text here fits them.
    3. Turn the light on.
    4. Deny camera access, then use Open Settings.
    5. Leave the app and come back while aiming.
-   6. Use Reset demo (My Medications › About & privacy).
+   6. Use Reset demo (Home › About & privacy).
 
 ---
 
@@ -226,7 +226,7 @@ Apple works out the rating from these answers.
 My Pharmacist is a patient-facing double-check: the person photographs the pills in their hand, and the app says which of THEIR OWN registered medications each pill is and whether it is due now. It does not diagnose, dose or recommend treatment, and every result screen says "Not medical advice. Ask your pharmacist if unsure."
 
 HOW TO TRY IT (no account needed)
-1. The app opens with four sample medications, with photos of their pills and sample times. To put them back at any time: My Medications > About & privacy > "Reset demo" > confirm.
+1. The app opens with four sample medications, with photos of their pills and sample times. To put them back at any time: Home > About & privacy > "Reset demo" > confirm.
 2. Print the attached PDF (letter size, colour) and cut out the pills, or show it on a screen. Its pictures match the sample list.
 3. Back on the home screen, tap the camera button. The first time, the app explains what is sent and asks for permission ("Allow and continue"). Then hold the printed pills in your hand under the camera; the photo is taken automatically once the picture is steady.
 4. The app circles every pill it found and asks "Is that all of them?". Tap Yes to see, pill by pill: Take now / Don't take now / Unknown.
@@ -234,7 +234,7 @@ You can also add your own medication: My Medications > "Add a medication", and p
 
 DATA AND THIRD-PARTY AI (5.1.1, 5.1.2)
 - The medication list and pill photos stay on the device; there is no account, analytics or tracking.
-- Only after explicit consent (asked before the first scan, and revocable in My Medications > About & privacy), crops of the pills in the photo, plus the user's medication names and reference pill photos, are sent to our server, which forwards them to OpenAI for recognition and keeps nothing. OpenAI does not train on API data and may keep it for up to 30 days to detect abuse. This is disclosed in the consent sheet, the About page and the privacy policy.
+- Only after explicit consent (asked before the first scan, and revocable in Home > About & privacy), crops of the pills in the photo, plus the user's medication names and reference pill photos, are sent to our server, which forwards them to OpenAI for recognition and keeps nothing. OpenAI does not train on API data and may keep it for up to 30 days to detect abuse. This is disclosed in the consent sheet, the About page and the privacy policy.
 - Nothing is saved to the photo library.
 
 The recognition server is live. Results take a few seconds and need an internet connection; without one the app says "Couldn't check. Try again" and never shows a result it didn't check.

@@ -32,7 +32,7 @@ enum DemoScan {
     static var pages: [AppRoute]? {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
-        if arguments.contains("-demoAbout") { return [.medications, .about] }
+        if arguments.contains("-demoAbout") { return [.about] }
         if arguments.contains("-demoPharmacyEditor") { return [.medications, .pharmacy] }
         if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || arguments.contains("-demoPharmacy") { return [] }
         if arguments.contains("-demoMedications") { return [.medications] }
