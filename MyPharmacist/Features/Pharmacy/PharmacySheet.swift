@@ -3,10 +3,11 @@
 //  MyPharmacist
 //
 
+import MapKit
 import SwiftUI
 
 /// "My pharmacy", sliding up over Home from the button under the clock: one large button
-/// to call, the next refill and the opening hours. Something to look at and act on, so it
+/// to call, the next refill, the opening hours, and a map that opens Google Maps. Something to look at and act on, so it
 /// is a sheet to close rather than a page to come back from.
 struct PharmacySheet: View {
     let pharmacy: Pharmacy
@@ -30,6 +31,7 @@ struct PharmacySheet: View {
                     contact
                     if let nextRefill = pharmacy.nextRefill { refill(nextRefill) }
                     if !pharmacy.hours.isEmpty { hours }
+                    if let urls = pharmacy.googleMapsURLs { location(opening: urls) }
                 }
 
                 HStack(spacing: 12) {
@@ -113,11 +115,74 @@ struct PharmacySheet: View {
         .cardBackground()
     }
 
+    /// The address, a map with a pin when the address was found, and the way to Google
+    /// Maps. The whole card is the button: the map doesn't move, so a tap anywhere on it
+    /// opens Google Maps and the page under it still scrolls.
+    private func location(opening urls: (app: URL, web: URL)) -> some View {
+        Button {
+            // The Google Maps app; without it, Google Maps in the browser.
+            openURL(urls.app) { opened in
+                if !opened { openURL(urls.web) }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    sectionTitle("Location")
+                    if !pharmacy.address.isEmpty {
+                        Text(pharmacy.address)
+                            .font(.body)
+                            .foregroundStyle(Palette.textBody)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                if let coordinate = pharmacy.coordinate {
+                    PharmacyMap(name: pharmacy.name, coordinate: coordinate)
+                }
+                Label("Open in Google Maps", systemImage: "arrow.up.right.square")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Palette.due)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardBackground()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Location: \(pharmacy.address)")
+        .accessibilityHint("Opens Google Maps")
+        .accessibilityAddTraits(.isButton)
+    }
+
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
             .font(.body.weight(.semibold))
             .foregroundStyle(Palette.textSecondary)
             .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A small map with a pin on the pharmacy, to look at rather than move: it takes no
+/// touches, so whatever holds it decides what a tap does.
+struct PharmacyMap: View {
+    let name: String
+    let coordinate: CLLocationCoordinate2D
+
+    /// Close enough to see the streets around it.
+    private static let span: CLLocationDistance = 600
+
+    var body: some View {
+        Map(position: .constant(.region(MKCoordinateRegion(center: coordinate,
+                                                           latitudinalMeters: Self.span,
+                                                           longitudinalMeters: Self.span))),
+            interactionModes: []) {
+            Marker(name.isEmpty ? "Pharmacy" : name, coordinate: coordinate)
+                .tint(Palette.due)
+        }
+        .frame(height: 160)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
