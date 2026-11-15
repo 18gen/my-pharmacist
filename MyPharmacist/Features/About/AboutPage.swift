@@ -50,7 +50,7 @@ struct AboutPage: View {
                 }
 
                 section("On this phone") {
-                    Text("Your medication list, its photos and when you scanned your doses are kept only on this phone. Deleting a medication deletes its photos; deleting the app deletes everything.")
+                    Text("Your medication list, its photos and when you scanned your doses are kept only on this phone. Deleting a medication deletes its photos; deleting the app deletes everything. Your pharmacy's address is sent to Apple to show it on a map.")
                 }
 
                 if let server {
