@@ -357,6 +357,7 @@
 				DEVELOPMENT_TEAM = F4X59UTGAL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "My Pharmacist";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "My Pharmacist uses the camera to check the pills you are about to take, and to photograph your own pills. Pictures of the pills are sent to be recognized; nothing is saved to your photo library.";
@@ -391,6 +392,7 @@
 				DEVELOPMENT_TEAM = F4X59UTGAL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "My Pharmacist";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "My Pharmacist uses the camera to check the pills you are about to take, and to photograph your own pills. Pictures of the pills are sent to be recognized; nothing is saved to your photo library.";

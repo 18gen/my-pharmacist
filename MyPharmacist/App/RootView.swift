@@ -147,6 +147,12 @@ struct RootView: View {
                 )
             }
             .sensoryFeedback(.success, trigger: codeJustRead) { _, code in code != nil }
+            // A keychain card read by the iPhone's Camera opens the app on that card.
+            .onOpenURL { link in
+                guard link.scheme?.lowercased() == MedicationCard.scheme else { return }
+                isScanningCard = false
+                scannedCard = ScannedCard(text: link.absoluteString)
+            }
             .sheet(item: $scannedCard) { card in
                 let outcome = store.outcome(ofCard: card.text)
                 MedicationCardSheet(

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyLists-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Everything else in the app's Info.plist is generated from the build settings
+	     (INFOPLIST_KEY_…). This is here because a link type can't be given that way:
+	     "mypharmacist://" is what the QR code on a keychain card says, so the iPhone's
+	     Camera can open the app on that card. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>com.genichihashi.MyPharmacist.card</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mypharmacist</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
