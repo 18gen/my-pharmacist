@@ -48,7 +48,7 @@ struct RootView: View {
     static func savedStore() -> MedicationStore {
         #if DEBUG
         if DemoScan.isRequested {
-            return MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
+            return MedicationStore(entries: DemoScan.startsEmpty ? [] : SampleMedications.demoList, storage: InMemoryDoseLogStorage())
         }
         #endif
         return MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage())
@@ -186,7 +186,9 @@ struct RootView: View {
 
             if !scan.isOpen {
                 HomeView(store: store, onShowMedications: showMedications, onShowPharmacy: showPharmacy, onShowAbout: showAbout,
-                         onScanCard: { isScanningCard = true })
+                         onScanCard: { isScanningCard = true },
+                         // Back from the new page leads to the list it was added to.
+                         onTypeIn: { if path.isEmpty { path = [.medications, .newMedication] } })
                     .padding(.top, 8)
                     // Keep clear of the "Scan Pills" hint and button, and of the home
                     // indicator's strip.
@@ -231,7 +233,8 @@ struct RootView: View {
     private func page(for route: AppRoute) -> some View {
         switch route {
         case .medications:
-            MedicationsPage(store: store, onScanCard: { isScanningCard = true })
+            MedicationsPage(store: store, onScanCard: { isScanningCard = true },
+                            onTypeIn: { if path.last == .medications { path.append(.newMedication) } })
         case .medication(let id):
             if let entry = store.entry(id) {
                 MedicationEditor(store: store, entry: entry, onDone: { path.removeAll { $0 == route } })

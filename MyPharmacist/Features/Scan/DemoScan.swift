@@ -23,7 +23,8 @@ import UIKit
 ///   and `-demoAbout` About & privacy, with the demo medications. `-demoConsent` opens
 ///   the question asked before the first scan. `-demoHome` stays on Home, `-demoPharmacy`
 ///   opens the pharmacy's card over it and `-demoPharmacyEditor` the same card on its
-///   fields. `-demoCard <code>` shows what a keychain card with that code would do.
+///   fields. `-demoCard <code>` shows what a keychain card with that code would do,
+///   and `-demoEmpty` is Home with no medications yet.
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
@@ -42,10 +43,12 @@ enum DemoScan {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
         if arguments.contains("-demoAbout") { return [.about] }
-        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || showsPharmacy || card != nil { return [] }
+        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || startsEmpty || showsPharmacy || card != nil { return [] }
         if arguments.contains("-demoMedications") { return [.medications] }
         return nil
     }
+    /// Home with no medications yet.
+    static var startsEmpty: Bool { ProcessInfo.processInfo.arguments.contains("-demoEmpty") }
     /// The pharmacy's card is open over Home.
     static var showsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacy") || editsPharmacy }
     /// The card is open on its fields.

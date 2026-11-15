@@ -20,6 +20,8 @@ struct HomeView: View {
     let onShowAbout: () -> Void
     /// Opens the camera for a keychain card's code.
     var onScanCard: () -> Void = {}
+    /// Opens an empty medication page.
+    var onTypeIn: () -> Void = {}
 
     private static let fadeHeight: CGFloat = 24
 
@@ -48,7 +50,7 @@ struct HomeView: View {
                     ScrollView {
                         VStack(spacing: 12) {
                             if store.medications.isEmpty {
-                                FirstStepsCard(onAddMedications: onShowMedications, onScanCard: onScanCard)
+                                FirstStepsCard(onScanCard: onScanCard, onTypeIn: onTypeIn)
                             } else if slots.isEmpty {
                                 Text("No medications scheduled today.")
                                     .font(.body)
@@ -142,8 +144,8 @@ struct HomeView: View {
 /// What a new person sees before adding any medication: what the app does and the one
 /// thing to do first.
 private struct FirstStepsCard: View {
-    let onAddMedications: () -> Void
     let onScanCard: () -> Void
+    let onTypeIn: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -151,13 +153,12 @@ private struct FirstStepsCard: View {
                 .font(.title2.bold())
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
-            Text("Add each medication with a photo of its pill and when you take it. Then scan the pills in your hand before taking them, to check they're the right ones for now.")
+            Text("Scan the code on each medication's card, or type a medication in with a photo of its pill and when you take it. Then scan the pills in your hand before taking them, to check they're the right ones for now.")
                 .font(.body)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            WideButton(title: "Add medications", systemImage: "plus", action: onAddMedications)
-            // For someone with the keychain: each card adds its medication in one scan.
-            SecondaryButton(title: "Scan a card", fillsWidth: true, action: onScanCard)
+            // The same two ways as on My Medications.
+            AddMedicationButtons(onScanCard: onScanCard, onTypeIn: onTypeIn)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()
