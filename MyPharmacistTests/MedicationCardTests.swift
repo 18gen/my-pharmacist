@@ -84,6 +84,18 @@ struct MedicationCardTests {
         #expect(store.entries == SampleMedications.sampleList.map(\.tidied))
     }
 
+    @Test func anEmptiedListIsFilledAgainFromTheCards() {
+        let store = MedicationStore(entries: SampleMedications.sampleList, storage: InMemoryDoseLogStorage())
+        store.removeAll()
+        #expect(store.entries.isEmpty)
+        #expect(store.medications.isEmpty)
+
+        for text in Self.keychain {
+            store.apply(store.outcome(ofCard: text))
+        }
+        #expect(store.entries == SampleMedications.sampleList.map(\.tidied))
+    }
+
     @Test func aCardForAMedicationOnTheListOnlyChangesWhenItIsTaken() throws {
         let store = emptyStore()
         store.apply(store.outcome(ofCard: Self.keychain[0]))

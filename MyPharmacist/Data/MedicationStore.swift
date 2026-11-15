@@ -137,6 +137,13 @@ final class MedicationStore {
         entries.removeAll { $0.id == id }
     }
 
+    /// Empties the list, deleting its photos: for a demo that starts with nothing and
+    /// adds each medication from its keychain card.
+    func removeAll() {
+        deletePhotos(entries.flatMap(\.photos))
+        entries = []
+    }
+
     /// Replaces the list with the sample list, for demos and App Review. The photos of
     /// the medications it replaces are deleted.
     func loadSampleList() {

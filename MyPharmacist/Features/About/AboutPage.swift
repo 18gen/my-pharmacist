@@ -64,8 +64,9 @@ struct AboutPage: View {
                 // Side by side, each half the row; one above the other at the
                 // accessibility text sizes, where two no longer fit in a row.
                 resetButtons {
-                    // For starting a demo over, in one press: the sample medications,
-                    // no dose scanned, and the sample pharmacy, as on a new install.
+                    // For starting a demo over, in one press: the sample medications (or
+                    // none, to add them from their keychain cards), no dose scanned, and
+                    // the sample pharmacy.
                     SecondaryButton(title: "Reset demo", fillsWidth: true) {
                         isConfirmingDemoReset = true
                     }
@@ -86,16 +87,23 @@ struct AboutPage: View {
         }
         .background(Palette.background)
         .confirmationDialog("Reset the demo?", isPresented: $isConfirmingDemoReset, titleVisibility: .visible) {
-            Button("Reset demo", role: .destructive) {
+            Button("Sample medications", role: .destructive) {
                 withAnimation {
                     store.loadSampleList()
                     store.clearScans()
                     pharmacy.loadSample()
                 }
             }
+            Button("Empty list, for scanning cards", role: .destructive) {
+                withAnimation {
+                    store.removeAll()
+                    store.clearScans()
+                    pharmacy.loadSample()
+                }
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your list becomes the four sample medications, every dose goes back to not scanned, and My pharmacy becomes the Student Health Pharmacy. Your own medications and their photos are deleted.")
+            Text("Your list becomes the four sample medications, or empty to add them from their cards. Every dose goes back to not scanned, and My pharmacy becomes the Student Health Pharmacy. Your own medications and their photos are deleted.")
         }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
