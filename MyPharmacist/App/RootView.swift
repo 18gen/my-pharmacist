@@ -102,7 +102,7 @@ struct RootView: View {
                 if DemoScan.isRequested { DemoScan.run(in: scan) }
                 if let pages = DemoScan.pages { path = pages }
                 if ProcessInfo.processInfo.arguments.contains("-demoConsent") { isAskingConsent = true }
-                if ProcessInfo.processInfo.arguments.contains("-demoPharmacy") { isShowingPharmacy = true }
+                if DemoScan.showsPharmacy { isShowingPharmacy = true }
             }
             #endif
             // Home has its own header instead of a navigation bar.
@@ -120,11 +120,8 @@ struct RootView: View {
             .sheet(isPresented: $isShowingPharmacy) {
                 PharmacySheet(
                     pharmacy: pharmacy.pharmacy,
-                    // Its page is under My Medications, so Back from it leads there.
-                    onEdit: {
-                        isShowingPharmacy = false
-                        path = [.medications, .pharmacy]
-                    },
+                    startsEditing: startsEditingPharmacy,
+                    onSave: { pharmacy.pharmacy = $0 },
                     onClose: { isShowingPharmacy = false }
                 )
             }
@@ -203,8 +200,6 @@ struct RootView: View {
             MedicationEditor(store: store, onDone: { path.removeAll { $0 == route } })
         case .about:
             AboutPage(store: store, pharmacy: pharmacy)
-        case .pharmacy:
-            PharmacyEditor(store: pharmacy)
         }
     }
 
@@ -228,6 +223,15 @@ struct RootView: View {
     private func showAbout() {
         guard path.isEmpty else { return }
         path.append(.about)
+    }
+
+    /// The pharmacy's card opens on its fields, for a demo of them.
+    private var startsEditingPharmacy: Bool {
+        #if DEBUG
+        DemoScan.editsPharmacy
+        #else
+        false
+        #endif
     }
 
     /// Shows the pharmacy's card; ignored while a page is open.

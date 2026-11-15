@@ -22,7 +22,8 @@ import UIKit
 /// - `-demoMedications` opens My Medications, `-demoNewMedication` the page to add one,
 ///   and `-demoAbout` About & privacy, with the demo medications. `-demoConsent` opens
 ///   the question asked before the first scan. `-demoHome` stays on Home, `-demoPharmacy`
-///   opens the pharmacy's card over it and `-demoPharmacyEditor` the page to type it in.
+///   opens the pharmacy's card over it and `-demoPharmacyEditor` the same card on its
+///   fields.
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
@@ -33,11 +34,14 @@ enum DemoScan {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
         if arguments.contains("-demoAbout") { return [.about] }
-        if arguments.contains("-demoPharmacyEditor") { return [.medications, .pharmacy] }
-        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || arguments.contains("-demoPharmacy") { return [] }
+        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || showsPharmacy { return [] }
         if arguments.contains("-demoMedications") { return [.medications] }
         return nil
     }
+    /// The pharmacy's card is open over Home.
+    static var showsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacy") || editsPharmacy }
+    /// The card is open on its fields.
+    static var editsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacyEditor") }
     private static var checks: Bool { ProcessInfo.processInfo.arguments.contains("-demoChecking") }
     private static var opensAndCloses: Bool { ProcessInfo.processInfo.arguments.contains("-demoOpenClose") }
     private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }

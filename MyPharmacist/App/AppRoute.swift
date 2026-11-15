@@ -14,6 +14,4 @@ enum AppRoute: Hashable {
     case newMedication
     /// "About & privacy".
     case about
-    /// The page where the pharmacy is typed in.
-    case pharmacy
 }

@@ -6,49 +6,117 @@
 import MapKit
 import SwiftUI
 
-/// "My pharmacy", sliding up over Home from the button under the clock: one large button
+/// "My pharmacy", sliding up over Home from the button by the clock: one large button
 /// to call, the next refill, the opening hours, and a map that opens Apple's Maps, with a
-/// button for Google Maps. Something to look at and act on, so it
-/// is a sheet to close rather than a page to come back from.
+/// button for Google Maps. Something to look at and act on, so it is a sheet to close
+/// rather than a page to come back from. "Edit" turns the same card into the fields to
+/// type it in, with Save and Cancel; nothing changes until Save.
 struct PharmacySheet: View {
     let pharmacy: Pharmacy
-    /// Opens the page where the pharmacy is typed in.
-    let onEdit: () -> Void
+    /// Keeps the pharmacy as it was edited.
+    let onSave: (Pharmacy) -> Void
     let onClose: () -> Void
 
+    /// The copy being edited; nil while the card only shows the pharmacy.
+    @State private var draft: Pharmacy?
+    /// Half the screen to look at; all of it to type in.
+    @State private var detent: PresentationDetent
+
     @Environment(\.openURL) private var openURL
+
+    /// - Parameter startsEditing: Opens on the fields; for previews and demos.
+    init(pharmacy: Pharmacy, startsEditing: Bool = false,
+         onSave: @escaping (Pharmacy) -> Void, onClose: @escaping () -> Void) {
+        self.pharmacy = pharmacy
+        self.onSave = onSave
+        self.onClose = onClose
+        _draft = State(initialValue: startsEditing ? pharmacy : nil)
+        _detent = State(initialValue: startsEditing ? .large : .medium)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("My pharmacy")
-                    .font(Palette.pageTitle)
-                    .foregroundStyle(Palette.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-
-                if pharmacy.isEmpty {
-                    empty
+                if draft != nil {
+                    editing
                 } else {
-                    contact
-                    if let nextRefill = pharmacy.nextRefill { refill(nextRefill) }
-                    if !pharmacy.hours.isEmpty { hours }
-                    if let urls = pharmacy.googleMapsURLs { location(opening: urls) }
-                }
-
-                HStack(spacing: 12) {
-                    if !pharmacy.isEmpty {
-                        SecondaryButton(title: "Edit", fillsWidth: true, action: onEdit)
-                    }
-                    SecondaryButton(title: "Close", fillsWidth: true, action: onClose)
+                    showing
                 }
             }
             .padding(.horizontal, 16)
             .padding(.top, 28)
-            .padding(.bottom, 24)
+            .padding(.bottom, 12)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { buttons }
         .background(Palette.background)
-        .presentationDetents([.medium, .large])
+        .scrollDismissesKeyboard(.interactively)
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
+        // What was typed isn't lost to a slip of the finger: Save and Cancel are the ways out.
+        .interactiveDismissDisabled(draft != nil)
+    }
+
+    @ViewBuilder
+    private var showing: some View {
+        title("My pharmacy")
+
+        if pharmacy.isEmpty {
+            empty
+        } else {
+            contact
+            if let nextRefill = pharmacy.nextRefill { refill(nextRefill) }
+            if !pharmacy.hours.isEmpty { hours }
+            if let urls = pharmacy.googleMapsURLs { location(opening: urls) }
+        }
+    }
+
+    @ViewBuilder
+    private var editing: some View {
+        title(pharmacy.isEmpty ? "Add my pharmacy" : "Edit my pharmacy")
+
+        PharmacyForm(pharmacy: Binding(get: { draft ?? pharmacy }, set: { draft = $0 }))
+    }
+
+    /// Edit and Close, or Save and Cancel while editing: the dark one on the left, each
+    /// half the row. They stay at the bottom of the card while the rest scrolls, so the
+    /// way to save is never below a long form.
+    private var buttons: some View {
+        HStack(spacing: 12) {
+            if draft != nil {
+                WideButton(title: "Save", systemImage: "checkmark") {
+                    if let draft { onSave(draft) }
+                    stopEditing()
+                }
+                SecondaryButton(title: "Cancel", fillsWidth: true, action: stopEditing)
+            } else {
+                if !pharmacy.isEmpty {
+                    WideButton(title: "Edit", systemImage: "pencil", action: startEditing)
+                }
+                SecondaryButton(title: "Close", fillsWidth: true, action: onClose)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Palette.background)
+    }
+
+    private func title(_ text: String) -> some View {
+        Text(text)
+            .font(Palette.pageTitle)
+            .foregroundStyle(Palette.textPrimary)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func startEditing() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            draft = pharmacy
+            detent = .large
+        }
+    }
+
+    /// Back to showing the pharmacy: as saved, or as it was if this is Cancel.
+    private func stopEditing() {
+        withAnimation(.easeInOut(duration: 0.2)) { draft = nil }
     }
 
     /// Before a pharmacy is typed in: what this is for, and the way to add it.
@@ -58,7 +126,7 @@ struct PharmacySheet: View {
                 .font(.body)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            WideButton(title: "Add my pharmacy", systemImage: "plus", action: onEdit)
+            WideButton(title: "Add my pharmacy", systemImage: "plus", action: startEditing)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()
@@ -195,13 +263,19 @@ struct PharmacyMap: View {
 #if DEBUG
 #Preview("A pharmacy") {
     Color.clear.sheet(isPresented: .constant(true)) {
-        PharmacySheet(pharmacy: .sample(), onEdit: {}, onClose: {})
+        PharmacySheet(pharmacy: .sample(), onSave: { _ in }, onClose: {})
     }
 }
 
 #Preview("None yet") {
     Color.clear.sheet(isPresented: .constant(true)) {
-        PharmacySheet(pharmacy: Pharmacy(), onEdit: {}, onClose: {})
+        PharmacySheet(pharmacy: Pharmacy(), onSave: { _ in }, onClose: {})
+    }
+}
+
+#Preview("Editing") {
+    Color.clear.sheet(isPresented: .constant(true)) {
+        PharmacySheet(pharmacy: .sample(), startsEditing: true, onSave: { _ in }, onClose: {})
     }
 }
 #endif
