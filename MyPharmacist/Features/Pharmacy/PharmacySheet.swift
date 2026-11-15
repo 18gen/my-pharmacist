@@ -7,7 +7,8 @@ import MapKit
 import SwiftUI
 
 /// "My pharmacy", sliding up over Home from the button under the clock: one large button
-/// to call, the next refill, the opening hours, and a map that opens Google Maps. Something to look at and act on, so it
+/// to call, the next refill, the opening hours, and a map that opens Apple's Maps, with a
+/// button for Google Maps. Something to look at and act on, so it
 /// is a sheet to close rather than a page to come back from.
 struct PharmacySheet: View {
     let pharmacy: Pharmacy
@@ -116,42 +117,47 @@ struct PharmacySheet: View {
     }
 
     /// The address, a map with a pin when the address was found, and the way to Google
-    /// Maps. The whole card is the button: the map doesn't move, so a tap anywhere on it
-    /// opens Google Maps and the page under it still scrolls.
+    /// Maps. Tapping the map, which is Apple's, opens Apple's Maps; the button under it
+    /// opens Google Maps. The map doesn't move, so the page under it still scrolls.
     private func location(opening urls: (app: URL, web: URL)) -> some View {
-        Button {
-            // The Google Maps app; without it, Google Maps in the browser.
-            openURL(urls.app) { opened in
-                if !opened { openURL(urls.web) }
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                sectionTitle("Location")
+                if !pharmacy.address.isEmpty {
+                    Text(pharmacy.address)
+                        .font(.body)
+                        .foregroundStyle(Palette.textBody)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    sectionTitle("Location")
-                    if !pharmacy.address.isEmpty {
-                        Text(pharmacy.address)
-                            .font(.body)
-                            .foregroundStyle(Palette.textBody)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                if let coordinate = pharmacy.coordinate {
+            if let coordinate = pharmacy.coordinate, let appleMaps = pharmacy.appleMapsURL {
+                Button {
+                    openURL(appleMaps)
+                } label: {
                     PharmacyMap(name: pharmacy.name, coordinate: coordinate)
+                        // The map takes no touches itself; this takes the tap for it.
+                        .overlay(Color.clear.contentShape(Rectangle()))
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Map")
+                .accessibilityHint("Opens Apple Maps")
+            }
+            Button {
+                // The Google Maps app; without it, Google Maps in the browser.
+                openURL(urls.app) { opened in
+                    if !opened { openURL(urls.web) }
+                }
+            } label: {
                 Label("Open in Google Maps", systemImage: "arrow.up.right.square")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Palette.due)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardBackground()
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Location: \(pharmacy.address)")
-        .accessibilityHint("Opens Google Maps")
-        .accessibilityAddTraits(.isButton)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardBackground()
     }
 
     private func sectionTitle(_ text: String) -> some View {

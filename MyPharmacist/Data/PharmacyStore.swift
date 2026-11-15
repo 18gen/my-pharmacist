@@ -71,6 +71,17 @@ struct Pharmacy: Codable, Equatable {
         return (appURL, webURL)
     }
 
+    /// What to open to show the pharmacy in Apple's Maps: a pin where the address was
+    /// found, named after the pharmacy. Nil when the address wasn't found.
+    var appleMapsURL: URL? {
+        guard let latitude, let longitude else { return nil }
+        let label = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        var link = URLComponents(string: "https://maps.apple.com/")
+        link?.queryItems = [URLQueryItem(name: "ll", value: "\(latitude),\(longitude)"),
+                            URLQueryItem(name: "q", value: label.isEmpty ? "Pharmacy" : label)]
+        return link?.url
+    }
+
     /// "today", "tomorrow" or "in 8 days" until the next refill; nil without a date or
     /// once it has passed.
     func refillCountdown(now: Date = Date(), calendar: Calendar = .current) -> String? {

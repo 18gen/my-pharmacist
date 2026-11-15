@@ -48,6 +48,14 @@ struct PharmacyTests {
         #expect(Pharmacy(name: "Corner Drugs").googleMapsURLs == nil)
     }
 
+    @Test func appleMapsIsAskedForAPinNamedAfterThePharmacy() {
+        let found = Pharmacy(name: "Corner Drugs", address: "12 Main St", latitude: 43.5, longitude: -80.5)
+        #expect(found.appleMapsURL?.absoluteString == "https://maps.apple.com/?ll=43.5,-80.5&q=Corner%20Drugs")
+        #expect(Pharmacy(latitude: 43.5, longitude: -80.5).appleMapsURL?.absoluteString == "https://maps.apple.com/?ll=43.5,-80.5&q=Pharmacy")
+        // No pin without a place for it.
+        #expect(Pharmacy(name: "Corner Drugs", address: "12 Main St").appleMapsURL == nil)
+    }
+
     @Test func theCallURLKeepsOnlyDigitsAndALeadingPlus() {
         #expect(Pharmacy(phone: "(519) 555-0142").callURL?.absoluteString == "tel:5195550142")
         #expect(Pharmacy(phone: " +1 519 555 0142").callURL?.absoluteString == "tel:+15195550142")
