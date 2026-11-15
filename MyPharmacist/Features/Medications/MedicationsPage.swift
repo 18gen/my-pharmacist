@@ -7,12 +7,10 @@ import SwiftUI
 
 /// "My Medications": every medication on the list with what it's for and when it's taken.
 /// Tapping one opens its page to change it or remove it; "Add a medication" opens an
-/// empty one. Under it, the pharmacy, which opens the page to type it in. Opened from Home's "My Medications"
-/// button; slides in from the right. A large round "‹" button (or a swipe from the
+/// empty one. Opened from Home's "My Medications" button; slides in from the right. A large round "‹" button (or a swipe from the
 /// left edge) goes back.
 struct MedicationsPage: View {
     let store: MedicationStore
-    var pharmacy = Pharmacy()
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -31,7 +29,6 @@ struct MedicationsPage: View {
 
                 addButton
 
-                pharmacyRow
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -57,44 +54,6 @@ struct MedicationsPage: View {
         .buttonBorderShape(.capsule)
         .controlSize(.large)
         .tint(Palette.button)
-    }
-
-    /// "My pharmacy" with its name and number, or what to add; opens its page.
-    private var pharmacyRow: some View {
-        NavigationLink(value: AppRoute.pharmacy) {
-            HStack(spacing: 12) {
-                Image(systemName: "storefront.fill")
-                    .font(.title3)
-                    .foregroundStyle(Palette.textSecondary)
-                    .frame(width: 32)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("My pharmacy")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(Palette.textPrimary)
-                    Text(pharmacySummary)
-                        .font(.body)
-                        .foregroundStyle(Palette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Palette.textMuted)
-                    .accessibilityHidden(true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardBackground()
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens it to change")
-    }
-
-    private var pharmacySummary: String {
-        let parts = [pharmacy.name, pharmacy.phone]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return parts.isEmpty ? "Add its phone number and opening hours" : parts.joined(separator: " · ")
     }
 
     @ViewBuilder

@@ -194,7 +194,7 @@ struct RootView: View {
     private func page(for route: AppRoute) -> some View {
         switch route {
         case .medications:
-            MedicationsPage(store: store, pharmacy: pharmacy.pharmacy)
+            MedicationsPage(store: store)
         case .medication(let id):
             if let entry = store.entry(id) {
                 MedicationEditor(store: store, entry: entry, onDone: { path.removeAll { $0 == route } })
