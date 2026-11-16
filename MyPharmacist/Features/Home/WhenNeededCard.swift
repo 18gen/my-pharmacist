@@ -11,8 +11,9 @@ import SwiftUI
 /// today has a tick and the time, and the header says when the last was scanned, so it
 /// shows while the card is folded too.
 struct WhenNeededCard: View {
-    /// Each medication with when it was last scanned today, if it was.
-    let items: [(medication: Medication, scannedAt: Date?)]
+    /// Each medication with when it was last scanned and marked taken today, if it was,
+    /// and what its "taken" circle does.
+    let items: [MedicationLineList.Item]
     @Binding var isExpanded: Bool
     /// Called once the card has finished opening.
     let onOpened: () -> Void
@@ -35,14 +36,14 @@ struct WhenNeededCard: View {
                             .foregroundStyle(Palette.textSubtitle)
                     }
                     Spacer(minLength: 8)
-                    if let lastScan {
-                        // The tick and the time only: with "Scanned" too, "When needed"
-                        // no longer fits on one line beside it.
-                        Label(lastScan.shortTime, systemImage: "checkmark.circle.fill")
+                    if let last = lastTaken ?? lastScan {
+                        // The tick and the time only: with "Scanned" or "Taken" too,
+                        // "When needed" no longer fits on one line beside it.
+                        Label(last.shortTime, systemImage: "checkmark.circle.fill")
                             .font(.headline)
                             .foregroundStyle(Palette.ok)
                             .lineLimit(1)
-                            .accessibilityLabel("Scanned at \(lastScan.shortTime)")
+                            .accessibilityLabel("\(lastTaken == nil ? "Scanned" : "Taken") at \(last.shortTime)")
                     }
                     Image(systemName: "chevron.down")
                         .font(.subheadline.weight(.semibold))
@@ -71,6 +72,11 @@ struct WhenNeededCard: View {
     /// The latest scan today of any of them.
     private var lastScan: Date? {
         items.compactMap(\.scannedAt).max()
+    }
+
+    /// The latest time today any of them was marked taken.
+    private var lastTaken: Date? {
+        items.compactMap(\.takenAt).max()
     }
 
     /// Opening reports back only once the card has finished growing, so the page can

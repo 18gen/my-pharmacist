@@ -47,6 +47,7 @@ struct RootView: View {
     /// memory instead, leaving the saved list alone.
     static func savedStore() -> MedicationStore {
         #if DEBUG
+        if DemoScan.showsTaken { return DemoScan.takenStore() }
         if DemoScan.isRequested {
             return MedicationStore(entries: DemoScan.startsEmpty ? [] : SampleMedications.demoList, storage: InMemoryDoseLogStorage())
         }

@@ -30,6 +30,21 @@ struct HomeView: View {
     /// when a slot moves on (next → now → scanned) it goes back to how that status shows.
     @State private var openSlots: Set<String> = []
     @State private var showsWhenNeeded = false
+    /// The "taken" mark the person tapped to take off, while they are asked whether to.
+    @State private var unticking: TakenMark?
+
+    /// A "taken" mark: on a dose, or on a medication taken only when needed, for a day.
+    private enum TakenMark {
+        case dose(Dose)
+        case asNeeded(Medication, day: Date)
+
+        var name: String {
+            switch self {
+            case .dose(let dose): dose.medication.displayName
+            case .asNeeded(let medication, _): medication.displayName
+            }
+        }
+    }
 
     /// Scroll target for the "When needed" card.
     private static let whenNeededID = "whenNeeded"
@@ -59,12 +74,12 @@ struct HomeView: View {
                                     .cardBackground()
                             }
                             ForEach(slots) { slot in
-                                DoseSlotCard(slot: slot, isExpanded: isOpen(slot),
+                                DoseSlotCard(slot: slot, onToggleTaken: toggleTaken, isExpanded: isOpen(slot),
                                              onOpened: { scrollIntoView(slot.id, proxy) })
                                     .id(slot.id)
                             }
                             if !asNeeded.isEmpty {
-                                WhenNeededCard(items: asNeeded.map { ($0, store.asNeededScan(of: $0, on: context.date)) },
+                                WhenNeededCard(items: asNeeded.map { whenNeededItem($0, on: context.date) },
                                                isExpanded: $showsWhenNeeded,
                                                onOpened: { scrollIntoView(Self.whenNeededID, proxy) })
                                     .id(Self.whenNeededID)
@@ -102,6 +117,40 @@ struct HomeView: View {
                         }
                     }
                 }
+            }
+        }
+        // Ticking is one tap; unticking asks first, so a slip doesn't lose the record.
+        .confirmationDialog("Mark \(unticking?.name ?? "it") as not taken?",
+                            isPresented: Binding(get: { unticking != nil }, set: { if !$0 { unticking = nil } }),
+                            titleVisibility: .visible) {
+            Button("Not taken", role: .destructive) {
+                switch unticking {
+                case .dose(let dose): store.unmarkTaken([dose])
+                case .asNeeded(let medication, let day): store.setAsNeededTaken(of: medication, on: day, to: nil)
+                case nil: break
+                }
+                unticking = nil
+            }
+            Button("Cancel", role: .cancel) { unticking = nil }
+        }
+    }
+
+    private func toggleTaken(_ item: ScheduledDose) {
+        if item.state.takenAt == nil {
+            store.markTaken([item.dose])
+        } else {
+            unticking = .dose(item.dose)
+        }
+    }
+
+    private func whenNeededItem(_ medication: Medication, on day: Date) -> MedicationLineList.Item {
+        let takenAt = store.asNeededTaken(of: medication, on: day)
+        return MedicationLineList.Item(medication: medication, scannedAt: store.asNeededScan(of: medication, on: day),
+                                       takenAt: takenAt) {
+            if takenAt == nil {
+                store.setAsNeededTaken(of: medication, on: Date(), to: Date())
+            } else {
+                unticking = .asNeeded(medication, day: day)
             }
         }
     }

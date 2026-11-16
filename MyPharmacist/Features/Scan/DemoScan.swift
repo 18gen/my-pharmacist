@@ -24,7 +24,8 @@ import UIKit
 ///   the question asked before the first scan. `-demoHome` stays on Home, `-demoPharmacy`
 ///   opens the pharmacy's card over it and `-demoPharmacyEditor` the same card on its
 ///   fields. `-demoCard <code>` shows what a keychain card with that code would do,
-///   and `-demoEmpty` is Home with no medications yet.
+///   and `-demoEmpty` is Home with no medications yet. `-demoTaken` is Home with four
+///   medications due now: one untouched, one scanned, one ticked taken, one both.
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
@@ -43,11 +44,33 @@ enum DemoScan {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-demoNewMedication") { return [.medications, .newMedication] }
         if arguments.contains("-demoAbout") { return [.about] }
-        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || startsEmpty || showsPharmacy || card != nil { return [] }
+        if arguments.contains("-demoConsent") || arguments.contains("-demoHome") || startsEmpty || showsTaken || showsPharmacy || card != nil { return [] }
         if arguments.contains("-demoMedications") { return [.medications] }
         return nil
     }
     /// Home with no medications yet.
+    static var showsTaken: Bool { ProcessInfo.processInfo.arguments.contains("-demoTaken") }
+
+    /// Four medications due this minute, in memory: one untouched, one scanned, one
+    /// ticked taken, one scanned and then ticked.
+    static func takenStore(now: Date = Date(), calendar: Calendar = .current) -> MedicationStore {
+        let parts = calendar.dateComponents([.hour, .minute], from: now)
+        let time = DoseTime(parts.hour ?? 8, parts.minute ?? 0)
+        let entries = ["capecitabine-500", "dexamethasone-4", "allopurinol-300", "exemestane-25"]
+            .compactMap(SampleMedications.builtIn)
+            .map { entry -> MedicationEntry in
+                var entry = entry
+                entry.doseTimes = [time]
+                return entry
+            }
+        let store = MedicationStore(entries: entries, storage: InMemoryDoseLogStorage())
+        let doses = Dictionary(uniqueKeysWithValues: store.doses(on: now).map { ($0.medication.id, $0) })
+        let earlier = now.addingTimeInterval(-4 * 60)
+        store.recordScan(of: [doses["dexamethasone-4"], doses["exemestane-25"]].compactMap { $0 }, at: earlier)
+        store.markTaken([doses["allopurinol-300"], doses["exemestane-25"]].compactMap { $0 }, at: now)
+        return store
+    }
+
     static var startsEmpty: Bool { ProcessInfo.processInfo.arguments.contains("-demoEmpty") }
     /// The pharmacy's card is open over Home.
     static var showsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacy") || editsPharmacy }

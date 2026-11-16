@@ -8,9 +8,12 @@ import SwiftUI
 /// One time of day on the home screen, like one compartment of a pill organizer:
 /// "Morning · 8:00 AM" with where it stands, and its medications. Only the time of day to
 /// take now is open, and outlined; every other one is folded to its header line, which
-/// opens it on a tap.
+/// opens it on a tap. Each medication has a circle to tick once it is taken, except in
+/// a time of day still to come.
 struct DoseSlotCard: View {
     let slot: DoseSlot
+    /// Ticks or unticks one dose's "taken" circle. Nil: no circles.
+    var onToggleTaken: ((ScheduledDose) -> Void)? = nil
     /// Whether a folded slot has been opened; the slot to take now is always open.
     @Binding var isExpanded: Bool
     /// Called once a folded slot has finished opening.
@@ -52,8 +55,18 @@ struct DoseSlotCard: View {
 
     private var rows: some View {
         MedicationLineList(items: slot.items.map { item in
-            (item.dose.medication, item.state.scannedAt)
+            MedicationLineList.Item(medication: item.dose.medication, scannedAt: item.state.scannedAt,
+                                    takenAt: item.state.takenAt,
+                                    onToggleTaken: canTick ? onToggleTaken.map { toggle in { toggle(item) } } : nil)
         })
+    }
+
+    /// A dose can be ticked once its time of day has come: not while it is next or later.
+    private var canTick: Bool {
+        switch slot.status {
+        case .next, .later: false
+        case .now, .notScannedYet, .done: true
+        }
     }
 
     /// Opening reports back only once the card has finished growing: a scroll started
@@ -132,8 +145,8 @@ private struct SlotHeader: View {
             Text("Not scanned yet")
                 .font(.headline)
                 .foregroundStyle(Palette.late)
-        case .done(let time, _):
-            Label("Scanned \(time.shortTime)", systemImage: "checkmark.circle.fill")
+        case .done(let time, let taken):
+            Label("\(taken ? "Taken" : "Scanned") \(time.shortTime)", systemImage: "checkmark.circle.fill")
                 .font(.headline)
                 .foregroundStyle(Palette.ok)
         }
