@@ -246,3 +246,58 @@ struct MedicationListTests {
         if case .file(let name) = photo { name } else { "" }
     }
 }
+
+/// The "taken" marks the person sets, kept beside the scans.
+@MainActor
+struct TakenDoseStoreTests {
+    private let morning = TestClock.at(8)
+
+    private func makeStore(_ storage: any DoseLogStorage = InMemoryDoseLogStorage()) -> MedicationStore {
+        MedicationStore(medications: TestMedications.all, storage: storage, calendar: TestClock.calendar, now: morning)
+    }
+
+    @Test func takenDosesAreSavedBesideScansAndCanBeUnmarked() {
+        let storage = InMemoryDoseLogStorage()
+        let store = makeStore(storage)
+        let dose = store.doses(on: morning)[0]
+        let later = TestClock.at(8, 10)
+        store.recordScan(of: [dose], at: morning)
+        store.markTaken([dose], at: later)
+        #expect(storage.log == [dose.id: morning, "taken|" + dose.id: later])
+
+        let reloaded = makeStore(storage)
+        #expect(reloaded.todayList(now: later).first { $0.id == dose.id }?.state == .taken(at: later, scannedAt: morning))
+        // A pill of it is no longer OK to take.
+        if case .alreadyTaken(let taken, let time, _) = reloaded.check([dose.medication], now: later).verdicts[0] {
+            #expect(taken == dose && time == later)
+        } else {
+            Issue.record("A pill of a dose marked taken should not be OK to take")
+        }
+
+        // Unmarking leaves the scan.
+        reloaded.unmarkTaken([dose])
+        #expect(storage.log == [dose.id: morning])
+        #expect(reloaded.todayList(now: later).first { $0.id == dose.id }?.state == .scanned(at: morning))
+    }
+
+    @Test func aDoseCanBeMarkedTakenWithoutAScan() {
+        let store = makeStore()
+        let dose = store.doses(on: morning)[0]
+        store.markTaken([dose], at: morning)
+        #expect(store.todayList(now: morning).first { $0.id == dose.id }?.state == .taken(at: morning, scannedAt: nil))
+    }
+
+    @Test func resettingForgetsTakenMarksToo() {
+        let storage = InMemoryDoseLogStorage()
+        let store = MedicationStore(medications: TestMedications.all + [TestMedications.ondansetron], storage: storage,
+                                    calendar: TestClock.calendar, now: morning)
+        store.markTaken(store.doses(on: morning), at: morning)
+        store.setAsNeededTaken(of: TestMedications.ondansetron, on: morning, to: morning)
+        #expect(store.asNeededTaken(of: TestMedications.ondansetron, on: morning) == morning)
+
+        store.clearScans()
+        #expect(storage.log.isEmpty)
+        #expect(store.asNeededTaken(of: TestMedications.ondansetron, on: morning) == nil)
+        #expect(store.todayList(now: morning).allSatisfy { $0.state.isPending })
+    }
+}

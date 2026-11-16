@@ -6,8 +6,9 @@
 import Foundation
 import Observation
 
-/// The person's medications and which doses have been scanned, saved on the device.
-/// There is no "taken": the app only knows a dose's pill was scanned and judged OK to take.
+/// The person's medications, which doses have been scanned, and which the person marked
+/// taken, saved on the device. The two are kept apart: a scan only shows a dose's pill
+/// was judged OK to take, and "taken" is the person's own word for it.
 ///
 /// The list holds everything about each medication (`MedicationEntry`), including the
 /// photos of its tablet that scanned pills are compared with.
@@ -25,8 +26,20 @@ final class MedicationStore {
     private(set) var medications: [Medication]
 
     /// When each dose was scanned, keyed by `Dose.id`, e.g. "2026-10-14|metformin-500@8:00".
+    /// When a dose was marked taken is in the same record, under "taken|" and the same key.
     private var scanLog: [String: Date] {
         didSet { save() }
+    }
+
+    private static let takenPrefix = "taken|"
+
+    /// When each dose was marked taken, keyed by `Dose.id`.
+    private var takenLog: [String: Date] {
+        var taken: [String: Date] = [:]
+        for (key, time) in scanLog where key.hasPrefix(Self.takenPrefix) {
+            taken[String(key.dropFirst(Self.takenPrefix.count))] = time
+        }
+        return taken
     }
 
     @ObservationIgnored private let storage: any DoseLogStorage
@@ -81,10 +94,10 @@ final class MedicationStore {
     /// stands. A time of day from the day before or after that is due now comes too: at
     /// 11:30 PM the 12 AM dose is due, though it's tomorrow's.
     func todaySlots(now: Date) -> [DoseSlot] {
-        let today = DoseSchedule.slots(doses(on: now), scannedAt: scanLog, now: now)
+        let today = DoseSchedule.slots(doses(on: now), scannedAt: scanLog, takenAt: takenLog, now: now)
         func dueNow(dayOffset: Int) -> [DoseSlot] {
             guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now) else { return [] }
-            return DoseSchedule.slots(doses(on: day), scannedAt: scanLog, now: now).filter { $0.status == .now }
+            return DoseSchedule.slots(doses(on: day), scannedAt: scanLog, takenAt: takenLog, now: now).filter { $0.status == .now }
         }
         return dueNow(dayOffset: -1) + today + dueNow(dayOffset: 1)
     }
@@ -101,7 +114,7 @@ final class MedicationStore {
 
     /// Today's doses in display order (pending first, earliest on top) with their states.
     func todayList(now: Date) -> [ScheduledDose] {
-        DoseSchedule.ordered(doses(on: now), scannedAt: scanLog, now: now)
+        DoseSchedule.ordered(doses(on: now), scannedAt: scanLog, takenAt: takenLog, now: now)
     }
 
     // MARK: The medication list
@@ -170,6 +183,21 @@ final class MedicationStore {
         }
     }
 
+    /// Records that the person took these doses, at `time`. Whether each was scanned
+    /// stays as it was.
+    func markTaken(_ doses: [Dose], at time: Date = Date()) {
+        for dose in doses {
+            scanLog[Self.takenPrefix + dose.id] = time
+        }
+    }
+
+    /// Takes the "taken" mark off these doses. Their scans stay.
+    func unmarkTaken(_ doses: [Dose]) {
+        for dose in doses {
+            scanLog[Self.takenPrefix + dose.id] = nil
+        }
+    }
+
     /// When a medication taken only when needed was last scanned on a day; nil if it
     /// wasn't. It has no doses, so its scans are kept by day, under a key of their own in
     /// the same record as the doses': "2026-10-14|ondansetron-8@needed".
@@ -183,11 +211,24 @@ final class MedicationStore {
         scanLog[asNeededKey(medication, on: day)] = time
     }
 
+    /// When a medication taken only when needed was last marked taken on a day; nil if
+    /// it wasn't.
+    func asNeededTaken(of medication: Medication, on day: Date) -> Date? {
+        scanLog[Self.takenPrefix + asNeededKey(medication, on: day)]
+    }
+
+    /// Records that a medication taken only when needed was taken at `time` on `day`,
+    /// or, given nil, takes that mark off.
+    func setAsNeededTaken(of medication: Medication, on day: Date, to time: Date?) {
+        scanLog[Self.takenPrefix + asNeededKey(medication, on: day)] = time
+    }
+
     private func asNeededKey(_ medication: Medication, on day: Date) -> String {
         Dose.dayKey(day, calendar: calendar) + "|\(medication.id)@needed"
     }
 
-    /// Forgets every scan, so that no dose shows as scanned: for starting a demo over.
+    /// Forgets every scan and every "taken" mark, so that no dose shows as either: for
+    /// starting a demo over.
     /// The medication list stays.
     func clearScans() {
         scanLog = [:]
@@ -197,7 +238,7 @@ final class MedicationStore {
     func check(_ identities: [Medication?], now: Date = Date()) -> PillSetCheck {
         PillSetVerifier.check(identities, medications: medications,
                               doses: DoseSchedule.doses(for: medications, around: now, calendar: calendar),
-                              scannedAt: scanLog, now: now)
+                              scannedAt: scanLog, takenAt: takenLog, now: now)
     }
 
     // MARK: Storage

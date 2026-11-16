@@ -49,17 +49,32 @@ nonisolated enum DoseState: Hashable, Sendable {
     /// A scan found this dose's pill, OK to take, at this time. The app can't know
     /// whether it was swallowed, only that it was scanned.
     case scanned(at: Date)
+    /// The person said they took it, at this time: on Home, or after a scan. When its
+    /// pill was scanned too, that time is kept beside it.
+    case taken(at: Date, scannedAt: Date?)
 
-    var isScanned: Bool {
-        if case .scanned = self { return true }
-        return false
+    /// When this dose's pill was scanned, whether or not it was then marked taken.
+    var scannedAt: Date? {
+        switch self {
+        case .scanned(let time): time
+        case .taken(_, let scannedAt): scannedAt
+        case .upcoming, .due, .late: nil
+        }
     }
 
-    /// Doses not scanned yet: upcoming, due, or late.
+    /// When the person marked this dose taken; nil if they didn't.
+    var takenAt: Date? {
+        if case .taken(let time, _) = self { return time }
+        return nil
+    }
+
+    var isScanned: Bool { scannedAt != nil }
+
+    /// Doses neither scanned nor marked taken yet: upcoming, due, or late.
     var isPending: Bool {
         switch self {
         case .upcoming, .due, .late: return true
-        case .scanned: return false
+        case .scanned, .taken: return false
         }
     }
 }

@@ -12,6 +12,9 @@ nonisolated enum DoseDecision: Hashable, Sendable {
     /// The latest dose was already scanned, so this pill may have been taken already;
     /// `next` is the next dose, if any.
     case alreadyScanned(Dose, at: Date, next: Dose?)
+    /// The latest dose was marked taken, so this pill isn't for it; `next` is the next
+    /// dose, if any.
+    case alreadyTaken(Dose, at: Date, next: Dose?)
     /// The latest dose wasn't scanned and is more than `DoseSchedule.lateWindow` past:
     /// too late to take it now without asking. `next` is the next dose, if any.
     case missed(Dose, next: Dose?)

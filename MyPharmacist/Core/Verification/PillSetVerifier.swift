@@ -11,8 +11,9 @@ nonisolated enum PillSetVerifier {
     /// - Parameters:
     ///   - identities: What each pill was recognized as, or nil if it wasn't.
     ///   - doses: The doses around now (`DoseSchedule.doses(for:around:)`).
+    ///   - takenAt: When each dose was marked taken, keyed like `scannedAt`.
     static func check(_ identities: [Medication?], medications: [Medication], doses: [Dose],
-                      scannedAt: [String: Date], now: Date) -> PillSetCheck {
+                      scannedAt: [String: Date], takenAt: [String: Date] = [:], now: Date) -> PillSetCheck {
         var counted: Set<String> = []
         let verdicts = identities.map { medication -> PillVerdict in
             guard let medication else { return .unidentified }
@@ -20,13 +21,13 @@ nonisolated enum PillSetVerifier {
             guard counted.insert(medication.id).inserted else { return .extra(medication) }
             // Only the person can tell whether it's needed now.
             if medication.asNeeded != nil { return .asNeeded(medication) }
-            return PillVerdict(DoseSchedule.decision(for: medication, doses: doses, scannedAt: scannedAt, now: now))
+            return PillVerdict(DoseSchedule.decision(for: medication, doses: doses, scannedAt: scannedAt, takenAt: takenAt, now: now))
         }
 
         let missing = medications
             .filter { !counted.contains($0.id) }
             .compactMap { medication -> Dose? in
-                if case .take(let dose) = DoseSchedule.decision(for: medication, doses: doses, scannedAt: scannedAt, now: now) {
+                if case .take(let dose) = DoseSchedule.decision(for: medication, doses: doses, scannedAt: scannedAt, takenAt: takenAt, now: now) {
                     return dose
                 }
                 return nil

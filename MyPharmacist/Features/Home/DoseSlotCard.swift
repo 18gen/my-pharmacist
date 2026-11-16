@@ -52,7 +52,7 @@ struct DoseSlotCard: View {
 
     private var rows: some View {
         MedicationLineList(items: slot.items.map { item in
-            if case .scanned(let time) = item.state { (item.dose.medication, time) } else { (item.dose.medication, nil) }
+            (item.dose.medication, item.state.scannedAt)
         })
     }
 
@@ -132,7 +132,7 @@ private struct SlotHeader: View {
             Text("Not scanned yet")
                 .font(.headline)
                 .foregroundStyle(Palette.late)
-        case .done(let time):
+        case .done(let time, _):
             Label("Scanned \(time.shortTime)", systemImage: "checkmark.circle.fill")
                 .font(.headline)
                 .foregroundStyle(Palette.ok)

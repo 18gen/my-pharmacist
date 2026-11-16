@@ -173,5 +173,55 @@ struct DoseSlotTests {
         #expect(done[0].status == .done(at: TestClock.at(8, 20)))
         #expect(done[1].status == .next)
     }
-}
 
+    // MARK: Marked taken
+
+    @Test func aDoseMarkedTakenKeepsWhenItWasScanned() {
+        let dose = dose(TestMedications.metformin, at: 8)
+        let taken = TestClock.at(8, 10)
+        #expect(DoseSchedule.state(of: dose, scannedAt: [:], takenAt: [dose.id: taken], now: TestClock.at(9))
+                == .taken(at: taken, scannedAt: nil))
+        let scanned = TestClock.at(8, 5)
+        let both = DoseSchedule.state(of: dose, scannedAt: [dose.id: scanned], takenAt: [dose.id: taken], now: TestClock.at(9))
+        #expect(both == .taken(at: taken, scannedAt: scanned))
+        #expect(both.isScanned && !both.isPending)
+    }
+
+    @Test func aPillOfADoseMarkedTakenIsNotTakenAgain() {
+        let morning = dose(TestMedications.metformin, at: 8)
+        let taken = TestClock.at(8, 10)
+        // Never scanned, only ticked: still not OK to take a second time.
+        let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [:],
+                                             takenAt: [morning.id: taken], now: TestClock.at(9))
+        #expect(decision == .alreadyTaken(morning, at: taken, next: dose(TestMedications.metformin, at: 18)))
+    }
+
+    @Test func aDoseTakenBeforeItsTimeIsTheOneAPillIsJudgedAgainst() {
+        // 7:20: the 8:00 dose was scanned and taken early. A second pill is for that
+        // dose, not for yesterday's.
+        let morning = dose(TestMedications.metformin, at: 8)
+        let doses = DoseSchedule.doses(for: [TestMedications.metformin], around: TestClock.at(7, 20),
+                                         calendar: TestClock.calendar)
+        let taken = TestClock.at(7, 15)
+        #expect(DoseSchedule.decision(for: TestMedications.metformin, doses: doses, scannedAt: [:],
+                                      takenAt: [morning.id: taken], now: TestClock.at(7, 20))
+                == .alreadyTaken(morning, at: taken, next: dose(TestMedications.metformin, at: 18)))
+        #expect(DoseSchedule.decision(for: TestMedications.metformin, doses: doses, scannedAt: [morning.id: taken],
+                                      now: TestClock.at(7, 20))
+                == .alreadyScanned(morning, at: taken, next: dose(TestMedications.metformin, at: 18)))
+    }
+
+    @Test func aTimeOfDayIsTakenOnlyWhenEveryDoseInItIs() {
+        let lisinopril = dose(TestMedications.lisinopril, at: 8)
+        let metformin = dose(TestMedications.metformin, at: 8)
+        // One ticked, the other only scanned: done, but not "taken".
+        let mixed = DoseSchedule.slots(dayDoses, scannedAt: [metformin.id: TestClock.at(8, 20)],
+                                       takenAt: [lisinopril.id: TestClock.at(8, 5)], now: TestClock.at(12))
+        #expect(mixed[0].status == .done(at: TestClock.at(8, 20), taken: false))
+        // Both ticked, neither scanned.
+        let taken = DoseSchedule.slots(dayDoses, scannedAt: [:],
+                                       takenAt: [lisinopril.id: TestClock.at(8, 5), metformin.id: TestClock.at(8, 30)],
+                                       now: TestClock.at(12))
+        #expect(taken[0].status == .done(at: TestClock.at(8, 30), taken: true))
+    }
+}
