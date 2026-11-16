@@ -9,7 +9,8 @@ import SwiftUI
 /// colour, every pill grouped by what to do with it, most serious first, and one large
 /// button for what comes next. When a pill should go back, that button is "Scan again",
 /// so whatever is taken in the end has been checked as a whole, with a smaller "Close"
-/// beside it. Tapping a pill's row picks it out in the photo, for pills that look alike.
+/// beside it. When nothing goes back, it is "I took them", with "Not yet" beside it:
+/// a scan alone doesn't say the pills were taken. Tapping a pill's row picks it out in the photo, for pills that look alike.
 ///
 /// While the pills are still being checked, the same page stands ready: "Checking…" with
 /// a spinner where the summary and its icon will be, the photo with each pill in a
@@ -24,17 +25,23 @@ struct PillResultsView: View {
     }
 
     let content: Content
+    /// Closes the page, leaving the pills as scanned only.
     let onDone: () -> Void
     let onScanAgain: () -> Void
+    /// Marks the pills taken and closes the page.
+    let onTook: () -> Void
 
-    init(content: Content, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void) {
+    init(content: Content, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void,
+         onTook: @escaping () -> Void) {
         self.content = content
         self.onDone = onDone
         self.onScanAgain = onScanAgain
+        self.onTook = onTook
     }
 
-    init(result: PillScanResult, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void) {
-        self.init(content: .ready(result), onDone: onDone, onScanAgain: onScanAgain)
+    init(result: PillScanResult, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void,
+         onTook: @escaping () -> Void) {
+        self.init(content: .ready(result), onDone: onDone, onScanAgain: onScanAgain, onTook: onTook)
     }
 
     private static let fadeHeight: CGFloat = 24
@@ -164,20 +171,14 @@ struct PillResultsView: View {
     private var nextStep: some View {
         if let result {
             Group {
-                if result.needsRescan {
-                    // One row while both fit; at the largest text sizes, one above the other.
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 10) {
-                            scanAgainButton(result)
-                            closeButton
-                        }
-                        VStack(spacing: 8) {
-                            scanAgainButton(result)
-                            closeButton
-                        }
+                // One row while both fit; at the largest text sizes, one above the other.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        nextStepButtons(result)
                     }
-                } else {
-                    WideButton(title: "Done", systemImage: "checkmark", action: onDone)
+                    VStack(spacing: 8) {
+                        nextStepButtons(result)
+                    }
                 }
             }
             .transition(.opacity)
@@ -185,6 +186,22 @@ struct PillResultsView: View {
             // No buttons yet: the close button (drawn by the screen) sits here, and can
             // still stop the check.
             Color.clear.frame(height: ScanLayout.buttonSize)
+        }
+    }
+
+    /// "Scan again" and "Close" when a pill goes back or may be unchecked; otherwise
+    /// "I took them" and "Not yet".
+    @ViewBuilder
+    private func nextStepButtons(_ result: PillScanResult) -> some View {
+        if result.needsRescan {
+            scanAgainButton(result)
+            closeButton
+        } else {
+            WideButton(title: result.pills.count == 1 ? "I took it" : "I took them", systemImage: "checkmark",
+                       action: onTook)
+                .accessibilityHint("Marks \(result.pills.count == 1 ? "it" : "them") as taken")
+            SecondaryButton(title: "Not yet", action: onDone)
+                .accessibilityHint("Closes without marking anything as taken")
         }
     }
 

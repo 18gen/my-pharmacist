@@ -133,7 +133,11 @@ struct CameraLens: View {
             // One branch for both, so the page keeps its identity when the answer comes
             // and only its contents change.
             if let content = resultsContent {
-                PillResultsView(content: content, onDone: onDone, onScanAgain: scanAgain)
+                PillResultsView(content: content, onDone: onDone, onScanAgain: scanAgain,
+                                onTook: {
+                                    scan.markResultTaken()
+                                    onDone()
+                                })
                     .padding(.horizontal, 6)
                     .padding(.bottom, ScanLayout.pageBottomPadding)
                     .transition(.opacity)

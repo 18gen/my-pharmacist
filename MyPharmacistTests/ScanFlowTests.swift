@@ -106,6 +106,36 @@ struct ScanFlowTests {
         }
     }
 
+    @Test func scannedPillsAreTakenOnlyWhenThePersonSaysSo() throws {
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
+        // Scanned, and nothing more: "Not yet" leaves it there.
+        #expect(store.todayList(now: morning).allSatisfy { $0.state.takenAt == nil })
+
+        let later = morning.addingTimeInterval(120)
+        flow.markResultTaken(now: later)
+        let dose = try #require(scannedDoses.first)
+        #expect(store.todayList(now: later).first { $0.id == dose.id }?.state == .taken(at: later, scannedAt: morning))
+        flow.setOpen(false)
+
+        // Its pill in a later photo isn't OK to take again.
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: later.addingTimeInterval(600))
+        let result = try #require(result)
+        #expect(result.pills[0].verdict.level == .dontTake)
+        #expect(result.pills[0].verdict.reason == "Marked taken at \(later.shortTime).")
+    }
+
+    @Test func aPillTakenOnlyWhenNeededIsMarkedTakenWithTheRest() {
+        let store = MedicationStore(medications: TestMedications.all + [TestMedications.ondansetron], storage: InMemoryDoseLogStorage())
+        let flow = ScanFlow(store: store)
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.ondansetron), pill(TestMedications.ondansetron, x: 0.5)], photo: testImage(), now: morning)
+        #expect(store.asNeededTaken(of: TestMedications.ondansetron, on: morning) == nil)
+        flow.markResultTaken(now: morning)
+        #expect(store.asNeededTaken(of: TestMedications.ondansetron, on: morning) == morning)
+    }
+
     @Test func aPillTakenOnlyWhenNeededIsMarkedAsScannedToday() {
         let store = MedicationStore(medications: TestMedications.all + [TestMedications.ondansetron], storage: InMemoryDoseLogStorage())
         let flow = ScanFlow(store: store)

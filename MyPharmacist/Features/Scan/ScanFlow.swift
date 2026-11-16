@@ -39,6 +39,15 @@ struct PillScanResult {
     var dosesToTake: [Dose] {
         pills.compactMap { if case .take(let dose) = $0.verdict { dose } else { nil } }
     }
+
+    /// The medications taken only when needed that are in the photo, each once.
+    var asNeededMedications: [Medication] {
+        var seen: Set<String> = []
+        return pills.compactMap { pill -> Medication? in
+            guard case .asNeeded(let medication) = pill.verdict, seen.insert(medication.id).inserted else { return nil }
+            return medication
+        }
+    }
 }
 
 /// One scanning session, from opening the camera to closing it. There is no shutter:
@@ -51,7 +60,8 @@ struct PillScanResult {
 /// 4. on "Yes", show the results on a page of their own; on "No", take another photo.
 /// A medication taken only when needed is recorded as scanned today in the same way.
 /// The doses whose pills are OK to take are recorded as scanned as soon as the results
-/// show; there is no "taken" to confirm. A retake in the same session replaces that record.
+/// show; a retake in the same session replaces that record. Scanned isn't taken: when
+/// nothing has to go back, the results ask, and only "I took them" marks them taken.
 @Observable
 final class ScanFlow {
     enum Phase {
@@ -323,6 +333,16 @@ final class ScanFlow {
             }
         }
         phase = .results(result)
+    }
+
+    /// The person says they took what the results showed: the doses that were OK to take
+    /// and the medications taken only when needed are marked taken. Their scans stay.
+    func markResultTaken(now: Date = Date()) {
+        guard case .results(let result) = phase else { return }
+        store.markTaken(result.dosesToTake, at: now)
+        for medication in result.asNeededMedications {
+            store.setAsNeededTaken(of: medication, on: now, to: now)
+        }
     }
 
     /// Back to the live camera for another photo: from the results, from a photo that
