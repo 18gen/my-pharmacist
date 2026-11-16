@@ -90,6 +90,65 @@ extension PillVerdict {
     }
 }
 
+extension PillVerdict {
+    /// More about the pill's time, for the opened row: when its dose can be taken, and
+    /// when the next one is. The hours come from the schedule's own rule
+    /// (`DoseSchedule.earlyWindow` and `lateWindow`), so the words can't drift from it.
+    func timeDetails(calendar: Calendar = .current) -> [String] {
+        func opens(_ dose: Dose) -> String { dose.scheduled.addingTimeInterval(-DoseSchedule.earlyWindow).shortTime }
+        func closes(_ dose: Dose) -> String { dose.scheduled.addingTimeInterval(DoseSchedule.lateWindow).shortTime }
+        func nextLine(_ next: Dose?, after dose: Dose) -> [String] {
+            guard let next else { return [] }
+            let sameDay = calendar.isDate(next.scheduled, inSameDayAs: dose.scheduled)
+            return ["Next dose at \(next.scheduled.shortTime)\(sameDay ? "" : " the next day")."]
+        }
+        switch self {
+        case .take(let dose):
+            return ["Can be taken from \(opens(dose)) to \(closes(dose))."]
+        case .tooEarly(let next):
+            return ["Can be taken from \(opens(next))."]
+        case .missed(let dose, let next):
+            return ["It could be taken until \(closes(dose))."] + nextLine(next, after: dose)
+        case .alreadyScanned(let dose, _, let next), .alreadyTaken(let dose, _, let next):
+            return nextLine(next, after: dose)
+        case .notScheduledToday, .extra, .unidentified, .asNeeded:
+            return []
+        }
+    }
+
+    /// Whether the opened row offers to call the pharmacy: for a pill the app can't
+    /// name, and for a dose that is too late, which both say to ask.
+    var suggestsCalling: Bool {
+        switch self {
+        case .unidentified, .missed: true
+        default: false
+        }
+    }
+}
+
+/// What an opened row of the results adds under the pill's name and reason.
+struct ResultDetail {
+    /// How to take it, when the medication has directions.
+    var directions: String?
+    /// When its dose can be taken, and when the next one is.
+    var times: [String] = []
+    /// What to open to call the pharmacy, when the pill is one to ask about.
+    var callURL: URL?
+
+    var isEmpty: Bool { directions == nil && times.isEmpty && callURL == nil }
+}
+
+extension ScannedPill {
+    /// - Parameter pharmacyCall: What to open to call the person's pharmacy, if they
+    ///   saved its number.
+    func detail(pharmacyCall: URL?) -> ResultDetail {
+        let directions = medication?.directions ?? ""
+        return ResultDetail(directions: directions.isEmpty ? nil : directions,
+                            times: verdict.timeDetails(),
+                            callURL: verdict.suggestsCalling ? pharmacyCall : nil)
+    }
+}
+
 /// One line of the results: a pill from the photo, or a warning that the photo may hold
 /// a pill that wasn't checked.
 enum ResultLine: Identifiable {
@@ -98,10 +157,13 @@ enum ResultLine: Identifiable {
 
     var id: String {
         switch self {
-        case .pill(let pill): "pill-\(pill.id)"
+        case .pill(let pill): Self.pillID(pill.id)
         case .uncheckedPill: "unchecked-pill"
         }
     }
+
+    /// The id of the line for the pill with this number.
+    static func pillID(_ number: Int) -> String { "pill-\(number)" }
 
     var level: ResultLevel {
         switch self {

@@ -8,7 +8,9 @@ import SwiftUI
 import UIKit
 
 /// Debug builds only, for the Simulator, which has no camera. Nothing is recorded.
-/// - `-demoScan` opens straight into the results page for a made-up photo.
+/// - `-demoScan` opens straight into the results page for a made-up photo; with
+///   `-demoOpenRow <n>`, pill n's row is open. `-demoScanOK` is the results page for one
+///   pill that is OK to take.
 /// - `-demoFind` runs a made-up photo of pills on a palm-coloured surface through the
 ///   real steps instead: finding the pills (by colour alone, as Vision's subject lifting
 ///   doesn't run in the Simulator), the question whether every pill is circled, and
@@ -78,7 +80,15 @@ enum DemoScan {
     static var editsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacyEditor") }
     private static var checks: Bool { ProcessInfo.processInfo.arguments.contains("-demoChecking") }
     private static var opensAndCloses: Bool { ProcessInfo.processInfo.arguments.contains("-demoOpenClose") }
-    private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") }
+    private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") || scansOK }
+    static var scansOK: Bool { ProcessInfo.processInfo.arguments.contains("-demoScanOK") }
+
+    /// The number after `-demoOpenRow`: the pill whose row of the results starts open.
+    static var openRow: Int? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "-demoOpenRow"), arguments.indices.contains(index + 1) else { return nil }
+        return Int(arguments[index + 1])
+    }
     private static var findsPills: Bool { ProcessInfo.processInfo.arguments.contains("-demoFind") }
     private static var retakes: Bool { ProcessInfo.processInfo.arguments.contains("-demoRetake") }
 
@@ -136,6 +146,13 @@ enum DemoScan {
     static func show(in flow: ScanFlow) {
         let sample = samplePills()
         flow.setOpen(true)
+        if scansOK {
+            // One capecitabine, due now in `takenStore`, where the photo's first pill is.
+            let pill = AnalyzedPill(box: sample.pills[0].box, crop: pillImage("capecitabine-500-1", side: 240).cgImage!,
+                                    medicationID: "capecitabine-500")
+            flow.showResults([pill], photo: sample.photo, records: false)
+            return
+        }
         flow.showResults(sample.pills, photo: sample.photo, records: false)
     }
 

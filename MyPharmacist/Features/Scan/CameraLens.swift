@@ -24,6 +24,8 @@ struct CameraLens: View {
     let openSize: CGSize
     /// Closes the scan from the results page.
     var onDone: () -> Void = {}
+    /// What to open to call the person's pharmacy from the results; nil with no number.
+    var pharmacyCall: URL? = nil
     /// The button's colour while closed: blue when something is due now.
     var closedColor: Color = Palette.scanButton
 
@@ -137,7 +139,8 @@ struct CameraLens: View {
                                 onTook: {
                                     scan.markResultTaken()
                                     onDone()
-                                })
+                                },
+                                pharmacyCall: pharmacyCall)
                     .padding(.horizontal, 6)
                     .padding(.bottom, ScanLayout.pageBottomPadding)
                     .transition(.opacity)

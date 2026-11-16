@@ -10,7 +10,9 @@ import SwiftUI
 /// button for what comes next. When a pill should go back, that button is "Scan again",
 /// so whatever is taken in the end has been checked as a whole, with a smaller "Close"
 /// beside it. When nothing goes back, it is "I took them", with "Not yet" beside it:
-/// a scan alone doesn't say the pills were taken. Tapping a pill's row picks it out in the photo, for pills that look alike.
+/// a scan alone doesn't say the pills were taken. Tapping a pill's row picks it out in
+/// the photo, for pills that look alike, and opens it to show its directions, its times
+/// and, for a pill to ask about, a button to call the pharmacy.
 ///
 /// While the pills are still being checked, the same page stands ready: "Checking…" with
 /// a spinner where the summary and its icon will be, the photo with each pill in a
@@ -30,10 +32,13 @@ struct PillResultsView: View {
     let onScanAgain: () -> Void
     /// Marks the pills taken and closes the page.
     let onTook: () -> Void
+    /// What to open to call the person's pharmacy; nil when no number is saved.
+    var pharmacyCall: URL? = nil
 
     init(content: Content, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void,
-         onTook: @escaping () -> Void) {
+         onTook: @escaping () -> Void, pharmacyCall: URL? = nil) {
         self.content = content
+        self.pharmacyCall = pharmacyCall
         self.onDone = onDone
         self.onScanAgain = onScanAgain
         self.onTook = onTook
@@ -47,7 +52,17 @@ struct PillResultsView: View {
     private static let fadeHeight: CGFloat = 24
     static let checkingText = "Checking…"
 
-    @State private var highlighted: Int?
+    /// The pill picked out in the photo, whose row is open.
+    @State private var highlighted: Int? = Self.startsOpen
+
+    /// For screenshots: the row a debug launch asks to have open.
+    private static var startsOpen: Int? {
+        #if DEBUG
+        DemoScan.openRow
+        #else
+        nil
+        #endif
+    }
 
     private var result: PillScanResult? {
         if case .ready(let result) = content { result } else { nil }
@@ -133,13 +148,14 @@ struct PillResultsView: View {
     /// Every pill grouped by what to do with it, or placeholders while checking. Both
     /// start at the same place, one over the other while they swap.
     private var list: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             ZStack(alignment: .topLeading) {
                 switch content {
                 case .ready(let result):
                     VStack(alignment: .leading, spacing: 24) {
                         ForEach(result.groups) { group in
-                            ResultSection(group: group, highlighted: $highlighted)
+                            ResultSection(group: group, pharmacyCall: pharmacyCall, highlighted: $highlighted)
                         }
                     }
                     .transition(.opacity)
@@ -164,6 +180,14 @@ struct PillResultsView: View {
                 LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
                     .frame(height: Self.fadeHeight)
             }
+        }
+        // A row opened near the bottom is brought fully into view, clear of the fade.
+        .onChange(of: highlighted) { _, opened in
+            guard let opened else { return }
+            withAnimation(.easeInOut(duration: 0.25)) {
+                proxy.scrollTo(ResultLine.pillID(opened), anchor: nil)
+            }
+        }
         }
     }
 
@@ -288,6 +312,7 @@ private struct ResultSkeleton: View {
 /// One level's heading and its rows.
 private struct ResultSection: View {
     let group: ResultGroup
+    let pharmacyCall: URL?
     @Binding var highlighted: Int?
 
     var body: some View {
@@ -298,13 +323,13 @@ private struct ResultSection: View {
                 .accessibilityAddTraits(.isHeader)
             ForEach(group.lines) { line in
                 if case .pill(let pill) = line {
-                    Button {
-                        highlighted = highlighted == pill.id ? nil : pill.id
-                    } label: {
-                        ResultRow(line: line, isHighlighted: highlighted == pill.id)
+                    ResultRow(line: line, isHighlighted: highlighted == pill.id,
+                              detail: pill.detail(pharmacyCall: pharmacyCall)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            highlighted = highlighted == pill.id ? nil : pill.id
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Shows this pill in the photo")
+                    .id(line.id)
                 } else {
                     ResultRow(line: line)
                 }

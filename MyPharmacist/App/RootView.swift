@@ -47,7 +47,7 @@ struct RootView: View {
     /// memory instead, leaving the saved list alone.
     static func savedStore() -> MedicationStore {
         #if DEBUG
-        if DemoScan.showsTaken { return DemoScan.takenStore() }
+        if DemoScan.showsTaken || DemoScan.scansOK { return DemoScan.takenStore() }
         if DemoScan.isRequested {
             return MedicationStore(entries: DemoScan.startsEmpty ? [] : SampleMedications.demoList, storage: InMemoryDoseLogStorage())
         }
@@ -213,6 +213,7 @@ struct RootView: View {
                 openSize: scan.phase.step.isResultsPage ? ScanLayout.resultsPageSize(in: size, bottomInset: bottomInset)
                                                       : ScanLayout.openLensSize(in: size, largeText: largeText),
                 onDone: { setScanning(false) },
+                pharmacyCall: pharmacy.pharmacy.callURL,
                 closedColor: isDue ? Palette.due : Palette.scanButton
             )
             .animation(.easeInOut(duration: 0.3), value: isDue)
