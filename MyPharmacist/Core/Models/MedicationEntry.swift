@@ -27,10 +27,12 @@ nonisolated struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
     var isAsNeeded: Bool
     /// When to take it, for one taken only when needed: "Only when you feel sick".
     var asNeededNote: String
+    /// How to take it, as on the label: "With water, after a meal."
+    var directions: String
 
     init(id: String = UUID().uuidString, name: String = "", strength: String = "", purpose: String = "",
          appearance: String = "", photos: [MedicationPhoto] = [], doseTimes: [DoseTime] = [DoseTime(8)],
-         isAsNeeded: Bool = false, asNeededNote: String = "") {
+         isAsNeeded: Bool = false, asNeededNote: String = "", directions: String = "") {
         self.id = id
         self.name = name
         self.strength = strength
@@ -40,6 +42,22 @@ nonisolated struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
         self.doseTimes = doseTimes
         self.isAsNeeded = isAsNeeded
         self.asNeededNote = asNeededNote
+        self.directions = directions
+    }
+
+    /// A list saved before medications had directions has no such key: read if there.
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try values.decode(String.self, forKey: .id),
+                  name: try values.decode(String.self, forKey: .name),
+                  strength: try values.decode(String.self, forKey: .strength),
+                  purpose: try values.decode(String.self, forKey: .purpose),
+                  appearance: try values.decode(String.self, forKey: .appearance),
+                  photos: try values.decode([MedicationPhoto].self, forKey: .photos),
+                  doseTimes: try values.decode([DoseTime].self, forKey: .doseTimes),
+                  isAsNeeded: try values.decode(Bool.self, forKey: .isAsNeeded),
+                  asNeededNote: try values.decode(String.self, forKey: .asNeededNote),
+                  directions: try values.decodeIfPresent(String.self, forKey: .directions) ?? "")
     }
 
     /// The entry for a medication described in code: the samples, and tests.
@@ -47,7 +65,8 @@ nonisolated struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
         self.init(id: medication.id, name: medication.name, strength: medication.strength,
                   purpose: medication.purpose, appearance: medication.appearance, photos: medication.photos,
                   doseTimes: medication.doseTimes.isEmpty ? [DoseTime(8)] : medication.doseTimes,
-                  isAsNeeded: medication.asNeeded != nil, asNeededNote: medication.asNeeded ?? "")
+                  isAsNeeded: medication.asNeeded != nil, asNeededNote: medication.asNeeded ?? "",
+                  directions: medication.directions)
     }
 
     /// The times in order, each once: two doses at the same time would be the same dose.
@@ -68,6 +87,7 @@ nonisolated struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
         entry.strength = strength.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.purpose = purpose.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.asNeededNote = asNeededNote.trimmingCharacters(in: .whitespacesAndNewlines)
+        entry.directions = directions.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.doseTimes = orderedTimes
         return entry
     }
@@ -83,7 +103,8 @@ nonisolated struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
             appearance: appearance,
             photos: photos,
             purpose: purpose,
-            asNeeded: isAsNeeded ? (asNeededNote.isEmpty ? Self.defaultAsNeeded : asNeededNote) : nil
+            asNeeded: isAsNeeded ? (asNeededNote.isEmpty ? Self.defaultAsNeeded : asNeededNote) : nil,
+            directions: directions
         )
     }
 }

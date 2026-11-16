@@ -7,7 +7,8 @@ import Foundation
 
 /// Sample medications with built-in photos, for trying the app without one's own pills:
 /// an oncology patient's tablets and the supportive medications that often come with
-/// them. The schedules are examples only, not advice.
+/// them. The schedules and directions are examples only, not advice: the directions are
+/// the sample wording on the keychain cards.
 ///
 /// The photos are from the ePillID benchmark and the NLM C3PI image set (NIH NLM), so
 /// the printed demo pill sheet matches them. Strengths, imprints and sizes checked
@@ -78,7 +79,8 @@ nonisolated enum SampleMedications {
             appearance: "Yellow oval · 131",                     // NDC 62756-131-01
             photos: photos("ondansetron-8", count: 4),
             purpose: "For nausea",
-            asNeeded: "Only when you feel sick"
+            asNeeded: "Only when you feel sick",
+            directions: "With water, with or without food. Swallow whole."
         ),
     ]
 
@@ -91,7 +93,8 @@ nonisolated enum SampleMedications {
             doseTimes: [DoseTime(8), DoseTime(20)],
             appearance: "Pink oval · XELODA / 500",              // NDC 0004-1101-50 (Xeloda)
             photos: photos("capecitabine-500", count: 4),
-            purpose: "Cancer treatment"
+            purpose: "Cancer treatment",
+            directions: "With water, within 30 minutes after a meal. Swallow whole."
         ),
         Medication(
             id: "dexamethasone-4",
@@ -100,7 +103,8 @@ nonisolated enum SampleMedications {
             doseTimes: [DoseTime(8)],
             appearance: "Green round · 54 892",                  // NDC 0054-4184-25
             photos: photos("dexamethasone-4", count: 4),
-            purpose: "Reduces swelling"
+            purpose: "Reduces swelling",
+            directions: "With food or milk, and a glass of water."
         ),
         Medication(
             id: "allopurinol-300",
@@ -109,7 +113,8 @@ nonisolated enum SampleMedications {
             doseTimes: [DoseTime(8)],
             appearance: "Orange round · 5544 / DAN DAN",         // NDC 0591-5544-01
             photos: photos("allopurinol-300", count: 4),
-            purpose: "Lowers uric acid"
+            purpose: "Lowers uric acid",
+            directions: "With water, after a meal. Drink plenty of water during the day."
         ),
     ]
 

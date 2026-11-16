@@ -126,6 +126,17 @@ struct MedicationEditor: View {
             field("Name", text: $draft.name, prompt: "For example, Capecitabine")
             field("Strength", text: $draft.strength, prompt: "For example, 500 mg")
             field("What it's for", text: $draft.purpose, prompt: "For example, Cancer treatment")
+            // As long as the label's: it wraps onto more lines as it is typed.
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Directions")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Palette.textSecondary)
+                TextField("Directions", text: $draft.directions,
+                          prompt: Text("For example, With water, after a meal"), axis: .vertical)
+                    .font(.title3)
+                    .lineLimit(1...4)
+                    .padding(.vertical, 6)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()

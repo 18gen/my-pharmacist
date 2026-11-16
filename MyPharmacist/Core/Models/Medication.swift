@@ -24,6 +24,9 @@ nonisolated struct Medication: Identifiable, Hashable, Sendable {
     /// "Only when you feel sick". Such a medication has no dose times. Nil when it is
     /// taken on a schedule.
     var asNeeded: String? = nil
+    /// How to take it, as on the label: "With water, after a meal." Empty when none
+    /// was given.
+    var directions: String = ""
 
     var displayName: String { "\(name) \(strength)" }
 }

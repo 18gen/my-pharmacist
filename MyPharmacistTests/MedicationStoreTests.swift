@@ -301,3 +301,24 @@ struct TakenDoseStoreTests {
         #expect(store.todayList(now: morning).allSatisfy { $0.state.isPending })
     }
 }
+
+struct MedicationEntryTests {
+    @Test func anEntrySavedBeforeDirectionsStillLoads() throws {
+        let saved = """
+        {"id":"x","name":"Capecitabine","strength":"500 mg","purpose":"Cancer treatment","appearance":"",
+         "photos":[],"doseTimes":[],"isAsNeeded":true,"asNeededNote":""}
+        """
+        let entry = try JSONDecoder().decode(MedicationEntry.self, from: Data(saved.utf8))
+        #expect(entry.name == "Capecitabine" && entry.directions.isEmpty)
+    }
+
+    @Test func directionsAreSavedAndReachTheMedication() throws {
+        let entry = MedicationEntry(name: "Capecitabine", directions: "  With water, after a meal.  ").tidied
+        let loaded = try JSONDecoder().decode(MedicationEntry.self, from: JSONEncoder().encode(entry))
+        #expect(loaded.medication.directions == "With water, after a meal.")
+    }
+
+    @Test func theSampleMedicationsHaveDirections() {
+        #expect(SampleMedications.sampleList.allSatisfy { !$0.directions.isEmpty })
+    }
+}
