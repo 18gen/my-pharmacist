@@ -27,7 +27,8 @@ struct HomeView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Folded times of day the person has opened, each with the status it was opened in:
-    /// when a slot moves on (next → now → scanned) it goes back to how that status shows.
+    /// when a slot moves on (next → now → done) it goes back to how that status shows,
+    /// except that the card to take now stays open once its last dose is ticked.
     @State private var openSlots: Set<String> = []
     @State private var showsWhenNeeded = false
     /// Scroll target for the "When needed" card.
@@ -62,6 +63,11 @@ struct HomeView: View {
                                              isExpanded: isOpen(slot),
                                              onOpened: { scrollIntoView(slot.id, proxy) })
                                     .id(slot.id)
+                                    // Ticking the last dose of the time of day to take now
+                                    // leaves its card open: it doesn't fold away under the finger.
+                                    .onChange(of: slot.status) { old, new in
+                                        if old == .now, case .done = new { openSlots.insert(openKey(slot)) }
+                                    }
                             }
                             if !asNeeded.isEmpty {
                                 WhenNeededCard(items: asNeeded.map { whenNeededItem($0, on: context.date) },
@@ -143,8 +149,15 @@ struct HomeView: View {
             .accessibilityHidden(true)
     }
 
+    /// What a slot's open state is remembered by: its time and the kind of status it has,
+    /// so a card done at 12:31 and again at 12:40 is the same open card.
+    private func openKey(_ slot: DoseSlot) -> String {
+        let kind = if case .done = slot.status { "done" } else { "\(slot.status)" }
+        return "\(slot.scheduled.timeIntervalSince1970) \(kind)"
+    }
+
     private func isOpen(_ slot: DoseSlot) -> Binding<Bool> {
-        let key = "\(slot.scheduled.timeIntervalSince1970) \(slot.status)"
+        let key = openKey(slot)
         return Binding(
             get: { openSlots.contains(key) },
             set: { open in
