@@ -9,8 +9,8 @@ import SwiftUI
 /// colour, every pill grouped by what to do with it, most serious first, and one large
 /// button for what comes next. When a pill should go back, that button is "Scan again",
 /// so whatever is taken in the end has been checked as a whole, with a smaller "Close"
-/// beside it. When nothing goes back, it is "I took them", with "Not yet" beside it:
-/// a scan alone doesn't say the pills were taken. Tapping a pill's row picks it out in
+/// beside it. When nothing goes back, it is "Done": the pills OK to take were already
+/// marked taken when the page opened. Tapping a pill's row picks it out in
 /// the photo, for pills that look alike, and opens it to show its directions, its times
 /// and, for a pill to ask about, a button to call the pharmacy.
 ///
@@ -27,26 +27,21 @@ struct PillResultsView: View {
     }
 
     let content: Content
-    /// Closes the page, leaving the pills as scanned only.
     let onDone: () -> Void
     let onScanAgain: () -> Void
-    /// Marks the pills taken and closes the page.
-    let onTook: () -> Void
     /// What to open to call the person's pharmacy; nil when no number is saved.
     var pharmacyCall: URL? = nil
 
     init(content: Content, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void,
-         onTook: @escaping () -> Void, pharmacyCall: URL? = nil) {
+         pharmacyCall: URL? = nil) {
         self.content = content
         self.pharmacyCall = pharmacyCall
         self.onDone = onDone
         self.onScanAgain = onScanAgain
-        self.onTook = onTook
     }
 
-    init(result: PillScanResult, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void,
-         onTook: @escaping () -> Void) {
-        self.init(content: .ready(result), onDone: onDone, onScanAgain: onScanAgain, onTook: onTook)
+    init(result: PillScanResult, onDone: @escaping () -> Void, onScanAgain: @escaping () -> Void) {
+        self.init(content: .ready(result), onDone: onDone, onScanAgain: onScanAgain)
     }
 
     private static let fadeHeight: CGFloat = 24
@@ -213,19 +208,14 @@ struct PillResultsView: View {
         }
     }
 
-    /// "Scan again" and "Close" when a pill goes back or may be unchecked; otherwise
-    /// "I took them" and "Not yet".
+    /// "Scan again" and "Close" when a pill goes back or may be unchecked; otherwise "Done".
     @ViewBuilder
     private func nextStepButtons(_ result: PillScanResult) -> some View {
         if result.needsRescan {
             scanAgainButton(result)
             closeButton
         } else {
-            WideButton(title: result.pills.count == 1 ? "I took it" : "I took them", systemImage: "checkmark",
-                       action: onTook)
-                .accessibilityHint("Marks \(result.pills.count == 1 ? "it" : "them") as taken")
-            SecondaryButton(title: "Not yet", action: onDone)
-                .accessibilityHint("Closes without marking anything as taken")
+            WideButton(title: "Done", systemImage: "checkmark", action: onDone)
         }
     }
 

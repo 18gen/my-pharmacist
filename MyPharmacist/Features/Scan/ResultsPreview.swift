@@ -40,7 +40,7 @@ struct ResultsPreviewPage: View {
     }
 
     var body: some View {
-        PillResultsView(content: content, onDone: {}, onScanAgain: {}, onTook: {})
+        PillResultsView(content: content, onDone: {}, onScanAgain: {})
             .padding(.horizontal, 6)
             .padding(.bottom, ScanLayout.pageBottomPadding)
             .padding(.horizontal, ScanLayout.lensEdgeGap)

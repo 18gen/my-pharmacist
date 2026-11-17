@@ -89,7 +89,7 @@ struct ScanFlowTests {
         #expect(scannedDoses.map(\.medication) == [TestMedications.metformin])
     }
 
-    @Test func aPillScannedInAnEarlierSessionMayHaveBeenTaken() throws {
+    @Test func aPillScannedInAnEarlierSessionIsAlreadyTaken() throws {
         flow.setOpen(true)
         flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
         flow.setOpen(false)
@@ -99,41 +99,40 @@ struct ScanFlowTests {
         flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: later)
         let result = try #require(result)
         #expect(result.pills[0].verdict.level == .dontTake)
-        if case .alreadyScanned(_, let time, _) = result.pills[0].verdict {
-            #expect(time == morning)
-        } else {
-            Issue.record("Expected the pill to be already scanned, got \(result.pills[0].verdict)")
-        }
+        #expect(result.pills[0].verdict.reason == "Marked taken at \(morning.shortTime).")
     }
 
-    @Test func scannedPillsAreTakenOnlyWhenThePersonSaysSo() throws {
+    @Test func aScannedPillOKToTakeIsTaken() throws {
         flow.setOpen(true)
-        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
-        // Scanned, and nothing more: "Not yet" leaves it there.
-        #expect(store.todayList(now: morning).allSatisfy { $0.state.takenAt == nil })
-
-        let later = morning.addingTimeInterval(120)
-        flow.markResultTaken(now: later)
+        // The unknown pill has to go back; metformin is still ticked.
+        flow.showResults([pill(TestMedications.metformin), pill(nil, x: 0.5)], photo: testImage(), now: morning)
         let dose = try #require(scannedDoses.first)
-        #expect(store.todayList(now: later).first { $0.id == dose.id }?.state == .taken(at: later, scannedAt: morning))
+        #expect(store.todayList(now: morning).first { $0.id == dose.id }?.state == .taken(at: morning, scannedAt: morning))
+        // Closing and opening again keeps it.
         flow.setOpen(false)
-
-        // Its pill in a later photo isn't OK to take again.
         flow.setOpen(true)
-        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: later.addingTimeInterval(600))
-        let result = try #require(result)
-        #expect(result.pills[0].verdict.level == .dontTake)
-        #expect(result.pills[0].verdict.reason == "Marked taken at \(later.shortTime).")
+        #expect(store.todayList(now: morning).first { $0.id == dose.id }?.state.takenAt == morning)
+    }
+
+    @Test func aRetakeTakesOffTheTicksOfThePhotoItReplaces() {
+        flow.setOpen(true)
+        flow.showResults([pill(TestMedications.lisinopril), pill(nil, x: 0.5)], photo: testImage(), now: morning)
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning.addingTimeInterval(60))
+        let list = store.todayList(now: morning)
+        #expect(list.filter { $0.state.takenAt != nil }.map(\.dose.medication) == [TestMedications.metformin])
     }
 
     @Test func aPillTakenOnlyWhenNeededIsMarkedTakenWithTheRest() {
         let store = MedicationStore(medications: TestMedications.all + [TestMedications.ondansetron], storage: InMemoryDoseLogStorage())
         let flow = ScanFlow(store: store)
+        let earlier = morning.addingTimeInterval(-3600)
+        store.setAsNeededTaken(of: TestMedications.ondansetron, on: morning, to: earlier)
         flow.setOpen(true)
         flow.showResults([pill(TestMedications.ondansetron), pill(TestMedications.ondansetron, x: 0.5)], photo: testImage(), now: morning)
-        #expect(store.asNeededTaken(of: TestMedications.ondansetron, on: morning) == nil)
-        flow.markResultTaken(now: morning)
         #expect(store.asNeededTaken(of: TestMedications.ondansetron, on: morning) == morning)
+        // A retake without it puts back when it was taken before.
+        flow.showResults([pill(TestMedications.metformin)], photo: testImage(), now: morning)
+        #expect(store.asNeededTaken(of: TestMedications.ondansetron, on: morning) == earlier)
     }
 
     @Test func aPillTakenOnlyWhenNeededIsMarkedAsScannedToday() {

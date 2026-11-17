@@ -14,7 +14,7 @@ struct ResultsSkeletonLayoutTests {
     private let size = CGSize(width: 373, height: 760)
 
     private func render(_ content: PillResultsView.Content) throws -> CGImage {
-        let view = PillResultsView(content: content, onDone: {}, onScanAgain: {}, onTook: {})
+        let view = PillResultsView(content: content, onDone: {}, onScanAgain: {})
             .frame(width: size.width, height: size.height)
             .background(Color.white)
         let renderer = ImageRenderer(content: view)

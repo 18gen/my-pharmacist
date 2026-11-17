@@ -27,7 +27,7 @@ import UIKit
 ///   opens the pharmacy's card over it and `-demoPharmacyEditor` the same card on its
 ///   fields. `-demoCard <code>` shows what a keychain card with that code would do,
 ///   and `-demoEmpty` is Home with no medications yet. `-demoTaken` is Home with four
-///   medications due now: one untouched, one scanned, one ticked taken, one both.
+///   medications due now: one untouched, one ticked by hand, two scanned (and so ticked).
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
@@ -53,8 +53,8 @@ enum DemoScan {
     /// Home with no medications yet.
     static var showsTaken: Bool { ProcessInfo.processInfo.arguments.contains("-demoTaken") }
 
-    /// Four medications due this minute, in memory: one untouched, one scanned, one
-    /// ticked taken, one scanned and then ticked.
+    /// Four medications due this minute, in memory: one untouched, one ticked by hand,
+    /// and two scanned four minutes ago, which ticked them.
     static func takenStore(now: Date = Date(), calendar: Calendar = .current) -> MedicationStore {
         let parts = calendar.dateComponents([.hour, .minute], from: now)
         let time = DoseTime(parts.hour ?? 8, parts.minute ?? 0)
@@ -69,7 +69,8 @@ enum DemoScan {
         let doses = Dictionary(uniqueKeysWithValues: store.doses(on: now).map { ($0.medication.id, $0) })
         let earlier = now.addingTimeInterval(-4 * 60)
         store.recordScan(of: [doses["dexamethasone-4"], doses["exemestane-25"]].compactMap { $0 }, at: earlier)
-        store.markTaken([doses["allopurinol-300"], doses["exemestane-25"]].compactMap { $0 }, at: now)
+        store.markTaken([doses["dexamethasone-4"], doses["exemestane-25"]].compactMap { $0 }, at: earlier)
+        store.markTaken([doses["allopurinol-300"]].compactMap { $0 }, at: now)
         // Exemestane's pill as a scan would cut it; dexamethasone's picture is gone, as
         // after the app is closed, so it shows its own photo.
         if let dose = doses["exemestane-25"], let crop = madeUpCrop("exemestane-25-1") {

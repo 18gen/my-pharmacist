@@ -136,10 +136,6 @@ struct CameraLens: View {
             // and only its contents change.
             if let content = resultsContent {
                 PillResultsView(content: content, onDone: onDone, onScanAgain: scanAgain,
-                                onTook: {
-                                    scan.markResultTaken()
-                                    onDone()
-                                },
                                 pharmacyCall: pharmacyCall)
                     .padding(.horizontal, 6)
                     .padding(.bottom, ScanLayout.pageBottomPadding)

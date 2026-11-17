@@ -58,10 +58,10 @@ struct PillScanResult {
 ///    as nothing later can make up for a pill that wasn't found; meanwhile each pill is
 ///    already being cut out and recognized on its own;
 /// 4. on "Yes", show the results on a page of their own; on "No", take another photo.
-/// A medication taken only when needed is recorded as scanned today in the same way.
-/// The doses whose pills are OK to take are recorded as scanned as soon as the results
-/// show; a retake in the same session replaces that record. Scanned isn't taken: when
-/// nothing has to go back, the results ask, and only "I took them" marks them taken.
+/// The doses whose pills are OK to take are recorded as scanned and taken as soon as the
+/// results show, even when other pills in the photo have to go back; a retake in the same
+/// session replaces that record. A medication taken only when needed is recorded for
+/// today in the same way.
 @Observable
 final class ScanFlow {
     enum Phase {
@@ -131,7 +131,7 @@ final class ScanFlow {
     /// The same for medications taken only when needed, each with the day it was recorded
     /// on and when it had been scanned that day before, to put back.
     @ObservationIgnored private var asNeededThisSession: [(medication: Medication, day: Date, before: Date?,
-                                                          photoBefore: CGImage?)] = []
+                                                          photoBefore: CGImage?, takenBefore: Date?)] = []
 
     /// What recognizing the pills came to.
     typealias Identified = Result<PillIdentification, PillRecognitionFailure>
@@ -297,7 +297,7 @@ final class ScanFlow {
     }
 
     /// Turns the analyzed pills into verdicts against today's schedule and records the
-    /// doses that are OK to take as scanned.
+    /// doses that are OK to take as scanned and taken.
     /// - Parameter records: false to show results without changing the record (the demo).
     /// - Parameter mayHaveMissedPill: Something pill-like in the photo wasn't found.
     func showResults(_ pills: [AnalyzedPill], photo: CGImage, now: Date = Date(), records: Bool = true,
@@ -307,13 +307,15 @@ final class ScanFlow {
             return
         }
         // A retake replaces this session's earlier photo; otherwise the pills scanned a
-        // moment ago would look already scanned.
+        // moment ago would look already scanned and taken.
         if records {
             store.removeScans(of: recordedThisSession)
+            store.unmarkTaken(recordedThisSession)
             recordedThisSession = []
             for scan in asNeededThisSession {
                 store.setAsNeededScan(of: scan.medication, on: scan.day, to: scan.before)
                 store.setAsNeededScanPhoto(scan.photoBefore, of: scan.medication, on: scan.day)
+                store.setAsNeededTaken(of: scan.medication, on: scan.day, to: scan.takenBefore)
             }
             asNeededThisSession = []
         }
@@ -325,33 +327,27 @@ final class ScanFlow {
         }
         let result = PillScanResult(photo: photo, pills: scanned, mayHaveMissedPill: mayHaveMissedPill)
         if records {
+            // A pill scanned OK to take counts as taken: its box on Home is ticked.
             store.recordScan(of: result.dosesToTake, at: now)
+            store.markTaken(result.dosesToTake, at: now)
             recordedThisSession = result.dosesToTake
             // Home shows the pill as it was scanned, in place of the medication's photo.
             for pill in scanned {
                 if case .take(let dose) = pill.verdict { store.keepScanPhoto(pill.crop, of: dose) }
             }
             // Pills taken only when needed have no dose to tick, so the medication
-            // itself is marked as scanned today, once however many of its pills there are.
+            // itself is marked as scanned and taken today, once however many of its pills there are.
             for medication in result.asNeededMedications {
                 asNeededThisSession.append((medication, now, store.asNeededScan(of: medication, on: now),
-                                            store.asNeededScanPhoto(of: medication, on: now)))
+                                            store.asNeededScanPhoto(of: medication, on: now),
+                                            store.asNeededTaken(of: medication, on: now)))
                 store.setAsNeededScan(of: medication, on: now, to: now)
+                store.setAsNeededTaken(of: medication, on: now, to: now)
                 let crop = scanned.first { if case .asNeeded(let m) = $0.verdict { m.id == medication.id } else { false } }?.crop
                 store.setAsNeededScanPhoto(crop, of: medication, on: now)
             }
         }
         phase = .results(result)
-    }
-
-    /// The person says they took what the results showed: the doses that were OK to take
-    /// and the medications taken only when needed are marked taken. Their scans stay.
-    func markResultTaken(now: Date = Date()) {
-        guard case .results(let result) = phase else { return }
-        store.markTaken(result.dosesToTake, at: now)
-        for medication in result.asNeededMedications {
-            store.setAsNeededTaken(of: medication, on: now, to: now)
-        }
     }
 
     /// Back to the live camera for another photo: from the results, from a photo that
