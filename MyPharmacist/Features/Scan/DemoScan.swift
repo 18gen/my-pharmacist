@@ -34,6 +34,10 @@ import UIKit
 enum DemoScan {
     static var isRequested: Bool { showsResults || findsPills || retakes || opensAndCloses || checks || pages != nil }
 
+    /// A demo that scans the made-up photo, whose pills are the demo medications'; the
+    /// others show the sample list a new install starts with.
+    static var scansDemoPhoto: Bool { showsResults || findsPills || retakes || opensAndCloses || checks }
+
     /// The text after `-demoCard`: a keychain card's code to show as if just scanned.
     static var card: String? {
         let arguments = ProcessInfo.processInfo.arguments

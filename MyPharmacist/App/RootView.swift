@@ -43,13 +43,15 @@ struct RootView: View {
     }
 
     /// The list and scans saved on the device; a new install starts with the sample
-    /// medications, as "Reset demo" leaves them. Debug demos use the demo medications in
-    /// memory instead, leaving the saved list alone.
+    /// medications, as "Reset demo" leaves them. Debug demos keep their list in memory,
+    /// leaving the saved list alone: the demo medications for those that scan the made-up
+    /// photo, whose pills are theirs, and the sample list for the rest.
     static func savedStore() -> MedicationStore {
         #if DEBUG
         if DemoScan.showsTaken || DemoScan.scansOK { return DemoScan.takenStore() }
         if DemoScan.isRequested {
-            return MedicationStore(entries: DemoScan.startsEmpty ? [] : SampleMedications.demoList, storage: InMemoryDoseLogStorage())
+            let list = DemoScan.scansDemoPhoto ? SampleMedications.demoList : SampleMedications.sampleList
+            return MedicationStore(entries: DemoScan.startsEmpty ? [] : list, storage: InMemoryDoseLogStorage())
         }
         #endif
         return MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage())

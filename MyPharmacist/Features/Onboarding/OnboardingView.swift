@@ -45,6 +45,18 @@ struct OnboardingView: View {
     /// How far through the pages the scroll view is: 0 on the welcome, 1.5 halfway
     /// between the scan and the circles, 3 on the results.
     @State private var progress: CGFloat = 0
+
+    /// The welcome; in debug builds, `-demoOnboardingPage <n>` opens on page n, for screenshots.
+    private static var startPage: OnboardingPage {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-demoOnboardingPage"), arguments.indices.contains(index + 1),
+           let number = Int(arguments[index + 1]), let page = OnboardingPage(rawValue: number) {
+            return page
+        }
+        #endif
+        return .welcome
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The page Next is taking the pages to, until they get there.
     @State private var nextTarget: OnboardingPage?
@@ -111,6 +123,13 @@ struct OnboardingView: View {
         }
         .sensoryFeedback(.impact(weight: .light), trigger: taps)
         .sensoryFeedback(.selection, trigger: swipedPages)
+        #if DEBUG
+        .task {
+            guard Self.startPage != .welcome else { return }
+            try? await Task.sleep(for: .milliseconds(400))
+            scrolledPage = Self.startPage
+        }
+        #endif
         .background {
             // With Reduce Motion on, the picture changes with the page instead of moving.
             OnboardingBackdrop(progress: reduceMotion ? progress.rounded() : progress)
