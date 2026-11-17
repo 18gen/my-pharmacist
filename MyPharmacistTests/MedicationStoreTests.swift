@@ -305,6 +305,26 @@ struct TakenDoseStoreTests {
         #expect(store.scanPhoto(of: dose) == nil && store.asNeededScanPhoto(of: ondansetron, on: morning) == nil)
     }
 
+    @Test func resettingTheDemoLeavesTheSampleListWithNothingScannedOrTaken() throws {
+        let store = MedicationStore(entries: SampleMedications.sampleList, storage: InMemoryDoseLogStorage(),
+                                    calendar: TestClock.calendar, now: morning)
+        store.add(MedicationEntry(TestMedications.metformin))
+        let doses = store.doses(on: morning)
+        let photo = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                           space: CGColorSpaceCreateDeviceRGB(),
+                                           bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage())
+        store.recordScan(of: doses, at: morning)
+        store.markTaken(doses, at: morning)
+        doses.forEach { store.keepScanPhoto(photo, of: $0) }
+
+        store.loadSampleList()
+        store.clearScans()
+        #expect(store.entries == SampleMedications.sampleList.map(\.tidied))
+        let list = store.todayList(now: morning)
+        #expect(list.allSatisfy { $0.state.scannedAt == nil && $0.state.takenAt == nil })
+        #expect(store.doses(on: morning).allSatisfy { store.scanPhoto(of: $0) == nil })
+    }
+
     @Test func aDoseCanBeMarkedTakenWithoutAScan() {
         let store = makeStore()
         let dose = store.doses(on: morning)[0]
