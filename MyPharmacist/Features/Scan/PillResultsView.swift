@@ -7,9 +7,9 @@ import SwiftUI
 
 /// The results page, once the camera is off: the photo with each pill ringed in its
 /// colour, every pill grouped by what to do with it, most serious first, and one large
-/// button for what comes next. When a pill should go back, that button is "Scan again",
-/// so whatever is taken in the end has been checked as a whole, with a smaller "Close"
-/// beside it. When nothing goes back, it is "Done": the pills OK to take were already
+/// button for what comes next. When a pill should go back, that button is "Close", on
+/// the right, with a smaller "Scan again" on its left, to check the pills again once the
+/// wrong ones are put back. When nothing goes back, it is "Done": the pills OK to take were already
 /// marked taken when the page opened. Tapping a pill's row picks it out in
 /// the photo, for pills that look alike, and opens it to show its directions, its times
 /// and, for a pill to ask about, a button to call the pharmacy.
@@ -208,7 +208,8 @@ struct PillResultsView: View {
         }
     }
 
-    /// "Scan again" and "Close" when a pill goes back or may be unchecked; otherwise "Done".
+    /// "Scan again" on the left and "Close", the main way on, on the right, when a pill goes
+    /// back or may be unchecked; otherwise "Done".
     @ViewBuilder
     private func nextStepButtons(_ result: PillScanResult) -> some View {
         if result.needsRescan {
@@ -220,13 +221,13 @@ struct PillResultsView: View {
     }
 
     private func scanAgainButton(_ result: PillScanResult) -> some View {
-        WideButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
+        SecondaryButton(title: "Scan again", systemImage: "camera.fill", action: onScanAgain)
             .accessibilityHint(result.putBackCount > 0 ? "Put back the pills not to take first" : "Spread the pills apart first")
     }
 
-    /// Second to "Scan again": grey, and only as wide as its word.
+    /// The main way on, dark and wide: most people close once the wrong pills are put back.
     private var closeButton: some View {
-        SecondaryButton(title: "Close", action: onDone)
+        WideButton(title: "Close", systemImage: "xmark", action: onDone)
     }
 }
 
