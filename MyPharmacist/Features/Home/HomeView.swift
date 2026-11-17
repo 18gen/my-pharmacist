@@ -30,22 +30,6 @@ struct HomeView: View {
     /// when a slot moves on (next → now → scanned) it goes back to how that status shows.
     @State private var openSlots: Set<String> = []
     @State private var showsWhenNeeded = false
-    /// The "taken" mark the person tapped to take off, while they are asked whether to.
-    @State private var unticking: TakenMark?
-
-    /// A "taken" mark: on a dose, or on a medication taken only when needed, for a day.
-    private enum TakenMark {
-        case dose(Dose)
-        case asNeeded(Medication, day: Date)
-
-        var name: String {
-            switch self {
-            case .dose(let dose): dose.medication.displayName
-            case .asNeeded(let medication, _): medication.displayName
-            }
-        }
-    }
-
     /// Scroll target for the "When needed" card.
     private static let whenNeededID = "whenNeeded"
 
@@ -120,27 +104,13 @@ struct HomeView: View {
                 }
             }
         }
-        // Ticking is one tap; unticking asks first, so a slip doesn't lose the record.
-        .confirmationDialog("Mark \(unticking?.name ?? "it") as not taken?",
-                            isPresented: Binding(get: { unticking != nil }, set: { if !$0 { unticking = nil } }),
-                            titleVisibility: .visible) {
-            Button("Not taken", role: .destructive) {
-                switch unticking {
-                case .dose(let dose): store.unmarkTaken([dose])
-                case .asNeeded(let medication, let day): store.setAsNeededTaken(of: medication, on: day, to: nil)
-                case nil: break
-                }
-                unticking = nil
-            }
-            Button("Cancel", role: .cancel) { unticking = nil }
-        }
     }
 
     private func toggleTaken(_ item: ScheduledDose) {
         if item.state.takenAt == nil {
             store.markTaken([item.dose])
         } else {
-            unticking = .dose(item.dose)
+            store.unmarkTaken([item.dose])
         }
     }
 
@@ -152,7 +122,7 @@ struct HomeView: View {
             if takenAt == nil {
                 store.setAsNeededTaken(of: medication, on: Date(), to: Date())
             } else {
-                unticking = .asNeeded(medication, day: day)
+                store.setAsNeededTaken(of: medication, on: day, to: nil)
             }
         }
     }

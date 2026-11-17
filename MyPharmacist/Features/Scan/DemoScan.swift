@@ -27,7 +27,8 @@ import UIKit
 ///   opens the pharmacy's card over it and `-demoPharmacyEditor` the same card on its
 ///   fields. `-demoCard <code>` shows what a keychain card with that code would do,
 ///   and `-demoEmpty` is Home with no medications yet. `-demoTaken` is Home with four
-///   medications due now: one untouched, one ticked by hand, two scanned (and so ticked).
+///   medications due now: one untouched, one ticked by hand, two scanned (and so ticked);
+///   `-demoUntick` the same with the bubble asking whether to untick one.
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
@@ -51,7 +52,9 @@ enum DemoScan {
         return nil
     }
     /// Home with no medications yet.
-    static var showsTaken: Bool { ProcessInfo.processInfo.arguments.contains("-demoTaken") }
+    static var showsTaken: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demoTaken") || ProcessInfo.processInfo.arguments.contains("-demoUntick")
+    }
 
     /// Four medications due this minute, in memory: one untouched, one ticked by hand,
     /// and two scanned four minutes ago, which ticked them.
@@ -95,6 +98,12 @@ enum DemoScan {
             UIBezierPath(ovalIn: rect.insetBy(dx: -length * 0.06, dy: -length * 0.06)).fill()
             pill.draw(in: rect)
         }.cgImage
+    }
+
+    /// With `-demoUntick`: the medication whose ticked box shows the bubble asking
+    /// whether to untick it, on Home as `-demoTaken` shows it.
+    static var untickAsked: String? {
+        ProcessInfo.processInfo.arguments.contains("-demoUntick") ? "exemestane-25" : nil
     }
 
     static var startsEmpty: Bool { ProcessInfo.processInfo.arguments.contains("-demoEmpty") }

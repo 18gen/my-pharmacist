@@ -10,7 +10,8 @@ import SwiftUI
 /// needed, when that is). No dose times: the card says when. Once its pill is scanned,
 /// the picture is the pill as it was scanned, on a dark tile with a camera's corner
 /// marks, so the row needs no words to say so. On the right, a box to tick once it is
-/// taken; ticked, it turns green with the time under it. The words of a taken dose step
+/// taken; ticked, it turns green with the time under it. Unticking asks first, in a bubble
+/// beside the box, so a slip doesn't lose the record. The words of a taken dose step
 /// back a little; its picture stays clear.
 struct MedicationLine: View {
     let medication: Medication
@@ -20,8 +21,12 @@ struct MedicationLine: View {
     var scanPhoto: CGImage? = nil
     /// When the person marked this dose taken; nil if they didn't.
     var takenAt: Date? = nil
-    /// Ticks or unticks the box. Nil for a dose that can't be ticked yet: no box.
+    /// Ticks or unticks the box; unticking only once the person has said so in the
+    /// bubble. Nil for a dose that can't be ticked yet: no box.
     var onToggleTaken: (() -> Void)? = nil
+
+    /// The bubble asking whether to untick is showing.
+    @State private var asksToUntick = false
 
     @ScaledMetric(relativeTo: .title3) private var pictureSize: CGFloat = 64
     @ScaledMetric(relativeTo: .title2) private var boxSize: CGFloat = 36
@@ -59,12 +64,17 @@ struct MedicationLine: View {
             }
         }
         .padding(.vertical, 8)
+        #if DEBUG
+        .onAppear { if DemoScan.untickAsked == medication.id, takenAt != nil { asksToUntick = true } }
+        #endif
     }
 
     /// The box to tick, square as on a paper list, with words under it so it isn't only a
     /// shape: "Taken?" while empty, the time it was ticked once it is.
     private func takenBox(_ toggle: @escaping () -> Void) -> some View {
-        Button(action: toggle) {
+        Button {
+            if takenAt == nil { toggle() } else { asksToUntick = true }
+        } label: {
             VStack(spacing: 2) {
                 Image(systemName: takenAt == nil ? "square" : "checkmark.square.fill")
                     .font(.system(size: boxSize, weight: takenAt == nil ? .regular : .semibold))
@@ -83,6 +93,29 @@ struct MedicationLine: View {
         .accessibilityLabel("\(medication.displayName) taken")
         .accessibilityValue(takenAt.map { "Yes, at \($0.shortTime)" } ?? "No")
         .accessibilityHint(takenAt == nil ? "Double tap to mark it taken" : "Double tap to mark it not taken")
+        // To the left of the box, pointing at it; a bubble on iPhone too, not a sheet.
+        .popover(isPresented: $asksToUntick, attachmentAnchor: .rect(.bounds), arrowEdge: .trailing) {
+            untickQuestion(toggle)
+                .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    /// "Mark Exemestane as not taken?", with the way to do it and the way out.
+    private func untickQuestion(_ toggle: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Mark \(medication.name) as not taken?")
+                .font(.headline)
+                .foregroundStyle(Palette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            WideButton(title: "Not taken", systemImage: "xmark", tint: Palette.danger) {
+                asksToUntick = false
+                toggle()
+            }
+            SecondaryButton(title: "Cancel", fillsWidth: true) { asksToUntick = false }
+        }
+        .padding(16)
+        .frame(width: 250)
+        .presentationBackground(Palette.background)
     }
 
     /// "Capecitabine  500 mg" on one line when it fits, the strength under the name when not.
