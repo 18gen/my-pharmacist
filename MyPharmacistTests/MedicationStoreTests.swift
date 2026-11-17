@@ -3,6 +3,7 @@
 //  MyPharmacistTests
 //
 
+import CoreGraphics
 import Foundation
 import Testing
 @testable import MyPharmacist
@@ -278,6 +279,30 @@ struct TakenDoseStoreTests {
         reloaded.unmarkTaken([dose])
         #expect(storage.log == [dose.id: morning])
         #expect(reloaded.todayList(now: later).first { $0.id == dose.id }?.state == .scanned(at: morning))
+    }
+
+    @Test func scanPhotosAreKeptInMemoryOnlyAndGoWithTheirScans() throws {
+        let storage = InMemoryDoseLogStorage()
+        let store = makeStore(storage)
+        let dose = store.doses(on: morning)[0]
+        let photo = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                           space: CGColorSpaceCreateDeviceRGB(),
+                                           bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage())
+        store.recordScan(of: [dose], at: morning)
+        store.keepScanPhoto(photo, of: dose)
+        #expect(store.scanPhoto(of: dose) === photo)
+        // Not saved: a store opened again has the scan but not its picture.
+        #expect(makeStore(storage).scanPhoto(of: dose) == nil)
+        // A retake's removal of the scan takes its picture too.
+        store.removeScans(of: [dose])
+        #expect(store.scanPhoto(of: dose) == nil)
+
+        let ondansetron = TestMedications.ondansetron
+        store.setAsNeededScan(of: ondansetron, on: morning, to: morning)
+        store.setAsNeededScanPhoto(photo, of: ondansetron, on: morning)
+        store.keepScanPhoto(photo, of: dose)
+        store.clearScans()
+        #expect(store.scanPhoto(of: dose) == nil && store.asNeededScanPhoto(of: ondansetron, on: morning) == nil)
     }
 
     @Test func aDoseCanBeMarkedTakenWithoutAScan() {

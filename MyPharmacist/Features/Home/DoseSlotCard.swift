@@ -8,12 +8,14 @@ import SwiftUI
 /// One time of day on the home screen, like one compartment of a pill organizer:
 /// "Morning · 8:00 AM" with where it stands, and its medications. Only the time of day to
 /// take now is open, and outlined; every other one is folded to its header line, which
-/// opens it on a tap. Each medication has a circle to tick once it is taken, except in
+/// opens it on a tap. Each medication has a box to tick once it is taken, except in
 /// a time of day still to come.
 struct DoseSlotCard: View {
     let slot: DoseSlot
-    /// Ticks or unticks one dose's "taken" circle. Nil: no circles.
+    /// Ticks or unticks one dose's "taken" box. Nil: no boxes.
     var onToggleTaken: ((ScheduledDose) -> Void)? = nil
+    /// The pill of a scanned dose as it was scanned, if still in memory.
+    var scanPhoto: (Dose) -> CGImage? = { _ in nil }
     /// Whether a folded slot has been opened; the slot to take now is always open.
     @Binding var isExpanded: Bool
     /// Called once a folded slot has finished opening.
@@ -56,6 +58,7 @@ struct DoseSlotCard: View {
     private var rows: some View {
         MedicationLineList(items: slot.items.map { item in
             MedicationLineList.Item(medication: item.dose.medication, scannedAt: item.state.scannedAt,
+                                    scanPhoto: item.state.scannedAt == nil ? nil : scanPhoto(item.dose),
                                     takenAt: item.state.takenAt,
                                     onToggleTaken: canTick ? onToggleTaken.map { toggle in { toggle(item) } } : nil)
         })

@@ -130,7 +130,8 @@ final class ScanFlow {
     @ObservationIgnored private var recordedThisSession: [Dose] = []
     /// The same for medications taken only when needed, each with the day it was recorded
     /// on and when it had been scanned that day before, to put back.
-    @ObservationIgnored private var asNeededThisSession: [(medication: Medication, day: Date, before: Date?)] = []
+    @ObservationIgnored private var asNeededThisSession: [(medication: Medication, day: Date, before: Date?,
+                                                          photoBefore: CGImage?)] = []
 
     /// What recognizing the pills came to.
     typealias Identified = Result<PillIdentification, PillRecognitionFailure>
@@ -312,6 +313,7 @@ final class ScanFlow {
             recordedThisSession = []
             for scan in asNeededThisSession {
                 store.setAsNeededScan(of: scan.medication, on: scan.day, to: scan.before)
+                store.setAsNeededScanPhoto(scan.photoBefore, of: scan.medication, on: scan.day)
             }
             asNeededThisSession = []
         }
@@ -325,11 +327,18 @@ final class ScanFlow {
         if records {
             store.recordScan(of: result.dosesToTake, at: now)
             recordedThisSession = result.dosesToTake
+            // Home shows the pill as it was scanned, in place of the medication's photo.
+            for pill in scanned {
+                if case .take(let dose) = pill.verdict { store.keepScanPhoto(pill.crop, of: dose) }
+            }
             // Pills taken only when needed have no dose to tick, so the medication
             // itself is marked as scanned today, once however many of its pills there are.
-            for case .asNeeded(let medication) in Set(check.verdicts) {
-                asNeededThisSession.append((medication, now, store.asNeededScan(of: medication, on: now)))
+            for medication in result.asNeededMedications {
+                asNeededThisSession.append((medication, now, store.asNeededScan(of: medication, on: now),
+                                            store.asNeededScanPhoto(of: medication, on: now)))
                 store.setAsNeededScan(of: medication, on: now, to: now)
+                let crop = scanned.first { if case .asNeeded(let m) = $0.verdict { m.id == medication.id } else { false } }?.crop
+                store.setAsNeededScanPhoto(crop, of: medication, on: now)
             }
         }
         phase = .results(result)

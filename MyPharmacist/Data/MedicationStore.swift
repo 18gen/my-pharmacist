@@ -3,6 +3,7 @@
 //  MyPharmacist
 //
 
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -32,6 +33,11 @@ final class MedicationStore {
     }
 
     private static let takenPrefix = "taken|"
+
+    /// The picture of each scanned pill, cut from the scan's photo, under the same keys as
+    /// the scans. Kept in memory only, never saved: after the app is closed a scanned dose
+    /// shows its medication's own photo instead.
+    private var scanPhotos: [String: CGImage] = [:]
 
     /// When each dose was marked taken, keyed by `Dose.id`.
     private var takenLog: [String: Date] {
@@ -180,7 +186,19 @@ final class MedicationStore {
     func removeScans(of doses: [Dose]) {
         for dose in doses {
             scanLog[dose.id] = nil
+            scanPhotos[dose.id] = nil
         }
+    }
+
+    /// Keeps the picture of a dose's pill from its scan, to show in place of the
+    /// medication's own photo.
+    func keepScanPhoto(_ photo: CGImage, of dose: Dose) {
+        scanPhotos[dose.id] = photo
+    }
+
+    /// The picture of a dose's pill from its scan; nil if it wasn't scanned since the app opened.
+    func scanPhoto(of dose: Dose) -> CGImage? {
+        scanPhotos[dose.id]
     }
 
     /// Records that the person took these doses, at `time`. Whether each was scanned
@@ -209,6 +227,17 @@ final class MedicationStore {
     /// or, given nil, that it wasn't: a retake puts back what was there before.
     func setAsNeededScan(of medication: Medication, on day: Date, to time: Date?) {
         scanLog[asNeededKey(medication, on: day)] = time
+        if time == nil { scanPhotos[asNeededKey(medication, on: day)] = nil }
+    }
+
+    /// The picture of a medication taken only when needed from its scan on a day, or nil
+    /// to forget it.
+    func setAsNeededScanPhoto(_ photo: CGImage?, of medication: Medication, on day: Date) {
+        scanPhotos[asNeededKey(medication, on: day)] = photo
+    }
+
+    func asNeededScanPhoto(of medication: Medication, on day: Date) -> CGImage? {
+        scanPhotos[asNeededKey(medication, on: day)]
     }
 
     /// When a medication taken only when needed was last marked taken on a day; nil if
@@ -232,6 +261,7 @@ final class MedicationStore {
     /// The medication list stays.
     func clearScans() {
         scanLog = [:]
+        scanPhotos = [:]
     }
 
     /// Decides which of the pills in a photo to take now, given what each was recognized as.

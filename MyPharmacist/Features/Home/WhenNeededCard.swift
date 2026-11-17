@@ -12,7 +12,7 @@ import SwiftUI
 /// shows while the card is folded too.
 struct WhenNeededCard: View {
     /// Each medication with when it was last scanned and marked taken today, if it was,
-    /// and what its "taken" circle does.
+    /// and what its "taken" box does.
     let items: [MedicationLineList.Item]
     @Binding var isExpanded: Bool
     /// Called once the card has finished opening.

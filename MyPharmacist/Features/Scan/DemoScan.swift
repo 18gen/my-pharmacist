@@ -70,7 +70,30 @@ enum DemoScan {
         let earlier = now.addingTimeInterval(-4 * 60)
         store.recordScan(of: [doses["dexamethasone-4"], doses["exemestane-25"]].compactMap { $0 }, at: earlier)
         store.markTaken([doses["allopurinol-300"], doses["exemestane-25"]].compactMap { $0 }, at: now)
+        // Exemestane's pill as a scan would cut it; dexamethasone's picture is gone, as
+        // after the app is closed, so it shows its own photo.
+        if let dose = doses["exemestane-25"], let crop = madeUpCrop("exemestane-25-1") {
+            store.keepScanPhoto(crop, of: dose)
+        }
         return store
+    }
+
+    /// A pill photo on a palm-coloured square with everything but the pill dimmed by
+    /// half, roughly as `PillCropper` cuts a pill from a scan.
+    private static func madeUpCrop(_ asset: String) -> CGImage? {
+        guard let pill = UIImage(named: asset) else { return nil }
+        let side: CGFloat = 384
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { context in
+            UIColor(red: 0.42, green: 0.32, blue: 0.26, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+            let length = side / 1.45
+            let rect = CGRect(x: (side - length) / 2, y: (side - length) / 2, width: length, height: length)
+            UIColor(red: 0.84, green: 0.66, blue: 0.54, alpha: 1).setFill()
+            UIBezierPath(ovalIn: rect.insetBy(dx: -length * 0.06, dy: -length * 0.06)).fill()
+            pill.draw(in: rect)
+        }.cgImage
     }
 
     static var startsEmpty: Bool { ProcessInfo.processInfo.arguments.contains("-demoEmpty") }

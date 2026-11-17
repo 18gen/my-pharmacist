@@ -74,7 +74,8 @@ struct HomeView: View {
                                     .cardBackground()
                             }
                             ForEach(slots) { slot in
-                                DoseSlotCard(slot: slot, onToggleTaken: toggleTaken, isExpanded: isOpen(slot),
+                                DoseSlotCard(slot: slot, onToggleTaken: toggleTaken, scanPhoto: store.scanPhoto(of:),
+                                             isExpanded: isOpen(slot),
                                              onOpened: { scrollIntoView(slot.id, proxy) })
                                     .id(slot.id)
                             }
@@ -146,6 +147,7 @@ struct HomeView: View {
     private func whenNeededItem(_ medication: Medication, on day: Date) -> MedicationLineList.Item {
         let takenAt = store.asNeededTaken(of: medication, on: day)
         return MedicationLineList.Item(medication: medication, scannedAt: store.asNeededScan(of: medication, on: day),
+                                       scanPhoto: store.asNeededScanPhoto(of: medication, on: day),
                                        takenAt: takenAt) {
             if takenAt == nil {
                 store.setAsNeededTaken(of: medication, on: Date(), to: Date())
