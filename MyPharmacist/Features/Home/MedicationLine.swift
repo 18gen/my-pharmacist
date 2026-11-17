@@ -8,8 +8,8 @@ import SwiftUI
 /// One medication in a home screen card: a large picture of the tablet to compare with
 /// the one in hand, its name and strength, and what it's for (or, for one taken only when
 /// needed, when that is). No dose times: the card says when. Once its pill is scanned,
-/// the picture is the pill as it was scanned, on a dark tile with a camera's corner
-/// marks, so the row needs no words to say so. On the right, a box to tick once it is
+/// the picture is the pill as it was scanned, inside a camera's green corner marks, so
+/// the row needs no words to say so. On the right, a box to tick once it is
 /// taken; ticked, it turns green with the time under it. Unticking asks first, in a bubble
 /// beside the box, so a slip doesn't lose the record. The words of a taken dose step
 /// back a little; its picture stays clear.
@@ -186,9 +186,9 @@ struct MedicationLineList: View {
     }
 }
 
-/// A scanned pill's picture: the pill as the scan saw it, or the medication's own photo
-/// when that picture is gone (the app was closed since), on the dark tile the results
-/// page uses, inside a camera's four corner marks.
+/// A scanned pill's picture: the whole picture the scan cut of the pill, or the
+/// medication's own photo when that picture is gone (the app was closed since), on the
+/// same cream square as any pill picture, inside a camera's four green corner marks.
 struct ScannedPillImage: View {
     let medication: Medication
     let photo: CGImage?
@@ -197,26 +197,27 @@ struct ScannedPillImage: View {
     var body: some View {
         Group {
             if let photo {
+                // The cut is square: all of it shows, rounded a little.
                 Image(decorative: photo, scale: 1)
                     .resizable()
-                    .scaledToFill()
-                    .frame(width: size * 0.78, height: size * 0.78)
-                    .clipShape(RoundedRectangle(cornerRadius: size * 0.12, style: .continuous))
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.1, style: .continuous))
+                    .padding(size * 0.14)
             } else if let saved = medication.photos.first, let image = MedicationPhotoStore.standard.image(saved) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: size * 0.74, height: size * 0.74)
+                    .padding(size * 0.14)
             } else {
                 Image(systemName: "pill.fill")
                     .font(.system(size: size * 0.4, weight: .semibold))
-                    .foregroundStyle(Palette.cream)
+                    .foregroundStyle(Palette.textMuted)
             }
         }
         .frame(width: size, height: size)
-        .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(Color.black.opacity(0.85)))
-        .overlay(CornerMarks().stroke(Palette.cream, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-            .padding(size * 0.06))
+        .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(Palette.background))
+        .overlay(CornerMarks().stroke(Palette.ok, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            .padding(size * 0.05))
         .accessibilityHidden(true)
     }
 }
