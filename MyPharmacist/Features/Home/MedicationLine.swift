@@ -202,7 +202,8 @@ struct ScannedPillImage: View {
                     .resizable()
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: size * 0.1, style: .continuous))
-                    .padding(size * 0.14)
+                    // As large as fits inside the corner marks.
+                    .padding(size * 0.08)
             } else if let saved = medication.photos.first, let image = MedicationPhotoStore.standard.image(saved) {
                 Image(uiImage: image)
                     .resizable()
