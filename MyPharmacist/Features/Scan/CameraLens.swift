@@ -279,6 +279,8 @@ struct CameraLens: View {
     /// photo that was fine but couldn't be checked is checked again instead.
     private var retakeButtons: some View {
         HStack(spacing: 10) {
+            SecondaryButton(title: "Cancel", action: onDone)
+                .accessibilityHint("Closes the camera")
             if case .retake(_, .checkFailed) = scan.phase {
                 WideButton(title: "Try again", systemImage: "arrow.clockwise") {
                     Task { await scan.checkAgain() }
@@ -288,8 +290,6 @@ struct CameraLens: View {
                 WideButton(title: "Retake", systemImage: "arrow.counterclockwise", action: scanAgain)
                 .accessibilityHint("Opens the camera again")
             }
-            SecondaryButton(title: "Cancel", action: onDone)
-                .accessibilityHint("Closes the camera")
         }
         .padding(.horizontal, 20)
         .closeButtonRow()
