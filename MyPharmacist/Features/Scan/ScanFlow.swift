@@ -74,26 +74,33 @@ final class ScanFlow {
 
     @ObservationIgnored private let store: MedicationStore
     @ObservationIgnored private var analyzer: PillPhotoAnalyzer
-    /// The medications `analyzer` compares against, by ID.
-    @ObservationIgnored private var analyzedMedicationIDs: [String]
+    /// The medications `analyzer` compares against, as they were when it was made.
+    @ObservationIgnored private var analyzedMedications: [Medication]
     @ObservationIgnored private var checkTask: Task<Void, Never>?
-    /// The pills being recognized while the person is asked whether all were found.
-    @ObservationIgnored private var identification: Task<Identified, Never>?
-    /// Starts recognizing the confirmed photo's pills again, and those pills, after a
-    /// check that failed: the photo was fine, so it needn't be taken again.
-    @ObservationIgnored private var identify: (() -> Task<Identified, Never>)?
-    @ObservationIgnored private var unchecked: FoundPills?
+    /// The found pills being recognized, from the moment the person is asked whether all
+    /// were found until their results show.
+    @ObservationIgnored private var pending: PendingCheck?
     /// What this session marked taken, so a photo taken again is judged without it.
     @ObservationIgnored private var session = ScanSessionRecord()
 
     /// What recognizing the pills came to.
     typealias Identified = Result<PillIdentification, PillRecognitionFailure>
 
+    /// Pills found in a photo and being recognized. It holds on to the full-size photo
+    /// (inside `start`), so it is let go as soon as the results show.
+    private struct PendingCheck {
+        let found: FoundPills
+        /// Starts recognizing the pills: at once, and again after a check that failed,
+        /// when the photo was fine and needn't be taken again.
+        let start: () -> Task<Identified, Never>
+        var task: Task<Identified, Never>
+    }
+
     init(store: MedicationStore, scanner: ScannerModel = ScannerModel()) {
         self.store = store
         self.scanner = scanner
         self.analyzer = Self.makeAnalyzer(store.medications)
-        self.analyzedMedicationIDs = store.medications.map(\.id)
+        self.analyzedMedications = store.medications
     }
 
     private static func makeAnalyzer(_ medications: [Medication]) -> PillPhotoAnalyzer {
@@ -121,12 +128,12 @@ final class ScanFlow {
     }
 
     /// Pills are compared only with the medications on the list, which may have changed on
-    /// the Pills page since the last scan: a removed one is then "Unknown".
+    /// the Pills page since the last scan: a removed one is then "Unknown", and a new photo
+    /// or appearance is what the pills are compared with.
     private func refreshAnalyzer() {
-        let ids = store.medications.map(\.id)
-        guard ids != analyzedMedicationIDs else { return }
+        guard store.medications != analyzedMedications else { return }
         analyzer = Self.makeAnalyzer(store.medications)
-        analyzedMedicationIDs = ids
+        analyzedMedications = store.medications
     }
 
     /// Step 1 passed: the picture has been good for a moment, so take the photo.
@@ -149,13 +156,13 @@ final class ScanFlow {
             }
             // The camera is done: the photo it took shows in its place.
             scanner.stop()
-            await check(captured)
+            await findPills(in: captured)
         }
     }
 
     /// Steps 2 and 3 for a photo: finds its pills, and either asks for another photo or
     /// asks whether these are all the pills.
-    func check(_ captured: CapturedPhoto) async {
+    func findPills(in captured: CapturedPhoto) async {
         let photo = captured.working
         phase = .finding(photo)
 
@@ -190,41 +197,43 @@ final class ScanFlow {
     /// - Parameter identify: Starts recognizing the pills. Called now, and again if the
     ///   check fails and the person tries again.
     func askToConfirm(photo: CGImage, boxes: [CGRect], identify: @escaping () -> Task<Identified, Never>) {
-        self.identify = identify
-        identification = identify()
-        phase = .confirming(FoundPills(photo: photo, boxes: boxes))
+        let found = FoundPills(photo: photo, boxes: boxes)
+        pending = PendingCheck(found: found, start: identify, task: identify())
+        phase = .confirming(found)
     }
 
     /// The person says every pill in the photo is circled: on to the results, as soon
-    /// as the pills are recognized. If they couldn't be, the person is asked to try
-    /// again; a check that didn't happen is never shown as a result.
+    /// as the pills are recognized. If they couldn't be, the person is told why; a check
+    /// that didn't happen is never shown as a result.
     func confirmPills() async {
-        guard case .confirming(let found) = phase, let identification else { return }
-        await showResults(of: found, when: identification)
+        guard case .confirming = phase, let pending else { return }
+        await awaitCheck(pending)
     }
 
-    /// After a check that failed: checks the same photo's pills again, without taking
-    /// another photo.
+    /// After a check that failed for a reason trying again can help with: checks the same
+    /// photo's pills again, without taking another photo.
     func checkAgain() async {
-        guard case .retake(_, .checkFailed) = phase, let unchecked, let identify else { return }
-        let identification = identify()
-        self.identification = identification
-        await showResults(of: unchecked, when: identification)
+        guard case .retake(_, .checkFailed(let problem)) = phase, problem.canTryAgain, var pending else { return }
+        pending.task = pending.start()
+        self.pending = pending
+        await awaitCheck(pending)
     }
 
-    private func showResults(of found: FoundPills, when identification: Task<Identified, Never>) async {
-        phase = .checking(found)
-        unchecked = nil
+    /// Shows the page standing ready until the pills are recognized, then their results.
+    private func awaitCheck(_ check: PendingCheck) async {
+        phase = .checking(check.found)
         let task = Task { [weak self] in
-            let identified = await identification.value
+            let identified = await check.task.value
             guard let self, !Task.isCancelled else { return }
-            self.identification = nil
             switch identified {
             case .success(let pills):
-                showResults(pills.pills, photo: found.photo, mayHaveMissedPill: pills.mayHaveMissedPill)
-            case .failure:
-                unchecked = found
-                phase = .retake(found.photo, .checkFailed)
+                pending = nil
+                showResults(pills.pills, photo: check.found.photo, mayHaveMissedPill: pills.mayHaveMissedPill)
+            case .failure(let failure):
+                let problem = CheckProblem(failure)
+                // Kept only while checking again can help.
+                if !problem.canTryAgain { pending = nil }
+                phase = .retake(check.found.photo, .checkFailed(problem))
             }
         }
         checkTask = task
@@ -234,10 +243,8 @@ final class ScanFlow {
     private func cancelChecks() {
         checkTask?.cancel()
         checkTask = nil
-        identification?.cancel()
-        identification = nil
-        identify = nil
-        unchecked = nil
+        pending?.task.cancel()
+        pending = nil
     }
 
     /// Back to aiming when the camera couldn't take the photo. The quality check starts

@@ -109,11 +109,11 @@ nonisolated enum PillLocator {
             reasons.insert(.tooFar)
         }
         if pills.count > rules.mostPills {
-            reasons.insert(.hardToSee)
+            reasons.insert(.tooMany)
         }
 
         // The one thing to fix first.
-        for reason in [RetakeReason.touching, .cutOff, .tooFar, .hardToSee] where reasons.contains(reason) {
+        for reason in [RetakeReason.tooMany, .touching, .cutOff, .tooFar, .hardToSee] where reasons.contains(reason) {
             return (.unclear(reason), areas)
         }
         guard !pills.isEmpty else { return (.noPills, areas) }

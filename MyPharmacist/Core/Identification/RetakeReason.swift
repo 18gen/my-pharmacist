@@ -18,7 +18,30 @@ nonisolated enum RetakeReason: Hashable, Sendable {
     case tooFar
     /// Something that may be a pill barely differs from what it lies on.
     case hardToSee
-    /// The pills were found but couldn't be checked: no connection, or the checker
-    /// didn't answer.
-    case checkFailed
+    /// More pills than one check can take (`CheckLimits.pills`).
+    case tooMany
+    /// The pills were found but couldn't be checked, for this reason.
+    case checkFailed(CheckProblem)
+}
+
+/// Why pills that were found couldn't be checked.
+nonisolated enum CheckProblem: Hashable, Sendable {
+    /// No connection, or no answer in time.
+    case offline
+    /// The checker is busy with too many checks just now.
+    case busy
+    /// The checker went wrong, or its answer couldn't be read.
+    case serverError
+    /// This copy of the app can't use the checker at all: trying again won't help.
+    case unavailable
+    /// More than the checker takes at once.
+    case tooMuch
+
+    /// Whether checking the same photo again can work.
+    var canTryAgain: Bool {
+        switch self {
+        case .offline, .busy, .serverError: true
+        case .unavailable, .tooMuch: false
+        }
+    }
 }

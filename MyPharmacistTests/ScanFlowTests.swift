@@ -199,8 +199,13 @@ struct ScanFlowTests {
         #expect(Set(lines.map(\.text)).count == reasons.count)
         #expect(Set(lines.compactMap(\.pictogram)).count == reasons.count)
         #expect(ScanInstruction.retake(.touching).text == "Spread pills apart")
+        #expect(ScanInstruction.retake(.tooMany).text == "At most \(CheckLimits.pills) pills")
+        let problems: [CheckProblem] = [.offline, .busy, .serverError, .unavailable, .tooMuch]
+        let failures = problems.map { ScanInstruction.retake(.checkFailed($0)) }
+        #expect(failures.allSatisfy { $0.spoken != nil })
         // Short enough to read at a glance in very large letters.
-        let every = lines + [ScanInstruction.aim, ScanInstruction.checking, ScanInstruction.turnOnLight, ScanInstruction.confirm(count: 3)]
+        let every = lines + failures + [ScanInstruction.retake(.tooMany)]
+            + [ScanInstruction.aim, ScanInstruction.checking, ScanInstruction.turnOnLight, ScanInstruction.confirm(count: 3)]
             + QualityIssue.allCases.compactMap(\.fix).map { ScanInstruction.Line(text: $0, pictogram: nil) }
         for line in every {
             #expect(line.text.split(separator: " ").count <= 4, "\(line.text) is long")
@@ -283,9 +288,39 @@ struct ScanFlowTests {
             Issue.record("Expected a retake, got \(flow.phase.step)")
             return
         }
-        #expect(reason == .checkFailed)
+        #expect(reason == .checkFailed(.offline))
         #expect(store.todaySlots(now: Date()).flatMap(\.items).allSatisfy { $0.state.isPending })
-        #expect(ScanInstruction.retake(.checkFailed).spoken?.contains("internet") == true)
+        #expect(ScanInstruction.retake(.checkFailed(.offline)).spoken?.contains("internet") == true)
+    }
+
+    @Test func aCheckThatCantWorkIsNotTriedAgain() async {
+        flow.setOpen(true)
+        let pills = [pill(TestMedications.metformin)]
+        var attempts = 0
+        flow.askToConfirm(photo: testImage(), boxes: pills.map(\.box), identify: {
+            attempts += 1
+            return Task { .failure(.server(status: 401)) }
+        })
+        await flow.confirmPills()
+        guard case .retake(_, .checkFailed(let problem)) = flow.phase else {
+            Issue.record("Expected a failed check, got \(flow.phase.step)")
+            return
+        }
+        #expect(problem == .unavailable && !problem.canTryAgain)
+        await flow.checkAgain()
+        #expect(attempts == 1)
+    }
+
+    @Test func eachFailureSaysWhetherTryingAgainCanHelp() {
+        #expect(CheckProblem(.offline) == .offline)
+        #expect(CheckProblem(.server(status: 429)) == .busy)
+        #expect(CheckProblem(.server(status: 503)) == .serverError)
+        #expect(CheckProblem(.unusable) == .serverError)
+        #expect(CheckProblem(.notConfigured) == .unavailable)
+        #expect(CheckProblem(.server(status: 403)) == .unavailable)
+        #expect(CheckProblem(.server(status: 413)) == .tooMuch)
+        #expect([CheckProblem.offline, .busy, .serverError].allSatisfy { $0.canTryAgain })
+        #expect([CheckProblem.unavailable, .tooMuch].allSatisfy { !$0.canTryAgain })
     }
 
     @Test func closingWhileAskedDropsThePhoto() async {

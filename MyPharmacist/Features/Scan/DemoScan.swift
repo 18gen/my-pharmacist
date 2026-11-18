@@ -201,7 +201,7 @@ enum DemoScan {
             }
         guard let image = photo.cgImage, let captured = CapturedPhoto(image: image) else { return }
         flow.setOpen(true)
-        await flow.check(captured)
+        await flow.findPills(in: captured)
     }
 
     /// Results for the made-up photo below.

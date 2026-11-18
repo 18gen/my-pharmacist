@@ -29,8 +29,8 @@ nonisolated struct PillReading: Equatable, Sendable {
     let mayHaveMissedPill: Bool
 }
 
-/// Why the pills couldn't be recognized. Every one of them means "try again"; none is
-/// ever shown as a result.
+/// Why the pills couldn't be recognized. None is ever shown as a result: the person is
+/// told what went wrong (`CheckProblem`) and, where it can help, asked to try again.
 nonisolated enum PillRecognitionFailure: Error, Equatable {
     /// The app has no server address (Secrets.plist).
     case notConfigured
@@ -40,6 +40,21 @@ nonisolated enum PillRecognitionFailure: Error, Equatable {
     case server(status: Int)
     /// The answer couldn't be read, or the pictures couldn't be made.
     case unusable
+}
+
+extension CheckProblem {
+    /// What a recognition failure means for the person: whether trying again can help.
+    nonisolated init(_ failure: PillRecognitionFailure) {
+        switch failure {
+        case .offline: self = .offline
+        case .server(status: 429): self = .busy
+        // Without the server's address or with a token it turns down, nothing the
+        // person does will help.
+        case .notConfigured, .server(status: 401), .server(status: 403): self = .unavailable
+        case .server(status: 400), .server(status: 413): self = .tooMuch
+        case .server, .unusable: self = .serverError
+        }
+    }
 }
 
 /// Says which of the person's medications each pill is. The pill check server

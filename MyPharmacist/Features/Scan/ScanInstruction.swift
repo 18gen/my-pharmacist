@@ -41,8 +41,31 @@ enum ScanInstruction {
         case .cutOff: Line(text: "Pills to the middle", pictogram: .toTheMiddle)
         case .tooFar: Line(text: "Move closer", pictogram: .moveCloser)
         case .hardToSee: Line(text: "Use a plain surface", pictogram: .plainSurface)
-        case .checkFailed: Line(text: "Couldn't check. Try again", pictogram: .offline,
-                                spoken: "Couldn't check the pills. Check the internet connection and try again.")
+        case .tooMany: Line(text: "At most \(CheckLimits.pills) pills", pictogram: .spreadApart,
+                            spoken: "Too many pills to check at once. Check at most \(CheckLimits.pills) at a time.")
+        case .checkFailed(let problem): checkFailed(problem)
+        }
+    }
+
+    /// Pills that were found but couldn't be checked: what happened, and whether to try
+    /// again or ask instead.
+    private static func checkFailed(_ problem: CheckProblem) -> Line {
+        switch problem {
+        case .offline:
+            Line(text: "Couldn't check. Try again", pictogram: .offline,
+                 spoken: "Couldn't check the pills. Check the internet connection and try again.")
+        case .busy:
+            Line(text: "Busy. Try again soon", pictogram: .again,
+                 spoken: "The pill check is busy. Wait a moment and try again.")
+        case .serverError:
+            Line(text: "Couldn't check. Try again", pictogram: .again,
+                 spoken: "Something went wrong checking the pills. Try again.")
+        case .unavailable:
+            Line(text: "Can't check pills now", pictogram: .offline,
+                 spoken: "Checking pills isn't working in this copy of the app. Ask your pharmacist about these pills.")
+        case .tooMuch:
+            Line(text: "Fewer pills, please", pictogram: .spreadApart,
+                 spoken: "Too much to check at once. Check fewer pills at a time.")
         }
     }
 

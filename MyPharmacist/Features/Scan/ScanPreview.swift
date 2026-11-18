@@ -59,7 +59,7 @@ enum ScanPreview {
 }
 
 #Preview("Couldn't check: try again") {
-    ScanPreview.screen(.retake(ScanPreview.photo, .checkFailed))
+    ScanPreview.screen(.retake(ScanPreview.photo, .checkFailed(.offline)))
 }
 
 #Preview("Is every pill circled?") {

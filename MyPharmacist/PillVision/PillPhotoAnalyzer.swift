@@ -85,7 +85,10 @@ actor PillPhotoAnalyzer {
                 mayHaveMissedPill: reading.mayHaveMissedPill
             ))
         } catch {
-            Log.scan.error("Pill check failed: \(String(describing: error), privacy: .public)")
+            // Closing the camera cancels the check: nothing went wrong.
+            if !Task.isCancelled {
+                Log.scan.error("Pill check failed: \(String(describing: error), privacy: .public)")
+            }
             return .failure(error)
         }
     }

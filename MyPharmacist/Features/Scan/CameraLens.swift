@@ -281,7 +281,7 @@ struct CameraLens: View {
         HStack(spacing: 10) {
             SecondaryButton(title: "Cancel", action: onDone)
                 .accessibilityHint("Closes the camera")
-            if case .retake(_, .checkFailed) = scan.phase {
+            if case .retake(_, .checkFailed(let problem)) = scan.phase, problem.canTryAgain {
                 WideButton(title: "Try again", systemImage: "arrow.clockwise") {
                     Task { await scan.checkAgain() }
                 }

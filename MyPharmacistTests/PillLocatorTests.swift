@@ -154,6 +154,17 @@ struct PillLocatorTests {
         #expect(locate() == .noPills)
     }
 
+    @Test func morePillsThanOneCheckTakesAsksForFewer() {
+        // Thirteen pill-sized discs, well apart.
+        var many: [(x: Double, y: Double, radius: Double)] = []
+        for index in 0..<13 {
+            let column = Double(index % 5), row = Double(index / 5)
+            many.append((x: 60 + column * 60, y: 100 + row * 120, radius: 14))
+        }
+        #expect(locate(lifted: blobs(many)) == .unclear(.tooMany))
+        #expect(pills(locate(lifted: blobs(Array(many.prefix(CheckLimits.pills))))).count == CheckLimits.pills)
+    }
+
     @Test func somethingPillShapedThatBarelyStandsOutMakesThePhotoUnclear() {
         #expect(locate(lifted: blobs([(100, 200, 14)]), colour: [], faint: blobs([(250, 300, 14)])) == .unclear(.hardToSee))
         // The faint edge of a pill that was found is nothing new.
