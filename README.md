@@ -23,16 +23,21 @@ in English and Japanese, and how to put a model of your own in step 2.
 
 | Folder | What is in it |
 |---|---|
-| `MyPharmacist/App` | The root view and the routes. |
-| `MyPharmacist/Features` | The screens: Home, Scan, Medications, About. |
-| `MyPharmacist/Core` | Rules with no UI: models, schedule, picture quality, the geometry that finds pills. |
+| `MyPharmacist/App` | The app's model (`AppModel`), the root view, its sheets and routes. |
+| `MyPharmacist/Features` | The screens: Home, Scan, Medications (Pills), Pharmacy, About, Onboarding. |
+| `MyPharmacist/Core` | Rules with no UI: models, schedule, verdicts, picture quality, the geometry that finds pills, address look-up. |
 | `MyPharmacist/PillVision` | Vision, cut-outs, and the `PillRecognizer` that names each pill. |
-| `MyPharmacist/Camera` | The camera session and preview. |
-| `MyPharmacist/Data` | The medication list, the scan record and photo files, all on the device. |
-| `MyPharmacist/DesignSystem` | Colours and shared controls. |
+| `MyPharmacist/Camera` | The camera session, permission and preview. |
+| `MyPharmacist/Data` | What is kept on the device: the medication list and photos, the record of doses taken (`DoseLog`), the pharmacy. |
+| `MyPharmacist/Components` | Pictures used on several screens: pill photos, the tablet icon. |
+| `MyPharmacist/DesignSystem` | Colours, card shapes and shared controls. |
+| `MyPharmacist/Resources` | Assets, the privacy manifest, and `Secrets.plist` (not in git). |
 | `MyPharmacistTests` | Unit tests (Swift Testing). |
 | `server/pill-check` | The Cloudflare Worker between the app and OpenAI. It holds the OpenAI key. |
 | `design/demo-pills` | Printable pills at actual size, for demos. |
+| `design/keychain` | The keychain medication cards and their codes. |
+| `design/app-icon` | The app icon's source. |
+| `docs`, `reports`, `research_notes` | How pill recognition works, and the research behind it. |
 | `AppStore` | Everything written for the App Store submission. |
 
 ## Run it

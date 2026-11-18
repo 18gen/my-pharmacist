@@ -35,8 +35,9 @@ Code: `PillFinder`, `PillLocator`, `PillRules`, `BlobSplitter`, `SurfaceOutliers
 - **One doubtful area turns the whole photo away**, with one thing to fix (spread apart,
   move closer, pills to the middle, plain surface). A pill that was never cut out can't
   be caught later.
-- **The person confirms:** the photo is shown with every pill circled, and nothing is
-  checked until they say every pill is circled.
+- **The person confirms:** the photo is shown with every pill circled, and no result is
+  shown or recorded until they say every pill is circled. (The pictures are already on
+  their way to be recognized meanwhile, so the answer isn't waited for twice.)
 
 The scan log (category "scan" in the Xcode console) has one line per area with these
 numbers and what became of it.
@@ -65,8 +66,8 @@ Code: `PillCropper`, `PillRecognizer`, `PillCheckClient`, `server/pill-check`.
 Code: `DoseSchedule`, `PillSetVerifier`.
 
 The app, not the recognizer, decides from the medication and the time: take now (from
-1 hour before a dose to 2 hours after), don't take now (too early, already scanned, too
-late), or unknown.
+1 hour before a dose to 2 hours after), don't take now (too early, already taken, too
+late), or unknown. A pill OK to take marks its dose taken on Home.
 
 ## Putting your own model in step 2
 
@@ -90,7 +91,7 @@ the one the app uses now.
 - **In the app:** embed each pill's picture and each medication's reference photos, and
   take the nearest medication only when it is clearly nearer than the rest. The person
   has a handful of medications, so it is a small closed set.
-- **Unsure:** return nil for that pill (unknown), or pass the pictures on to
+- **Unsure:** answer `PillAnswer.unknown` for that pill, or pass the pictures on to
   `PillCheckClient`. Never guess.
 
 ---
@@ -120,7 +121,7 @@ the one the app uses now.
   4. 中心が 1 つで、錠剤 1 つの大きさ以下、かつ輪郭の 88% 以上を埋めていれば、輪郭が荒い 1 錠として残します(「疑わしい」印を付けます)。
   5. それ以外は無視します。
 - **怪しい領域が 1 つでもあれば、写真全体を撮り直しにします。** 直すことを 1 つだけ伝えます。切り抜かれなかった錠剤は、後の段階では見つけられないためです。
-- **利用者が確認します。** すべての錠剤に丸を付けた写真を見せ、「全部に丸が付いている」と答えるまで判定しません。
+- **利用者が確認します。** すべての錠剤に丸を付けた写真を見せ、「全部に丸が付いている」と答えるまで、結果を見せることも記録することもしません。(待ち時間を減らすため、画像の判定はその間に始まっています。)
 
 スキャンのログ(Xcode コンソールの "scan" カテゴリ)に、領域ごとの数値と結果が 1 行ずつ出ます。
 
@@ -139,7 +140,7 @@ the one the app uses now.
 
 コード:`DoseSchedule`、`PillSetVerifier`
 
-薬と時刻から、アプリが決めます。今飲む(服用時刻の 1 時間前から 2 時間後まで)/今は飲まない(早すぎる、スキャン済み、遅すぎる)/不明。AI は関与しません。
+薬と時刻から、アプリが決めます。今飲む(服用時刻の 1 時間前から 2 時間後まで)/今は飲まない(早すぎる、服用済み、遅すぎる)/不明。AI は関与しません。今飲んでよい錠剤は、ホームでその回が服用済みになります。
 
 ## ② を自作モデルに置き換える
 
@@ -148,4 +149,4 @@ the one the app uses now.
 - **入力:** ① の画像(1 錠ずつ、中央、横向き)が、そのままモデルの入力になります。
 - **モデル:** ePillID は、同じ錠剤の参照画像と利用者の写真を対にしたデータセットで、1 錠あたりの画像がごく少数です。分類器より埋め込み(metric learning)モデルが合います。
 - **アプリ側:** 錠剤の画像と登録薬の参照写真をそれぞれ埋め込み、最も近い薬が他よりはっきり近いときだけ採用します。登録薬は数種類なので、小さな閉じた候補から選ぶ問題です。
-- **自信がないとき:** その錠剤は nil(不明)を返すか、画像を `PillCheckClient` に渡します。推測はしません。
+- **自信がないとき:** その錠剤は `PillAnswer.unknown`(不明)を返すか、画像を `PillCheckClient` に渡します。推測はしません。

@@ -123,9 +123,9 @@ My Pharmacist double-checks your pills before you take them.
 
 Put the pills you're about to take in your hand and point the camera at them. The app finds each pill, recognizes which of your medications it is, and tells you, pill by pill:
 
-• Take now: it's one of your medications and it's due.
+• OK to take: it's one of your medications and it's due. The dose is ticked as taken on the home screen.
 • Don't take now: it's too early, already taken, or too late for this dose.
-• Unknown: it isn't one of the medications on your list.
+• Unknown – don't take: it isn't one of the medications on your list.
 
 Built for people who take many medications, like during cancer treatment, and for the people who help them.
 
@@ -137,7 +137,7 @@ SIMPLE BY DESIGN
 
 YOUR MEDICATIONS
 • Add each medication with a photo of its pill, its strength, what it's for and when you take it, or mark it "when needed".
-• Today's doses on the home screen: morning, noon, evening, bedtime.
+• Today's doses on the home screen: morning, midday, afternoon, evening, bedtime. Tick a dose by hand, or let a scan tick it.
 • A pill counts for a dose from an hour before its time to two hours after. Later than that, the app tells you to ask your pharmacist.
 • Try it first with the sample list.
 
@@ -163,8 +163,8 @@ pill,medication,medicine,scan,dose,identifier,oncology,chemo,tablet,schedule,car
 | Marketing URL | Leave empty (optional) |
 
 ### Version and copyright
-- **Version:** 1.0 (build 1). Each new upload needs a higher build number (Xcode → target
-  → General → Build).
+- **Version:** 1.0 (build 3; builds 1 and 2 were uploaded on 10 and 12 Nov 2026). Each new
+  upload needs a higher build number (Xcode → target → General → Build).
 - **Copyright:** `2026 Gen Ichihashi`
 
 ### Screenshots, iPhone 6.9" (1320 × 2868), 3 to 10 of them
@@ -175,9 +175,9 @@ Simulator. Order them like this:
 | # | Launch flag | What it shows | Caption idea |
 |---|---|---|---|
 | 1 | `-demoScan` | Results: take now / don't take now | "See which pills to take now" |
-| 2 | `-demoFind -noCloud` (stop at the question) | Every pill circled, "Is that all of them?" | "Never miss a pill" |
+| 2 | `-demoFind -noCloud` (stop at the question) | Every pill circled, "Is every pill circled?" | "Never miss a pill" |
 | 3 | *(none, sample list loaded)* | Home with today's doses | "Today's doses at a glance" |
-| 4 | `-demoMedications` | My Medications | "Your own medications, your own pills" |
+| 4 | `-demoMedications` | Pills | "Your own medications, your own pills" |
 | 5 | `-demoNewMedication` | Adding a medication | "Add a pill with one photo" |
 | 6 | `-demoAbout` | About & privacy | "Your list stays on your phone" |
 
@@ -229,8 +229,8 @@ HOW TO TRY IT (no account needed)
 1. The app opens with four sample medications, with photos of their pills and sample times. To put them back at any time: Home > About & privacy > "Reset demo" > confirm.
 2. Print the attached PDF (letter size, colour) and cut out the pills, or show it on a screen. Its pictures match the sample list.
 3. Back on the home screen, tap the camera button. The first time, the app explains what is sent and asks for permission ("Allow and continue"). Then hold the printed pills in your hand under the camera; the photo is taken automatically once the picture is steady.
-4. The app circles every pill it found and asks "Is that all of them?". Tap Yes to see, pill by pill: Take now / Don't take now / Unknown.
-You can also add your own medication: My Medications > "Add a medication", and photograph any tablet.
+4. The app circles every pill it found and asks "Is every pill circled?". Tap "Yes, check them" to see, pill by pill: OK to take / Don't take now / Unknown – don't take. Each dose that is OK to take is ticked as taken on the home screen.
+You can also add your own medication: Pills (beside "Today" on the home screen) > "Type", and photograph any tablet.
 
 DATA AND THIRD-PARTY AI (5.1.1, 5.1.2)
 - The medication list and pill photos stay on the device; there is no account, analytics or tracking.
@@ -261,7 +261,7 @@ The recognition server is live. Results take a few seconds and need an internet 
 |---|---|
 | "Does the app give medical advice?" (1.4.1) | No. It compares pills with the user's own list and schedule, as they entered them. It says "not medical advice" on every result and on the About page, and refers the user to their pharmacist for anything late or unknown. |
 | "Is AI data sharing disclosed and consented?" (5.1.2(i)) | Yes. A sheet before the first scan names what is sent, to whom (our server, then OpenAI) and what is kept. Nothing is sent without "Allow". It can be switched off in About & privacy. |
-| "The app looks like a demo." (2.2 / 4.2) | The list starts empty. Users add their own medications with their own pill photos; the sample list is only for trying the app. |
+| "The app looks like a demo." (2.2 / 4.2) | The sample list is there so the app can be tried at once. Users add their own medications with their own pill photos (by typing them in or scanning a medication card) and remove the samples; the sample pharmacy is fictional. |
 | "Where does the privacy policy say X?" | `/privacy` on the server, also linked in the app (About & privacy, and the consent sheet). |
 
 ---
@@ -282,3 +282,33 @@ The recognition server is live. Results take a few seconds and need an internet 
   as "Unknown". Still, keep the wording "double-check" everywhere.
 - **Cost:** keep the OpenAI budget limit on. The server also limits each address to 20
   checks a minute.
+
+## 11. TestFlight for outside testers
+
+External testers need Beta App Review once per version (usually within a day). In App
+Store Connect → TestFlight → the build → Test Information:
+
+**Beta App Description**
+```
+My Pharmacist double-checks the pills in your hand against your own medication list before you take them, and ticks each dose OK to take as taken. It is a double-check, not medical advice.
+```
+
+**What to Test**
+```
+The app opens with four sample medications (cancer treatment examples) and a fictional sample pharmacy. To scan, print or show on a screen the sample pill sheet you were sent, hold the pills in your hand and tap Scan Pills.
+
+Please try:
+1. Scan the sample pills at a time one of them is due (the home screen says which time of day is "Now"). Each pill OK to take should be ticked on the home screen.
+2. Tap a ticked box and choose "Not taken"; scan again: the pill should be OK to take again.
+3. Add a medication of your own (Pills > Type) with photos of a real tablet, then scan it.
+4. Try a messy photo: pills touching, at the edge, in dim light. The app should ask for another photo rather than guess.
+
+Tell us about anything confusing, any pill that was named wrongly, and anything hard to read or tap. About & privacy > Reset demo puts the samples back.
+```
+
+**Feedback email:** the support address on the server's support page.
+
+The privacy policy and support pages are served by the pill check server: deploy it
+(`server/pill-check`, `npm run deploy`) before inviting testers, so the pages they open
+match this build.
+
