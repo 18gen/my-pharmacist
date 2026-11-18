@@ -52,12 +52,16 @@ struct HomeHeader: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// "Wednesday, Nov 18": the month is short so the date fits on one line beside the
+    /// Pharmacy button ("Nov." or "Nov" as the phone's region writes it). VoiceOver reads
+    /// the month in full. At the accessibility sizes it may take two lines rather than shrink.
     private var fullDate: some View {
-        Text(now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+        Text(now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
             .font(.title3.weight(.semibold))
             .foregroundStyle(Palette.cream.opacity(0.92))
-            .lineLimit(2)
+            .lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
             .minimumScaleFactor(0.8)
+            .accessibilityLabel(now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
     }
 
     private var timeText: some View {
