@@ -23,16 +23,16 @@ struct PharmacyForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 14) {
-                field("Name") {
+                LabeledField("Name") {
                     TextField("Name", text: $pharmacy.name, prompt: Text("For example, Maple Street Pharmacy"))
                         .textInputAutocapitalization(.words)
                 }
-                field("Phone number") {
+                LabeledField("Phone number") {
                     TextField("Phone number", text: $pharmacy.phone, prompt: Text("For example, 519-555-0142"))
                         .keyboardType(.phonePad)
                         .textContentType(.telephoneNumber)
                 }
-                field("Address") {
+                LabeledField("Address") {
                     TextField("Address", text: $pharmacy.address,
                               prompt: Text("For example, 200 University Ave W, Waterloo"), axis: .vertical)
                         .lineLimit(1...3)
@@ -49,7 +49,7 @@ struct PharmacyForm: View {
                         .foregroundStyle(Palette.late)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                field("Opening hours") {
+                LabeledField("Opening hours") {
                     TextField("Opening hours", text: $pharmacy.hours,
                               prompt: Text("For example, Monday to Friday 9 AM – 6 PM"), axis: .vertical)
                         .lineLimit(1...6)
@@ -81,17 +81,6 @@ struct PharmacyForm: View {
             guard let locatedAddress,
                   address.trimmingCharacters(in: .whitespacesAndNewlines) != locatedAddress else { return }
             pharmacy.coordinate = nil
-        }
-    }
-
-    private func field(_ label: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(Palette.textSecondary)
-            content()
-                .font(.title3)
-                .padding(.vertical, 6)
         }
     }
 

@@ -54,8 +54,11 @@ struct RootView: View {
             return MedicationStore(entries: DemoScan.startsEmpty ? [] : list)
         }
         #endif
-        return MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage(),
-                               logStorage: UserDefaultsDoseLogStorage())
+        let store = MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage(),
+                                    logStorage: UserDefaultsDoseLogStorage())
+        // Photos of a medication whose adding was never finished (the app was closed).
+        store.removeUnusedPhotos()
+        return store
     }
 
     /// The pharmacy saved on the device; a new install starts with the sample one. Debug

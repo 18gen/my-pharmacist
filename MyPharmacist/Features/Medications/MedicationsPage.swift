@@ -19,17 +19,14 @@ struct MedicationsPage: View {
     var onTypeIn: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
+    /// Said where a medication would be added once the list holds as many as one check of
+    /// pills can compare (`CheckLimits.medications`).
+    static let listIsFull = "You can have up to \(CheckLimits.medications) medications. Remove one to add another."
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                GlassIconButton(systemName: "chevron.left", accessibilityLabel: "Back") {
-                    dismiss()
-                }
-
-                Text("Pills")
-                    .font(Palette.pageTitle)
-                    .foregroundStyle(Palette.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
+                PageHeader(title: "Pills", onBack: { dismiss() })
 
                 list
 
@@ -38,7 +35,14 @@ struct MedicationsPage: View {
                         .font(.title2.bold())
                         .foregroundStyle(Palette.textPrimary)
                         .accessibilityAddTraits(.isHeader)
-                    AddMedicationButtons(onScanCard: onScanCard, onTypeIn: onTypeIn)
+                    if store.canAddMore {
+                        AddMedicationButtons(onScanCard: onScanCard, onTypeIn: onTypeIn)
+                    } else {
+                        Text(Self.listIsFull)
+                            .font(.body)
+                            .foregroundStyle(Palette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .cardBackground()
@@ -79,8 +83,10 @@ struct MedicationsPage: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         MedicationsPage(store: MedicationStore(entries: SampleMedications.demoList))
     }
 }
+#endif

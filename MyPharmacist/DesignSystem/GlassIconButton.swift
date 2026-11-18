@@ -5,8 +5,8 @@
 
 import SwiftUI
 
-/// A round glass button with one symbol, like the home screen's medications button and
-/// the back button. 56pt across — larger than the system's 44pt so it is easier to see and tap.
+/// A round glass button with one symbol: the back button of the pages pushed over Home.
+/// 56pt across — larger than the system's 44pt so it is easier to see and tap.
 struct GlassIconButton: View {
     static let size: CGFloat = 56
 

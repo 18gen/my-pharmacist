@@ -18,18 +18,16 @@ struct MedicationEditor: View {
 
     let store: MedicationStore
     let mode: Mode
-    /// Called after adding (to close the sheet) or removing (to close the page). It goes
-    /// by the navigation path rather than `dismiss`, which a confirmation dialog that is
-    /// closing itself can swallow.
+    /// Called after adding or removing, to close the page. It goes by the navigation path
+    /// rather than `dismiss`, which a confirmation dialog that is closing itself can swallow.
     var onDone: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @State private var draft: MedicationEntry
     /// The times in the order they were set, so a row doesn't jump while its time changes.
     @State private var times: [TimeRow]
-    /// Photos taken while this page was open, so the ones not kept can be deleted.
-    @State private var newPhotos: [MedicationPhoto] = []
-    @State private var wasAdded = false
+    /// The photo files taken on this page, to delete the ones the medication doesn't keep.
+    @State private var takenHere: PhotosTakenHere
     @State private var isConfirmingRemove = false
 
     /// Offered in turn by "Add a time": the usual times of day.
@@ -43,23 +41,38 @@ struct MedicationEditor: View {
         let draft = entry ?? MedicationEntry()
         _draft = State(initialValue: draft)
         _times = State(initialValue: draft.orderedTimes.map(TimeRow.init))
+        _takenHere = State(initialValue: PhotosTakenHere(photoStore: store.photoStore))
+    }
+
+    private var hasName: Bool {
+        !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// What's still needed before a new medication can be added, in words; nil when ready.
-    private var missing: String? {
-        let hasName = !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private var missingToAdd: String? {
         switch (hasName, !draft.photos.isEmpty) {
-        case (false, false): return "Add a photo of the pill and its name."
-        case (false, true): return "Add the medication's name."
-        case (true, false): return "Add a photo of the pill, so a scan can recognize it."
-        case (true, true): return nil
+        case (false, false): "Add a photo of the pill and its name."
+        case (false, true): "Add the medication's name."
+        case (true, false): "Add a photo of the pill, so a scan can recognize it."
+        case (true, true): nil
         }
+    }
+
+    /// What a medication on the list lacks, in words: without a name its changes can't be
+    /// kept, and without a photo a scan can't recognize its pill. Nil when it has both.
+    private var missingFromChanges: String? {
+        if !hasName { return "Add the medication's name. Changes are kept once it has one." }
+        if draft.photos.isEmpty { return "Without a photo of the pill, a scan can't recognize it." }
+        return nil
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                topBar
+                PageHeader(title: mode == .add ? "New medication" : (hasName ? draft.name : "Medication"),
+                           // Back without adding is how a new one is cancelled.
+                           backLabel: mode == .add ? "Cancel" : "Back",
+                           onBack: leave)
                 photos
                 details
                 schedule
@@ -78,11 +91,11 @@ struct MedicationEditor: View {
             // Changes to a medication on the list apply as they're made: no Save to forget.
             if mode == .edit { store.update(entry) }
         }
-        .onDisappear(perform: deleteUnkeptPhotos)
-        .confirmationDialog("Remove \(draft.name) from your medications?",
+        .confirmationDialog("Remove \(draft.name) from Pills?",
                             isPresented: $isConfirmingRemove, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
                 store.remove(draft.id)
+                takenHere.keep([])
                 onDone()
             }
             Button("Cancel", role: .cancel) {}
@@ -90,20 +103,7 @@ struct MedicationEditor: View {
             Text("Its photos are deleted, it won't be on the home screen, and a scan will show its pill as unknown.")
         }
         .toolbar(.hidden, for: .navigationBar)
-        .edgeSwipeBack()
-    }
-
-    private var topBar: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Back without adding is how a new one is cancelled.
-            GlassIconButton(systemName: "chevron.left", accessibilityLabel: mode == .add ? "Cancel" : "Back") {
-                dismiss()
-            }
-            Text(mode == .add ? "New medication" : draft.name)
-                .font(Palette.pageTitle)
-                .foregroundStyle(Palette.textPrimary)
-                .accessibilityAddTraits(.isHeader)
-        }
+        .edgeSwipeBack(perform: leave)
     }
 
     /// Front and back of the tablet: what a scanned pill is compared with.
@@ -115,28 +115,24 @@ struct MedicationEditor: View {
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(alignment: .top, spacing: 12) {
-                PillPhotoSlot(title: "Front", photo: photoBinding(0), onSaved: { newPhotos.append($0) })
-                PillPhotoSlot(title: "Back", photo: photoBinding(1), onSaved: { newPhotos.append($0) })
+                PillPhotoSlot(title: "Front", photo: photoBinding(0), photoStore: store.photoStore,
+                              onSaved: takenHere.add)
+                PillPhotoSlot(title: "Back", photo: photoBinding(1), photoStore: store.photoStore,
+                              onSaved: takenHere.add)
             }
         }
     }
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 14) {
-            field("Name", text: $draft.name, prompt: "For example, Capecitabine")
-            field("Strength", text: $draft.strength, prompt: "For example, 500 mg")
-            field("What it's for", text: $draft.purpose, prompt: "For example, Cancer treatment")
+            LabeledField("Name", text: limited($draft.name, to: CheckLimits.nameLength),
+                         prompt: "For example, Capecitabine", capitalization: .words, autocorrects: false)
+            LabeledField("Strength", text: limited($draft.strength, to: CheckLimits.strengthLength),
+                         prompt: "For example, 500 mg", capitalization: .never, autocorrects: false)
+            LabeledField("What it's for", text: $draft.purpose, prompt: "For example, Cancer treatment")
             // As long as the label's: it wraps onto more lines as it is typed.
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Directions")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Palette.textSecondary)
-                TextField("Directions", text: $draft.directions,
-                          prompt: Text("For example, With water, after a meal"), axis: .vertical)
-                    .font(.title3)
-                    .lineLimit(1...4)
-                    .padding(.vertical, 6)
-            }
+            LabeledField("Directions", text: $draft.directions, prompt: "For example, With water, after a meal",
+                         axis: .vertical)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()
@@ -155,7 +151,7 @@ struct MedicationEditor: View {
                 .padding(.bottom, 8)
 
                 if draft.isAsNeeded {
-                    field("When", text: $draft.asNeededNote, prompt: MedicationEntry.defaultAsNeeded)
+                    LabeledField("When", text: $draft.asNeededNote, prompt: MedicationEntry.defaultAsNeeded)
                 } else {
                     timeList
                 }
@@ -172,17 +168,9 @@ struct MedicationEditor: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    private func field(_ label: String, text: Binding<String>, prompt: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(Palette.textSecondary)
-            TextField(label, text: text, prompt: Text(prompt))
-                .font(.title3)
-                .textInputAutocapitalization(.words)
-                .submitLabel(.done)
-                .padding(.vertical, 6)
-        }
+    /// Text that stops growing at `limit` characters: what one check of pills can take.
+    private func limited(_ text: Binding<String>, to limit: Int) -> Binding<String> {
+        Binding(get: { text.wrappedValue }, set: { text.wrappedValue = String($0.prefix(limit)) })
     }
 
     /// The photo in one of the two places, kept in order: front first.
@@ -227,41 +215,49 @@ struct MedicationEditor: View {
         switch mode {
         case .add:
             VStack(spacing: 8) {
-                WideButton(title: "Add to my medications", systemImage: "plus") {
-                    wasAdded = store.add(draft)
-                    if wasAdded { onDone() }
+                WideButton(title: "Add to Pills", systemImage: "plus") {
+                    guard store.add(draft) else { return }
+                    takenHere.keep(draft.photos)
+                    onDone()
                 }
-                .disabled(missing != nil)
-                if let missing {
-                    Text(missing)
-                        .font(.body)
-                        .foregroundStyle(Palette.textTertiary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
+                .disabled(missingToAdd != nil || !store.canAddMore)
+                if let note = store.canAddMore ? missingToAdd : MedicationsPage.listIsFull {
+                    footnote(note)
                 }
             }
         case .edit:
-            Button(role: .destructive) {
-                isConfirmingRemove = true
-            } label: {
-                Label("Remove from my medications", systemImage: "trash")
-                    .font(.title3.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 34)
+            VStack(spacing: 12) {
+                if let missingFromChanges {
+                    footnote(missingFromChanges)
+                }
+                Button(role: .destructive) {
+                    isConfirmingRemove = true
+                } label: {
+                    Label("Remove from Pills", systemImage: "trash")
+                        .font(.title3.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .controlSize(.large)
+                .tint(Palette.danger)
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .controlSize(.large)
-            .tint(Palette.danger)
         }
     }
 
-    /// Photos taken here that the medication doesn't have in the end: replaced, removed,
-    /// or never added because the page was cancelled.
-    private func deleteUnkeptPhotos() {
-        let kept = (mode == .add && !wasAdded) ? [] : (store.entry(draft.id)?.photos ?? [])
-        for photo in newPhotos where !kept.contains(photo) {
-            MedicationPhotoStore.standard.delete(photo)
-        }
+    private func footnote(_ text: String) -> some View {
+        Text(text)
+            .font(.body)
+            .foregroundStyle(Palette.textTertiary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+    }
+
+    /// Back, by the button or the swipe. A new medication that wasn't added is dropped
+    /// with its photos; a medication on the list keeps the photos it has.
+    private func leave() {
+        takenHere.keep(mode == .add ? [] : store.entry(draft.id)?.photos ?? [])
+        dismiss()
     }
 
     /// The first usual time not set yet, or an hour after the last one.
@@ -275,6 +271,33 @@ struct MedicationEditor: View {
             candidate = DoseTime((candidate.hour + 1) % 24, candidate.minute)
         } while taken.contains(candidate)
         return candidate
+    }
+}
+
+/// The photo files taken on one medication page. Leaving the page through its own
+/// buttons deletes those the medication doesn't keep: a new medication that wasn't added,
+/// or a photo taken again. (Not when the page merely disappears: a full-screen camera
+/// covering it does that too, while its photos are still wanted.) Files left behind in any
+/// other way, the app being closed, say, go on the next launch
+/// (`MedicationStore.removeUnusedPhotos`).
+final class PhotosTakenHere {
+    private let photoStore: MedicationPhotoStore
+    private var photos: [MedicationPhoto] = []
+
+    init(photoStore: MedicationPhotoStore) {
+        self.photoStore = photoStore
+    }
+
+    func add(_ photo: MedicationPhoto) {
+        photos.append(photo)
+    }
+
+    /// Deletes the photos taken here except `kept`.
+    func keep(_ kept: [MedicationPhoto]) {
+        for photo in photos where !kept.contains(photo) {
+            photoStore.delete(photo)
+        }
+        photos = []
     }
 }
 
@@ -308,7 +331,7 @@ private struct TimeRowView: View {
                     .foregroundStyle(Palette.textSecondary)
             }
             Spacer(minLength: 8)
-            DatePicker("Time", selection: date, displayedComponents: .hourAndMinute)
+            DatePicker("\(period.name) dose time", selection: date, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .datePickerStyle(.compact)
             Button(action: onRemove) {
@@ -320,7 +343,7 @@ private struct TimeRowView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canRemove)
-            .accessibilityLabel("Remove \(row.time.date(on: Date()).shortTime)")
+            .accessibilityLabel("Remove \(row.time.shortTime)")
         }
         .padding(.vertical, 4)
     }

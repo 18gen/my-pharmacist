@@ -21,6 +21,20 @@ struct MedicationCardTests {
         MedicationStore()
     }
 
+    @Test func aCardForANewMedicationWhenTheListIsFullAddsNothing() {
+        let store = emptyStore()
+        for index in 0..<CheckLimits.medications {
+            store.add(MedicationEntry(name: "Medication \(index)"))
+        }
+        let outcome = store.outcome(ofCard: Self.keychain[0])
+        guard case .listFull = outcome else {
+            Issue.record("Expected a full list, got \(outcome)")
+            return
+        }
+        store.apply(outcome)
+        #expect(store.entries.count == CheckLimits.medications)
+    }
+
     @Test func theSampleListMakesTheKeychainsCards() {
         #expect(SampleMedications.sampleList.map { MedicationCard($0).text } == Self.keychain)
     }

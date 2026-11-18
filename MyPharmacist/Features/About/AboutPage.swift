@@ -27,13 +27,7 @@ struct AboutPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                GlassIconButton(systemName: "chevron.left", accessibilityLabel: "Back") {
-                    dismiss()
-                }
-                Text("About & privacy")
-                    .font(Palette.pageTitle)
-                    .foregroundStyle(Palette.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
+                PageHeader(title: "About & privacy", onBack: { dismiss() })
 
                 section("A double-check, not medical advice") {
                     Text("My Pharmacist checks the pills in your hand against your own medication list and your schedule, and says which to take now. It can be wrong. Always follow your pharmacist's or doctor's instructions, and ask them if you are unsure about a pill.")

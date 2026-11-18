@@ -53,7 +53,7 @@ struct MedicationRow: View {
 
     private var timesText: String {
         medication.doseTimes.sorted()
-            .map { $0.date(on: Date()).shortTime }
+            .map(\.shortTime)
             .joined(separator: " · ")
     }
 }

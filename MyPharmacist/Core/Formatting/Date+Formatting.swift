@@ -22,3 +22,10 @@ nonisolated extension Date {
         return formatted(style)
     }
 }
+
+nonisolated extension DoseTime {
+    /// The time in the phone's format, e.g. "8:00 AM".
+    var shortTime: String {
+        date(on: Date()).shortTime
+    }
+}

@@ -14,6 +14,8 @@ enum CardOutcome: Equatable {
     case changeSchedule(MedicationEntry)
     /// On the list, with the card's times already.
     case alreadyThere(MedicationEntry)
+    /// Not on the list, which is full: this is what would have been added.
+    case listFull(MedicationEntry)
     /// Not a card, or not for a medication the app has photos of.
     case notACard
 }
@@ -28,7 +30,8 @@ extension MedicationStore {
             return changed == onList ? .alreadyThere(onList) : .changeSchedule(changed)
         }
         guard let builtIn = SampleMedications.builtIn(card.medicationID) else { return .notACard }
-        return .add(builtIn.following(card.schedule).tidied)
+        let entry = builtIn.following(card.schedule).tidied
+        return canAddMore ? .add(entry) : .listFull(entry)
     }
 
     /// Does what `outcome(ofCard:)` said: adds the medication or changes when it's taken.
@@ -36,7 +39,7 @@ extension MedicationStore {
         switch outcome {
         case .add(let entry): add(entry)
         case .changeSchedule(let entry): update(entry)
-        case .alreadyThere, .notACard: break
+        case .alreadyThere, .listFull, .notACard: break
         }
     }
 }

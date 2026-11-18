@@ -12,6 +12,8 @@ import SwiftUI
 struct PillPhotoSlot: View {
     let title: String
     @Binding var photo: MedicationPhoto?
+    /// Where the photo files are kept.
+    let photoStore: MedicationPhotoStore
     /// Called with each photo this slot saves, so the editor can delete the ones it
     /// doesn't keep.
     var onSaved: (MedicationPhoto) -> Void = { _ in }
@@ -80,7 +82,7 @@ struct PillPhotoSlot: View {
         ZStack {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Palette.cardFill)
-            if let photo, let image = MedicationPhotoStore.standard.image(photo) {
+            if let photo, let image = photoStore.image(photo) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
@@ -106,7 +108,7 @@ struct PillPhotoSlot: View {
             let result = await Task.detached(priority: .userInitiated) { PillReferencePhoto.make(from: image) }.value
             switch result {
             case .success(let cutOut):
-                if let saved = try? MedicationPhotoStore.standard.save(cutOut) {
+                if let saved = try? photoStore.save(cutOut) {
                     onSaved(saved)
                     photo = saved
                 } else {

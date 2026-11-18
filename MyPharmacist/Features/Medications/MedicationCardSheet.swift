@@ -37,12 +37,12 @@ struct MedicationCardSheet: View {
                 VStack(spacing: 10) {
                     switch outcome {
                     case .add:
-                        WideButton(title: "Add to my medications", systemImage: "plus", action: onConfirm)
+                        WideButton(title: "Add to Pills", systemImage: "plus", action: onConfirm)
                         SecondaryButton(title: "Cancel", fillsWidth: true, action: onClose)
                     case .changeSchedule:
                         WideButton(title: "Use the card's times", systemImage: "clock", action: onConfirm)
                         SecondaryButton(title: "Cancel", fillsWidth: true, action: onClose)
-                    case .alreadyThere, .notACard:
+                    case .alreadyThere, .listFull, .notACard:
                         SecondaryButton(title: "Close", fillsWidth: true, action: onClose)
                     }
                 }
@@ -53,7 +53,7 @@ struct MedicationCardSheet: View {
             .padding(.bottom, 24)
         }
         .background(Palette.background)
-        // A little over half the screen: room for the longest of the four, buttons included.
+        // A little over half the screen: room for the longest of them, buttons included.
         .presentationDetents([.fraction(0.64), .large])
         .presentationDragIndicator(.visible)
     }
@@ -61,7 +61,7 @@ struct MedicationCardSheet: View {
     /// The medication the card is for, as it would be afterwards; nil if it isn't a card.
     private var entry: MedicationEntry? {
         switch outcome {
-        case .add(let entry), .changeSchedule(let entry), .alreadyThere(let entry): entry
+        case .add(let entry), .changeSchedule(let entry), .alreadyThere(let entry), .listFull(let entry): entry
         case .notACard: nil
         }
     }
@@ -71,6 +71,7 @@ struct MedicationCardSheet: View {
         case .add: "Add this medication?"
         case .changeSchedule: "Change when you take it?"
         case .alreadyThere: "Already on your list"
+        case .listFull: "Your list is full"
         case .notACard: "Not a My Pharmacist card"
         }
     }
@@ -83,6 +84,8 @@ struct MedicationCardSheet: View {
             "\(entry.name) is already on your list, at other times. These are the card's."
         case .alreadyThere(let entry):
             "\(entry.name) is on your list, taken when the card says. Nothing to change."
+        case .listFull:
+            MedicationsPage.listIsFull
         case .notACard:
             "Scan the square code on one of your medication cards."
         }
