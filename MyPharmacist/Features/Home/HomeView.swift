@@ -33,7 +33,7 @@ struct HomeView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     /// Folded times of day the person has opened, each with the status it was opened in:
     /// when a slot moves on (next → now → done) it goes back to how that status shows,
-    /// except that the card to take now stays open once its last dose is ticked.
+    /// except that a card open while its doses are ticked stays open once the last is.
     @State private var openSlots: Set<String> = []
     @State private var showsWhenNeeded = false
     /// Scroll target for the "When needed" card.
@@ -77,9 +77,11 @@ struct HomeView: View {
                                              onOpened: { scrollIntoView(slot.id, proxy) })
                                     .id(slot.id)
                                     // Ticking the last dose of the time of day to take now
-                                    // leaves its card open: it doesn't fold away under the finger.
-                                    .onChange(of: slot.status) { old, new in
-                                        if old == .now, case .done = new { openSlots.insert(openKey(slot)) }
+                                    // leaves its card open: it doesn't fold away under the
+                                    // finger. Marked open as done ahead of time, so it is
+                                    // open from the first frame it is done in.
+                                    .onChange(of: slot.status, initial: true) { _, new in
+                                        if new == .now { openSlots.insert(openKey(slot, kind: "done")) }
                                     }
                             }
                             if !asNeeded.isEmpty {
@@ -155,17 +157,31 @@ struct HomeView: View {
 
     /// What a slot's open state is remembered by: its time and the kind of status it has,
     /// so a card done at 12:31 and again at 12:40 is the same open card.
-    private func openKey(_ slot: DoseSlot) -> String {
-        let kind = if case .done = slot.status { "done" } else { "\(slot.status)" }
+    private func openKey(_ slot: DoseSlot, kind given: String? = nil) -> String {
+        let kind: String
+        if let given {
+            kind = given
+        } else if case .done = slot.status {
+            kind = "done"
+        } else {
+            kind = "\(slot.status)"
+        }
         return "\(slot.scheduled.timeIntervalSince1970) \(kind)"
     }
 
+    /// Opening a card also keeps it open once it is done, so ticking its last dose doesn't
+    /// fold it away; folding it forgets both.
     private func isOpen(_ slot: DoseSlot) -> Binding<Bool> {
         let key = openKey(slot)
+        let doneKey = openKey(slot, kind: "done")
         return Binding(
             get: { openSlots.contains(key) },
             set: { open in
-                if open { openSlots.insert(key) } else { openSlots.remove(key) }
+                if open {
+                    openSlots.formUnion([key, doneKey])
+                } else {
+                    openSlots.subtract([key, doneKey])
+                }
             }
         )
     }

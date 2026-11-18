@@ -24,26 +24,27 @@ struct DoseSlotCard: View {
     private static let cornerRadius: CGFloat = 24
 
     var body: some View {
+        // One build for every status, so going from "Now" to done changes what the card
+        // says without rebuilding it: no jump under the finger after the last tick.
+        let folds = slot.status.isFolded
+        let open = !folds || isExpanded
         VStack(alignment: .leading, spacing: 0) {
-            if slot.status.isFolded {
-                Button(action: toggle) {
-                    SlotHeader(slot: slot, isExpanded: isExpanded)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint(isExpanded ? "Double tap to hide these medications" : "Double tap to show these medications")
+            Button(action: toggle) {
+                SlotHeader(slot: slot, isExpanded: folds ? isExpanded : nil)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .allowsHitTesting(folds)
+            .accessibilityRemoveTraits(folds ? [] : .isButton)
+            .accessibilityHint(!folds ? "" : isExpanded ? "Double tap to hide these medications" : "Double tap to show these medications")
 
-                // Opens like a drawer: the rows stay put and the card's edge moves.
-                DrawerLayout(openFraction: isExpanded ? 1 : 0) {
-                    rows.padding(.top, 8)
-                }
-                .clipped()
-                .allowsHitTesting(isExpanded)
-                .accessibilityHidden(!isExpanded)
-            } else {
-                SlotHeader(slot: slot, isExpanded: nil)
+            // Opens like a drawer: the rows stay put and the card's edge moves.
+            DrawerLayout(openFraction: open ? 1 : 0) {
                 rows.padding(.top, 8)
             }
+            .clipped()
+            .allowsHitTesting(open)
+            .accessibilityHidden(!open)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .raisedCardBackground()
@@ -84,11 +85,19 @@ struct DoseSlotCard: View {
 }
 
 /// "Morning · 8:00 AM" with the time of day's symbol, and on the right where it stands,
-/// with a chevron when the card folds.
+/// with a chevron when the card folds. Folded once everything in it is taken, it reads
+/// "Morning ✓ Taken 8:04 AM" instead; open, the rows show each time, so nothing stands
+/// beside the title.
 private struct SlotHeader: View {
     let slot: DoseSlot
     /// Nil for a card that is always open.
     let isExpanded: Bool?
+
+    /// A finished time of day while folded: when it was done.
+    private var summary: (time: Date, taken: Bool)? {
+        if isExpanded == false, case .done(let time, let taken) = slot.status { return (time, taken) }
+        return nil
+    }
 
     var body: some View {
         // Side by side when it fits; the status under the title at large text sizes.
@@ -96,7 +105,7 @@ private struct SlotHeader: View {
             HStack(spacing: 8) {
                 title
                 Spacer(minLength: 8)
-                status
+                reserved { status }
                 chevron
             }
             VStack(alignment: .leading, spacing: 4) {
@@ -112,13 +121,43 @@ private struct SlotHeader: View {
         .accessibilityAddTraits(.isHeader)
     }
 
+    /// Always as tall as the "Now" capsule, whatever stands there, so the header line
+    /// never moves when the status changes. Only its height is kept, not its width, so
+    /// the title keeps its room at large text sizes.
+    private func reserved(@ViewBuilder _ content: () -> some View) -> some View {
+        ZStack(alignment: .trailing) {
+            nowCapsule.fixedSize().frame(width: 0).hidden()
+            content()
+        }
+    }
+
+    private var nowCapsule: some View {
+        Text("Now")
+            .font(.headline)
+            .foregroundStyle(Palette.onDue)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Palette.due))
+    }
+
+    /// "✓ Taken 8:04 AM"; "Scanned" for doses only scanned, from before a scan counted
+    /// as taken.
+    private func summaryLabel(_ summary: (time: Date, taken: Bool)) -> some View {
+        Label("\(summary.taken ? "Taken" : "Scanned") \(summary.time.shortTime)", systemImage: "checkmark.circle.fill")
+            .font(.headline)
+            .monospacedDigit()
+            .foregroundStyle(Palette.ok)
+    }
+
     /// The darkest text only for the time of day to take now, so it stands out from the
-    /// rest, which are in the date's softer black.
+    /// rest, which are in the date's softer black. Folded and finished, "Midday" alone:
+    /// the taken time beside it says more than the planned one, and both fit on one line.
     private var title: some View {
         let period = DayPeriod(slot.time)
         let colour = slot.status == .now ? Palette.textPrimary : Palette.textSubtitle
+        let words = summary != nil ? period.name : "\(period.name) · \(slot.scheduled.shortTime)"
         return Label {
-            Text("\(period.name) · \(slot.scheduled.shortTime)")
+            Text(words)
                 .font(.title3.bold())
                 .foregroundStyle(colour)
         } icon: {
@@ -132,12 +171,7 @@ private struct SlotHeader: View {
     private var status: some View {
         switch slot.status {
         case .now:
-            Text("Now")
-                .font(.headline)
-                .foregroundStyle(Palette.onDue)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(Palette.due))
+            nowCapsule
         case .next:
             Text("Next")
                 .font(.headline)
@@ -148,10 +182,8 @@ private struct SlotHeader: View {
             Text("Not scanned yet")
                 .font(.headline)
                 .foregroundStyle(Palette.late)
-        case .done(let time, let taken):
-            Label("\(taken ? "Taken" : "Scanned") \(time.shortTime)", systemImage: "checkmark.circle.fill")
-                .font(.headline)
-                .foregroundStyle(Palette.ok)
+        case .done:
+            if let summary { summaryLabel(summary) }
         }
     }
 

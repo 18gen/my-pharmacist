@@ -28,7 +28,8 @@ import UIKit
 ///   fields. `-demoCard <code>` shows what a keychain card with that code would do,
 ///   and `-demoEmpty` is Home with no medications yet. `-demoTaken` is Home with four
 ///   medications due now: one untouched, one ticked by hand, two scanned (and so ticked);
-///   `-demoUntick` the same with the bubble asking whether to untick one.
+///   `-demoUntick` the same with the bubble asking whether to untick one. `-demoDone` is
+///   Home with Midday and Afternoon all taken and folded, Evening still to come.
 /// - `-demoOnboarding` shows the introduction even after it has been finished. The other
 ///   arguments here skip it.
 enum DemoScan {
@@ -55,14 +56,19 @@ enum DemoScan {
         if arguments.contains("-demoMedications") { return [.medications] }
         return nil
     }
-    /// Home with no medications yet.
+    /// Home with ticked doses, from `takenStore()`.
     static var showsTaken: Bool {
-        ProcessInfo.processInfo.arguments.contains("-demoTaken") || ProcessInfo.processInfo.arguments.contains("-demoUntick")
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("-demoTaken") || arguments.contains("-demoUntick") || showsDone
     }
 
+    /// With `-demoDone`: Midday and Afternoon all taken and folded, Evening still to come.
+    static var showsDone: Bool { ProcessInfo.processInfo.arguments.contains("-demoDone") }
+
     /// Four medications due this minute, in memory: one untouched, one ticked by hand,
-    /// and two scanned four minutes ago, which ticked them.
+    /// and two scanned four minutes ago, which ticked them. With `-demoDone`, `doneStore`.
     static func takenStore(now: Date = Date(), calendar: Calendar = .current) -> MedicationStore {
+        if showsDone { return doneStore(now: now) }
         let parts = calendar.dateComponents([.hour, .minute], from: now)
         let time = DoseTime(parts.hour ?? 8, parts.minute ?? 0)
         let entries = ["capecitabine-500", "dexamethasone-4", "allopurinol-300", "exemestane-25"]
@@ -83,6 +89,24 @@ enum DemoScan {
         if let dose = doses["exemestane-25"], let crop = madeUpCrop("exemestane-25-1") {
             store.keepScanPhoto(crop, of: dose)
         }
+        return store
+    }
+
+    /// Midday's two medications and Afternoon's one ticked earlier, Evening's still to
+    /// come: Home with finished times of day folded to "Midday ✓ Taken …".
+    private static func doneStore(now: Date) -> MedicationStore {
+        let plan: [(String, DoseTime)] = [("allopurinol-300", DoseTime(12, 30)), ("dexamethasone-4", DoseTime(12, 30)),
+                                          ("capecitabine-500", DoseTime(15, 0)), ("exemestane-25", DoseTime(20, 0))]
+        let entries = plan.compactMap { id, time -> MedicationEntry? in
+            guard var entry = SampleMedications.builtIn(id) else { return nil }
+            entry.doseTimes = [time]
+            return entry
+        }
+        let store = MedicationStore(entries: entries, storage: InMemoryDoseLogStorage())
+        let doses = Dictionary(uniqueKeysWithValues: store.doses(on: now).map { ($0.medication.id, $0) })
+        store.markTaken([doses["allopurinol-300"]].compactMap { $0 }, at: now.addingTimeInterval(-52 * 60))
+        store.markTaken([doses["dexamethasone-4"]].compactMap { $0 }, at: now.addingTimeInterval(-50 * 60))
+        store.markTaken([doses["capecitabine-500"]].compactMap { $0 }, at: now.addingTimeInterval(-9 * 60))
         return store
     }
 
