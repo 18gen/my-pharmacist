@@ -45,19 +45,21 @@ nonisolated struct MedicationEntry: Identifiable, Hashable, Codable, Sendable {
         self.directions = directions
     }
 
-    /// A list saved before medications had directions has no such key: read if there.
+    /// Only the ID and the name must be there: a list saved by another version, with a
+    /// part missing (as before medications had directions), still loads.
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = MedicationEntry()
         self.init(id: try values.decode(String.self, forKey: .id),
                   name: try values.decode(String.self, forKey: .name),
-                  strength: try values.decode(String.self, forKey: .strength),
-                  purpose: try values.decode(String.self, forKey: .purpose),
-                  appearance: try values.decode(String.self, forKey: .appearance),
-                  photos: try values.decode([MedicationPhoto].self, forKey: .photos),
-                  doseTimes: try values.decode([DoseTime].self, forKey: .doseTimes),
-                  isAsNeeded: try values.decode(Bool.self, forKey: .isAsNeeded),
-                  asNeededNote: try values.decode(String.self, forKey: .asNeededNote),
-                  directions: try values.decodeIfPresent(String.self, forKey: .directions) ?? "")
+                  strength: try values.decodeIfPresent(String.self, forKey: .strength) ?? defaults.strength,
+                  purpose: try values.decodeIfPresent(String.self, forKey: .purpose) ?? defaults.purpose,
+                  appearance: try values.decodeIfPresent(String.self, forKey: .appearance) ?? defaults.appearance,
+                  photos: try values.decodeIfPresent([MedicationPhoto].self, forKey: .photos) ?? defaults.photos,
+                  doseTimes: try values.decodeIfPresent([DoseTime].self, forKey: .doseTimes) ?? defaults.doseTimes,
+                  isAsNeeded: try values.decodeIfPresent(Bool.self, forKey: .isAsNeeded) ?? defaults.isAsNeeded,
+                  asNeededNote: try values.decodeIfPresent(String.self, forKey: .asNeededNote) ?? defaults.asNeededNote,
+                  directions: try values.decodeIfPresent(String.self, forKey: .directions) ?? defaults.directions)
     }
 
     /// The entry for a medication described in code: the samples, and tests.

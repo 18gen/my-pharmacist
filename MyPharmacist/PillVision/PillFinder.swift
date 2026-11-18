@@ -75,7 +75,7 @@ nonisolated enum PillFinder {
         let colour = SurfaceOutliers.find(in: picture, within: lift.surface, settings: settings)
 
         let (location, areas) = PillLocator.examine(lifted: lift.objects, colour: colour, rules: rules, pictureWidth: width, pictureHeight: height)
-        ScanLog.logger.info("""
+        Log.scan.info("""
             search \(width)x\(height) at \(rules.pixelsPerMillimeter, format: .fixed(precision: 1)) px/mm: \
             vision \(lift.ran ? "ran" : "failed") mask \(lift.maskWidth)x\(lift.maskHeight), \
             objects \(lift.shares.map { String(format: "%.2f%%", $0 * 100) }), surface \(lift.surface != nil), \
@@ -88,13 +88,13 @@ nonisolated enum PillFinder {
         // Vision couldn't tell the pills from what they lie on, and the surface is too
         // patterned for colour to: nothing here can say there are no more pills.
         if usedTiles, !colour.isReliable {
-            ScanLog.logger.info("search unclear: neither way can be trusted on this surface")
+            Log.scan.info("search unclear: neither way can be trusted on this surface")
             return .unclear(.hardToSee)
         }
 
         switch location {
         case .unclear(let reason):
-            ScanLog.logger.info("search unclear: \(String(describing: reason))")
+            Log.scan.info("search unclear: \(String(describing: reason))")
             return .unclear(reason)
         case .noPills:
             // Without Vision, an empty answer from colour alone isn't "no pills".
@@ -127,10 +127,10 @@ nonisolated enum PillFinder {
     /// and what became of it: what explains a photo that was turned away.
     private static func log(_ areas: [ExaminedArea], rules: PillRules) {
         let sized = areas.filter { $0.verdict != .notAPill }
-        ScanLog.logger.info("areas \(areas.count), pill-sized \(sized.count)")
+        Log.scan.info("areas \(areas.count), pill-sized \(sized.count)")
         for area in sized {
             let dent = area.shape.deepestDent / max(1, area.shape.equivalentRadius)
-            ScanLog.logger.info("""
+            Log.scan.info("""
                 area by \(area.sources.rawValue): \(area.shape.length / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) x \
                 \(area.shape.width / rules.pixelsPerMillimeter, format: .fixed(precision: 1)) mm, \
                 \(area.shape.length * rules.capturedPixelsPerPixel, format: .fixed(precision: 0)) px in the photo, \

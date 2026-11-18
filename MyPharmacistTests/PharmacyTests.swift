@@ -99,7 +99,7 @@ struct PharmacyTests {
         let firstLaunch = Date(timeIntervalSince1970: 1_800_000_000)
 
         let store = PharmacyStore(pharmacy: .sample(now: firstLaunch), defaults: defaults)
-        #expect(store.pharmacy.name == "Student Health Pharmacy")
+        #expect(store.pharmacy.name == "Sample Pharmacy")
 
         // A later launch offers a later refill date; the first one was saved and stays.
         let later = PharmacyStore(pharmacy: .sample(now: firstLaunch.addingTimeInterval(86_400 * 3)), defaults: defaults)
@@ -116,7 +116,19 @@ struct PharmacyTests {
         store.loadSample(now: now)
 
         #expect(store.pharmacy == .sample(now: now))
-        #expect(store.pharmacy.callURL?.absoluteString == "tel:5197464500")
+        #expect(store.pharmacy.callURL?.absoluteString == "tel:5195550100")
         #expect(PharmacyStore(defaults: defaults).pharmacy == store.pharmacy)
+    }
+
+    @Test func aPharmacyThatCantBeReadIsKeptAside() throws {
+        let name = "PharmacyTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let unreadable = Data("not json".utf8)
+        defaults.set(unreadable, forKey: "pharmacy.v1")
+
+        let store = PharmacyStore(pharmacy: .sample(), defaults: defaults)
+        #expect(store.pharmacy.name == "Sample Pharmacy")
+        #expect(defaults.data(forKey: "pharmacy.v1.unreadable") == unreadable)
     }
 }

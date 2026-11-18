@@ -110,7 +110,7 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
                         CapturedPhoto(source: $0, orientation: .right, visibleAspect: visibleAspect, widthMillimeters: width)
                     }
                     if let photo {
-                        ScanLog.logger.info("photo kept \(Int(photo.size.width))x\(Int(photo.size.height)), \(photo.widthMillimeters, format: .fixed(precision: 1)) mm wide")
+                        Log.scan.info("photo kept \(Int(photo.size.width))x\(Int(photo.size.height)), \(photo.widthMillimeters, format: .fixed(precision: 1)) mm wide")
                     }
                     continuation.resume(returning: photo)
                 }
@@ -186,7 +186,7 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
             device.videoZoomFactor = CGFloat(framing.zoom)
             device.unlockForConfiguration()
         }
-        ScanLog.logger.info("camera zoom \(framing.zoom, format: .fixed(precision: 2)), full-resolution factors \(framing.nativeZoomFactors), field of view \(framing.longSideFieldOfView, format: .fixed(precision: 1)), closest focus \(minimumFocus, format: .fixed(precision: 0)) mm, view \(framing.visibleWidthMillimeters, format: .fixed(precision: 1)) mm wide")
+        Log.scan.info("camera zoom \(framing.zoom, format: .fixed(precision: 2)), full-resolution factors \(framing.nativeZoomFactors), field of view \(framing.longSideFieldOfView, format: .fixed(precision: 1)), closest focus \(minimumFocus, format: .fixed(precision: 0)) mm, view \(framing.visibleWidthMillimeters, format: .fixed(precision: 1)) mm wide")
     }
 
     private func configure() -> Bool {
@@ -224,7 +224,7 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
         if let best = PhotoSize.best(of: sizes) {
             photoOutput.maxPhotoDimensions = CMVideoDimensions(width: Int32(best.width), height: Int32(best.height))
         }
-        ScanLog.logger.info("photo sizes on offer \(sizes.map { "\($0.width)x\($0.height)" }), asking for up to \(self.photoOutput.maxPhotoDimensions.width)x\(self.photoOutput.maxPhotoDimensions.height)")
+        Log.scan.info("photo sizes on offer \(sizes.map { "\($0.width)x\($0.height)" }), asking for up to \(self.photoOutput.maxPhotoDimensions.width)x\(self.photoOutput.maxPhotoDimensions.height)")
         if (try? device.lockForConfiguration()) != nil {
             // Pills are photographed up close, so prefer near focus where supported.
             if device.isAutoFocusRangeRestrictionSupported {
@@ -270,7 +270,7 @@ nonisolated private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCa
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: (any Error)?) {
         let size = photo.resolvedSettings.photoDimensions
-        ScanLog.logger.info("photo delivered \(size.width)x\(size.height)")
+        Log.scan.info("photo delivered \(size.width)x\(size.height)")
         completion(error == nil ? photo.cgImageRepresentation() : nil)
     }
 }

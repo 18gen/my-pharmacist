@@ -76,7 +76,7 @@ actor PillPhotoAnalyzer {
             // one: skin or a shadow that was cut out. Either doubt alone isn't enough.
             let kept = zip(pills, reading.answers).filter { pill, answer in !(pill.isRough && answer == .notAPill) }
             if kept.count < pills.count {
-                ScanLog.logger.info("left out \(pills.count - kept.count) rough areas the recognizer says are no pill")
+                Log.scan.info("left out \(pills.count - kept.count) rough areas the recognizer says are no pill")
             }
             return .success(PillIdentification(
                 pills: kept.map { pill, answer in
@@ -85,7 +85,7 @@ actor PillPhotoAnalyzer {
                 mayHaveMissedPill: reading.mayHaveMissedPill
             ))
         } catch {
-            ScanLog.logger.error("Pill check failed: \(String(describing: error), privacy: .public)")
+            Log.scan.error("Pill check failed: \(String(describing: error), privacy: .public)")
             return .failure(error)
         }
     }

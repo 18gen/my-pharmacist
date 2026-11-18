@@ -298,6 +298,16 @@ struct MedicationListTests {
         #expect(DayPeriod(DoseTime(22)).name == "Bedtime")
     }
 
+    @Test func aSavedListThatCantBeReadLoadsEmptyAndIsKeptAside() {
+        let defaults = isolatedDefaults()
+        let unreadable = Data("[{\"broken\": true}]".utf8)
+        defaults.set(unreadable, forKey: "medications.v2")
+        let storage = UserDefaultsMedicationListStorage(defaults: defaults)
+        // Not the samples: the person had a list of their own.
+        #expect(storage.load() == [])
+        #expect(defaults.data(forKey: "medications.v2.unreadable") == unreadable)
+    }
+
     @Test func userDefaultsListStorageRoundTrips() {
         let storage = UserDefaultsMedicationListStorage(defaults: isolatedDefaults())
         #expect(storage.load() == nil)
@@ -393,6 +403,11 @@ struct MedicationEntryTests {
         """
         let entry = try JSONDecoder().decode(MedicationEntry.self, from: Data(saved.utf8))
         #expect(entry.name == "Capecitabine" && entry.directions.isEmpty)
+    }
+
+    @Test func anEntryWithOnlyItsIDAndNameStillLoads() throws {
+        let entry = try JSONDecoder().decode(MedicationEntry.self, from: Data(#"{"id":"x","name":"Capecitabine"}"#.utf8))
+        #expect(entry.name == "Capecitabine" && entry.doseTimes == [DoseTime(8)] && !entry.isAsNeeded)
     }
 
     @Test func directionsAreSavedAndReachTheMedication() throws {

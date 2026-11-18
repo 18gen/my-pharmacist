@@ -120,7 +120,7 @@ struct PharmacyForm: View {
         Binding(
             get: { pharmacy.nextRefill != nil },
             set: { on in
-                pharmacy.nextRefill = on ? Calendar.current.date(byAdding: .day, value: 7, to: Date()) : nil
+                pharmacy.nextRefill = on ? Calendar.current.date(byAdding: .day, value: Pharmacy.sampleRefillDays, to: Date()) : nil
             }
         )
     }

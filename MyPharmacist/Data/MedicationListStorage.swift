@@ -23,15 +23,18 @@ struct UserDefaultsMedicationListStorage: MedicationListStorage {
         self.defaults = defaults
     }
 
+    /// A list that can't be read loads as empty rather than as the samples: the person
+    /// had a list of their own, which is kept aside (`UserDefaults.saved`).
     func load() -> [MedicationEntry]? {
-        guard let data = defaults.data(forKey: Self.key) else { return nil }
-        return try? JSONDecoder().decode([MedicationEntry].self, from: data)
+        switch defaults.saved([MedicationEntry].self, forKey: Self.key) {
+        case .none: nil
+        case .value(let entries): entries
+        case .unreadable: []
+        }
     }
 
     func save(_ entries: [MedicationEntry]) {
-        if let data = try? JSONEncoder().encode(entries) {
-            defaults.set(data, forKey: Self.key)
-        }
+        defaults.save(entries, forKey: Self.key)
     }
 }
 
