@@ -410,7 +410,10 @@ struct ScanFlowTests {
 
     @Test func cameraProblemsSayWhatToDo() {
         #expect(CameraProblem.accessDenied.message == "Allow camera in Settings")
-        #expect(CameraProblem.unavailable.message == "No camera found")
+        // Not "Settings" where Settings for this app can't help.
+        #expect(CameraProblem.restricted.message == "Camera not allowed")
+        #expect(CameraProblem.interrupted.message == "Camera in use")
+        #expect(CameraProblem.unavailable.message == "Camera unavailable")
     }
 
     @Test func theQuestionSaysHowManyPillsWereFound() {

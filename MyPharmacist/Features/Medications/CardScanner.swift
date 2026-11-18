@@ -13,6 +13,9 @@ struct CardScanner: View {
     /// The text of the code that was read.
     let onFound: (String) -> Void
     let onCancel: () -> Void
+    /// Whether the camera may be used; nil until the person has been asked (the first
+    /// time) or the answer is known.
+    @State private var access: CameraPermission.Access?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -28,6 +31,8 @@ struct CardScanner: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .cardBackground()
+                Spacer(minLength: 0)
+            } else if access == nil {
                 Spacer(minLength: 0)
             } else {
                 Text("Hold the square code on a medication card in front of the camera.")
@@ -45,17 +50,24 @@ struct CardScanner: View {
         .padding(.top, 28)
         .padding(.bottom, 16)
         .background(Palette.background)
+        // Asked here the first time: until then the camera's availability says "no".
+        .task { access = await CameraPermission.request() }
     }
 
-    /// Why the camera can't read codes here, in words; nil when it can.
+    /// Why the camera can't read codes here, in words; nil when it can, or while the
+    /// person is still being asked.
     private var problem: String? {
         if !DataScannerViewController.isSupported {
             return "This phone can't read card codes inside the app. Point the iPhone's Camera at the card instead."
         }
-        if !DataScannerViewController.isAvailable {
-            return "My Pharmacist can't use the camera. Allow it in Settings › My Pharmacist › Camera, then try again."
+        switch access {
+        case nil: return nil
+        case .denied: return "My Pharmacist can't use the camera. Allow it in Settings › My Pharmacist › Camera, then try again."
+        case .restricted: return "The camera isn't allowed on this iPhone. Point the iPhone's Camera at the card instead."
+        case .allowed:
+            return DataScannerViewController.isAvailable
+                ? nil : "The camera can't read codes right now. Point the iPhone's Camera at the card instead."
         }
-        return nil
     }
 }
 

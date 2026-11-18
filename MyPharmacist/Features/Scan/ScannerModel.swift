@@ -24,16 +24,23 @@ final class ScannerModel {
     @ObservationIgnored private let camera = CameraSession()
     @ObservationIgnored private var qualityGate = QualityGate()
     @ObservationIgnored private var qualityTask: Task<Void, Never>?
+    @ObservationIgnored private var sessionObservers: [any NSObjectProtocol] = []
 
     var session: AVCaptureSession { camera.session }
 
     /// - Parameter visibleAspect: Width over height of the camera view.
     func start(visibleAspect: Double) async {
-        guard await CameraPermission.request() else {
+        switch await CameraPermission.request() {
+        case .allowed: break
+        case .denied:
             cameraProblem = .accessDenied
+            return
+        case .restricted:
+            cameraProblem = .restricted
             return
         }
         startReadingQuality()
+        watchInterruptions()
         if await !camera.start(visibleAspect: visibleAspect) {
             cameraProblem = .unavailable
             return
@@ -106,6 +113,28 @@ final class ScannerModel {
         }
     }
 
+    /// Another app or a phone call can take the camera away for a while: the picture then
+    /// stops, so say why, until it comes back by itself. A camera that failed is started
+    /// again, if it is meant to be running.
+    private func watchInterruptions() {
+        guard sessionObservers.isEmpty else { return }
+        let center = NotificationCenter.default
+        sessionObservers = [
+            center.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.cameraProblem = .interrupted }
+            },
+            center.addObserver(forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.cameraProblem == .interrupted else { return }
+                    self.reset()
+                }
+            },
+            center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.camera.restartIfRunning() }
+            },
+        ]
+    }
+
     private func judge(_ quality: FrameQuality) {
         let status = qualityGate.update(quality)
         // Only assign changes, so views showing the status don't redraw ten times a second.
@@ -119,13 +148,19 @@ final class ScannerModel {
 enum CameraProblem: Equatable {
     /// The person turned camera access off for the app; it can be turned on in Settings.
     case accessDenied
+    /// The camera isn't allowed on this iPhone at all, which this app's settings can't change.
+    case restricted
+    /// Another app or a call is using the camera; it comes back by itself.
+    case interrupted
     /// The device has no back camera, or it couldn't be started.
     case unavailable
 
     var message: String {
         switch self {
         case .accessDenied: "Allow camera in Settings"
-        case .unavailable: "No camera found"
+        case .restricted: "Camera not allowed"
+        case .interrupted: "Camera in use"
+        case .unavailable: "Camera unavailable"
         }
     }
 }

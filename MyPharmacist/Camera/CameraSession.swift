@@ -13,8 +13,8 @@ import os
 /// Lives off the main actor: all camera work happens on its own queues.
 ///
 /// `@unchecked Sendable` is safe because each mutable property is only touched on one
-/// queue: `isConfigured`, `device`, `visibleAspect`, `visibleWidthMillimeters` and
-/// `photoDelegates` on `sessionQueue`;
+/// queue: `isConfigured`, `shouldRun`, `device`, `visibleAspect`, `visibleWidthMillimeters`
+/// and `photoDelegates` on `sessionQueue`;
 /// `lastQualityCheck` and `qualityAnalyzer` on `videoQueue`.
 /// Everything else is immutable, and the stream's continuation is thread-safe.
 nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
@@ -29,6 +29,8 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
     private let sessionQueue = DispatchQueue(label: "MyPharmacist.session")
     private let videoQueue = DispatchQueue(label: "MyPharmacist.video")
     private var isConfigured = false
+    /// Whether the camera is meant to be running: started and not stopped since.
+    private var shouldRun = false
     private var device: AVCaptureDevice?
     private var lastQualityCheck = Date.distantPast
 
@@ -61,6 +63,7 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
                     self.isConfigured = self.configure()
                 }
                 if self.isConfigured {
+                    self.shouldRun = true
                     // Before the session starts, so the very first frame is at final zoom.
                     self.frame(for: visibleAspect)
                     if !self.session.isRunning {
@@ -74,6 +77,7 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
 
     func stop() {
         sessionQueue.async {
+            self.shouldRun = false
             // The light goes off with the camera; it doesn't stay on after a scan.
             self.applyTorch(false)
             if self.session.isRunning {
@@ -117,6 +121,14 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
                 self.photoDelegates[id] = delegate
                 self.photoOutput.capturePhoto(with: settings, delegate: delegate)
             }
+        }
+    }
+
+    /// Starts the camera again after it failed while running; left alone if it was stopped.
+    func restartIfRunning() {
+        sessionQueue.async {
+            guard self.shouldRun, self.isConfigured, !self.session.isRunning else { return }
+            self.session.startRunning()
         }
     }
 
@@ -260,9 +272,13 @@ nonisolated final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleB
     }
 }
 
-/// Hands one finished photo back as an image. Called on a queue chosen by the camera.
+/// Hands one finished photo back as an image, exactly once. Called on a queue chosen by
+/// the camera.
 nonisolated private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     private let completion: @Sendable (CGImage?) -> Void
+    /// Whether `completion` was called: the photo, or nothing once the capture ended
+    /// without one, so whoever waits for it is never left waiting.
+    private let isCompleted = OSAllocatedUnfairLock(initialState: false)
 
     init(completion: @escaping @Sendable (CGImage?) -> Void) {
         self.completion = completion
@@ -271,6 +287,20 @@ nonisolated private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCa
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: (any Error)?) {
         let size = photo.resolvedSettings.photoDimensions
         Log.scan.info("photo delivered \(size.width)x\(size.height)")
-        completion(error == nil ? photo.cgImageRepresentation() : nil)
+        complete(error == nil ? photo.cgImageRepresentation() : nil)
+    }
+
+    /// Always the last call for a capture.
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
+                     error: (any Error)?) {
+        complete(nil)
+    }
+
+    private func complete(_ image: CGImage?) {
+        let isFirst = isCompleted.withLock { done in
+            defer { done = true }
+            return !done
+        }
+        if isFirst { completion(image) }
     }
 }
