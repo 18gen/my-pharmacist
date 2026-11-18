@@ -292,8 +292,7 @@ final class ScanFlow {
     func scanAgain() async {
         cancelChecks()
         phase = .aiming
-        scanner.reset()
-        await scanner.start(visibleAspect: visibleAspect)
+        await restartCamera()
     }
 
     /// The app came back to the screen. While aiming, the camera starts again from
@@ -301,8 +300,7 @@ final class ScanFlow {
     /// turned on in Settings.
     func appBecameActive() async {
         guard isOpen, case .aiming = phase else { return }
-        scanner.reset()
-        await scanner.start(visibleAspect: visibleAspect)
+        await restartCamera()
     }
 
     /// The app left the screen: the system stops the camera and its light.
@@ -313,10 +311,15 @@ final class ScanFlow {
     /// Starts or stops the camera to match `isOpen`. Each opening starts from "checking".
     func syncCamera() async {
         if isOpen {
-            scanner.reset()
-            await scanner.start(visibleAspect: visibleAspect)
+            await restartCamera()
         } else {
             scanner.stop()
         }
+    }
+
+    /// The camera on, judging the picture afresh from "checking".
+    private func restartCamera() async {
+        scanner.reset()
+        await scanner.start(visibleAspect: visibleAspect)
     }
 }

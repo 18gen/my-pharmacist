@@ -45,30 +45,3 @@ struct ScanHeader: View {
         .accessibilityAddTraits(.isHeader)
     }
 }
-
-extension ScanFlow {
-    /// What to do now, in words and as a moving picture.
-    var instruction: ScanInstruction.Line {
-        switch phase {
-        case .aiming:
-            // Without a camera there is nothing to aim, only why.
-            if let message = scanner.cameraMessage {
-                ScanInstruction.Line(text: message, pictogram: nil)
-            } else {
-                ScanInstruction.whileAiming(status: scanner.captureStatus,
-                                            canTurnOnLight: scanner.hasLight && !scanner.isLightOn)
-            }
-        case .finding:
-            ScanInstruction.checking
-        case .retake(_, let reason):
-            ScanInstruction.retake(reason)
-        case .confirming(let found):
-            ScanInstruction.confirm(count: found.boxes.count)
-        case .checking:
-            ScanInstruction.checking
-        case .results:
-            // Not shown: the results page has its own heading.
-            ScanInstruction.Line(text: "", pictogram: nil)
-        }
-    }
-}

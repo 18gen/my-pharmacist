@@ -64,10 +64,8 @@ nonisolated struct CapturedPhoto: Sendable {
 
         let upright = orientation == .up ? CGSize(width: pixels.width, height: pixels.height)
                                          : CGSize(width: pixels.height, height: pixels.width)
-        let scale = min(1, Double(Self.workingSide) / Double(max(upright.width, upright.height)))
-        guard let working = Self.draw(pixels, turned: orientation,
-                                      width: max(1, Int((upright.width * scale).rounded())),
-                                      height: max(1, Int((upright.height * scale).rounded()))) else { return nil }
+        let size = PhotoSize.fitting(width: upright.width, height: upright.height, maxSide: Self.workingSide)
+        guard let working = Self.draw(pixels, turned: orientation, width: size.width, height: size.height) else { return nil }
         self.working = working
     }
 

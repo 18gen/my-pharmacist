@@ -88,8 +88,9 @@ nonisolated enum PillCropper {
         let margin = max(around.width, around.height) * 0.25 + 40
         let region = around.insetBy(dx: -margin, dy: -margin).integral.intersection(CGRect(x: 0, y: 0, width: width, height: height))
         guard let piece = working.cropping(to: region) else { return nil }
-        let scale = min(1, Double(overviewSide) / Double(max(region.width, region.height)))
-        let outputWidth = max(1, Int(region.width * scale)), outputHeight = max(1, Int(region.height * scale))
+        let output = PhotoSize.fitting(width: region.width, height: region.height, maxSide: overviewSide)
+        let outputWidth = output.width, outputHeight = output.height
+        let scale = Double(outputWidth) / region.width
         guard let context = CGContext.bitmap(width: outputWidth, height: outputHeight) else { return nil }
         context.draw(piece, in: CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight))
 

@@ -33,10 +33,9 @@ nonisolated enum PillReferencePhoto {
 
     static func make(from photo: UIImage) -> Result<CGImage, Failure> {
         guard let image = upright(photo, maxSide: 2048) else { return .failure(.unreadable) }
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let handler = VNImageRequestHandler(cgImage: image)
+        let found: SubjectMask?
         do {
-            try handler.perform([request])
+            found = try SubjectMask(of: image)
         } catch {
             #if targetEnvironment(simulator)
             // Vision's subject lifting doesn't run in the Simulator: keep the middle.
@@ -45,13 +44,12 @@ nonisolated enum PillReferencePhoto {
             return .failure(.unreadable)
             #endif
         }
-        guard let observation = request.results?.first else { return .failure(.noPill) }
+        guard let found else { return .failure(.noPill) }
 
         // The tablet: the largest thing that isn't the surface it lies on.
-        let labels = PillFinder.labels(of: observation.instanceMask)
-        let measured = InstanceBoxes.boxes(labels: labels.values, width: labels.width, height: labels.height)
-        guard let instance = measured.filter({ $0.value.area < surfaceShare }).max(by: { $0.value.area < $1.value.area })?.key,
-              let masked = try? observation.generateMaskedImage(ofInstances: [instance], from: handler, croppedToInstancesExtent: true)
+        guard let instance = found.objects.filter({ $0.value.area < surfaceShare }).max(by: { $0.value.area < $1.value.area })?.key,
+              let masked = try? found.observation.generateMaskedImage(ofInstances: [instance], from: found.handler,
+                                                                      croppedToInstancesExtent: true)
         else { return .failure(.noPill) }
         let cutOut = CIImage(cvPixelBuffer: masked)
         guard let cgImage = context.createCGImage(cutOut, from: cutOut.extent),
@@ -73,8 +71,8 @@ nonisolated enum PillReferencePhoto {
     }
 
     private static func scaled(_ image: CGImage, maxSide: Int) -> CGImage? {
-        let scale = min(1, Double(maxSide) / Double(max(image.width, image.height)))
-        let width = max(1, Int(Double(image.width) * scale)), height = max(1, Int(Double(image.height) * scale))
+        let size = PhotoSize.fitting(image, maxSide: maxSide)
+        let width = size.width, height = size.height
         guard let context = CGContext.bitmap(width: width, height: height, transparent: true) else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         return context.makeImage()

@@ -30,7 +30,7 @@ struct ScanFeedback: ViewModifier {
         case .confirming(let found) where step == .confirming:
             ScanInstruction.confirm(count: found.boxes.count).spoken
         case .checking where step == .checking:
-            "Checking your pills"
+            ScanInstruction.checking.spoken
         case .results(let result) where step == .results:
             result.summary
         default:

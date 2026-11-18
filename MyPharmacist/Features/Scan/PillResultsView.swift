@@ -45,7 +45,6 @@ struct PillResultsView: View {
     }
 
     private static let fadeHeight: CGFloat = 24
-    static let checkingText = "Checking…"
 
     /// The pill picked out in the photo, whose row is open.
     @State private var highlighted: Int? = Self.startsOpen
@@ -101,7 +100,7 @@ struct PillResultsView: View {
     /// the page appears (`ScanFeedback`). While checking, "Checking…" with a spinner in
     /// the icon's place.
     private var summary: some View {
-        let text = result?.summary ?? Self.checkingText
+        let text = result?.summary ?? ScanInstruction.checking.text
         return HStack(alignment: .firstTextBaseline, spacing: 8) {
             // The icon's slot: an invisible symbol keeps it the icon's size and on the
             // words' baseline, so the words start in the same place in both states.
@@ -136,7 +135,7 @@ struct PillResultsView: View {
         .padding(.horizontal, 10)
         .padding(.top, 6)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(result?.summary ?? "Checking your pills")
+        .accessibilityLabel(result?.summary ?? ScanInstruction.checking.spoken ?? ScanInstruction.checking.text)
         .accessibilityAddTraits(.isHeader)
     }
 
@@ -228,104 +227,6 @@ struct PillResultsView: View {
     /// The main way on, dark and wide: most people close once the wrong pills are put back.
     private var closeButton: some View {
         WideButton(title: "Close", systemImage: "xmark", action: onDone)
-    }
-}
-
-/// The list's shape while the pills are checked: a heading and one row per pill, in the
-/// sizes of the real ones, in grey. The levels aren't known yet, so neither are the
-/// headings or the order: no pictures or words, only where they will be. The blocks
-/// slowly breathe, and hold still with Reduce Motion.
-private struct ResultSkeleton: View {
-    let count: Int
-
-    @ScaledMetric(relativeTo: .title3) private var pictureSize: CGFloat = 64
-    @ScaledMetric(relativeTo: .title3) private var headingSize: CGFloat = 22
-    @ScaledMetric(relativeTo: .title3) private var titleHeight: CGFloat = 18
-    @ScaledMetric(relativeTo: .body) private var reasonHeight: CGFloat = 14
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Group {
-            if reduceMotion {
-                blocks
-            } else {
-                PhaseAnimator([false, true]) { dimmed in
-                    blocks.opacity(dimmed ? 0.45 : 1)
-                } animation: { _ in
-                    .easeInOut(duration: 0.9)
-                }
-            }
-        }
-        // The heading above says the pills are being checked.
-        .accessibilityHidden(true)
-    }
-
-    private var blocks: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Circle()
-                    .frame(width: headingSize, height: headingSize)
-                Capsule()
-                    .frame(width: 150, height: headingSize * 0.75)
-            }
-            .foregroundStyle(Palette.skeleton)
-            ForEach(0..<count, id: \.self) { _ in
-                row
-            }
-        }
-    }
-
-    /// In the shape of `ResultRow`.
-    private var row: some View {
-        HStack(spacing: 14) {
-            if !typeSize.isAccessibilitySize {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .frame(width: pictureSize, height: pictureSize)
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                Capsule()
-                    .frame(maxWidth: 170)
-                    .frame(height: titleHeight)
-                Capsule()
-                    .frame(maxWidth: 110)
-                    .frame(height: reasonHeight)
-            }
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(Palette.skeleton)
-        .padding(12)
-        .frame(minHeight: pictureSize + 24)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Palette.cardFill))
-    }
-}
-
-/// One level's heading and its rows.
-private struct ResultSection: View {
-    let group: ResultGroup
-    let pharmacyCall: URL?
-    @Binding var highlighted: Int?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(group.level.title, systemImage: group.level.icon)
-                .font(.title3.bold())
-                .foregroundStyle(group.level.color)
-                .accessibilityAddTraits(.isHeader)
-            ForEach(group.lines) { line in
-                if case .pill(let pill) = line {
-                    ResultRow(line: line, isHighlighted: highlighted == pill.id,
-                              detail: pill.detail(pharmacyCall: pharmacyCall)) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            highlighted = highlighted == pill.id ? nil : pill.id
-                        }
-                    }
-                    .id(line.id)
-                } else {
-                    ResultRow(line: line)
-                }
-            }
-        }
     }
 }
 

@@ -22,7 +22,7 @@ enum ScanInstruction {
     /// The photo couldn't be searched, so it says nothing about the pills either way.
     static let cantCheck = Line(text: "Please try again", pictogram: .again)
     /// While the photo is taken and searched for pills, and while they are checked.
-    static let checking = Line(text: "Checking…", pictogram: .checking)
+    static let checking = Line(text: "Checking…", pictogram: .checking, spoken: "Checking your pills")
 
     /// With the photo showing each pill found circled: the question only the person
     /// can answer.
@@ -81,6 +81,33 @@ enum ScanInstruction {
             return Line(text: fix, pictogram: issue.pictogram)
         }
         return aim
+    }
+}
+
+extension ScanFlow {
+    /// What to do now, in words and as a moving picture.
+    var instruction: ScanInstruction.Line {
+        switch phase {
+        case .aiming:
+            // Without a camera there is nothing to aim, only why.
+            if let message = scanner.cameraMessage {
+                ScanInstruction.Line(text: message, pictogram: nil)
+            } else {
+                ScanInstruction.whileAiming(status: scanner.captureStatus,
+                                            canTurnOnLight: scanner.hasLight && !scanner.isLightOn)
+            }
+        case .finding:
+            ScanInstruction.checking
+        case .retake(_, let reason):
+            ScanInstruction.retake(reason)
+        case .confirming(let found):
+            ScanInstruction.confirm(count: found.boxes.count)
+        case .checking:
+            ScanInstruction.checking
+        case .results:
+            // Not shown: the results page has its own heading.
+            ScanInstruction.Line(text: "", pictogram: nil)
+        }
     }
 }
 

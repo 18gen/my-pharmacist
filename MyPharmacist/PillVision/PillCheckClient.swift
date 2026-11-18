@@ -239,8 +239,8 @@ nonisolated struct PillCheckClient: Sendable {
     /// A JPEG no bigger than `maxSide`, with any transparency on light grey, as the
     /// reference photos' cut-outs would otherwise turn black.
     static func jpeg(_ image: CGImage, maxSide: Int) -> Data? {
-        let scale = min(1, Double(maxSide) / Double(max(image.width, image.height)))
-        let width = max(1, Int(Double(image.width) * scale)), height = max(1, Int(Double(image.height) * scale))
+        let size = PhotoSize.fitting(image, maxSide: maxSide)
+        let width = size.width, height = size.height
         guard let context = CGContext.bitmap(width: width, height: height) else { return nil }
         context.setFillColor(gray: 0.85, alpha: 1)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
