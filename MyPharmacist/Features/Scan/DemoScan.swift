@@ -46,6 +46,28 @@ enum DemoScan {
         return arguments[index + 1]
     }
 
+    /// The app for a demo, in memory, leaving what is saved alone; nil without one. The
+    /// demos that scan the made-up photo get the demo medications, whose pills are in it;
+    /// the others the sample list a new install starts with.
+    static func model() -> AppModel? {
+        guard isRequested || showsTaken || scansOK else { return nil }
+        let store: MedicationStore
+        if showsTaken || scansOK {
+            store = takenStore()
+        } else {
+            let list = scansDemoPhoto ? SampleMedications.demoList : SampleMedications.sampleList
+            store = MedicationStore(entries: startsEmpty ? [] : list)
+        }
+        return AppModel(store: store, pharmacy: PharmacyStore(pharmacy: .sample()))
+    }
+
+    /// The sheet to open on launch, if asked for.
+    static var sheet: RootSheet? {
+        if ProcessInfo.processInfo.arguments.contains("-demoConsent") { return .consent }
+        if showsPharmacy { return .pharmacy }
+        if let card { return .card(ScannedCard(text: card)) }
+        return nil
+    }
 
     /// Pages to open on launch, if asked for.
     static var pages: [AppRoute]? {

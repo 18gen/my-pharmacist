@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct MyPharmacistApp: App {
+    /// Made once, here: the app's stores and its scan.
+    @State private var model = AppModel.launch()
+
     var body: some Scene {
         WindowGroup {
-            LaunchView()
+            LaunchView(model: model)
         }
     }
 }
@@ -21,6 +24,7 @@ struct MyPharmacistApp: App {
 /// fades away over the home screen, and fades back in over it when "Reset intro" on the
 /// About & privacy page asks for it again.
 private struct LaunchView: View {
+    let model: AppModel
     @State private var showsOnboarding = LaunchView.onboardingIsNeeded()
     /// Whether the introduction has been finished, as saved: "Reset intro" clears it.
     @AppStorage(Onboarding.key) private var onboardingIsDone = false
@@ -33,7 +37,7 @@ private struct LaunchView: View {
             // The home screen isn't made until the introduction is over, so nothing sits
             // behind it until then.
             if !showsOnboarding {
-                RootView()
+                RootView(model: model)
                     // There at once when the introduction ends; when it comes back, the
                     // home screen stays under it until it has faded in.
                     .transition(.asymmetric(insertion: .identity,
@@ -48,10 +52,16 @@ private struct LaunchView: View {
             }
         }
         // "Reset intro": the introduction again, from its welcome, without reopening the
-        // app. The home screen it returns to afterwards is a new one, back on Home.
+        // app. The home screen it returns to afterwards starts again on Home.
         .onChange(of: onboardingIsDone) { _, isDone in
             guard !isDone, !showsOnboarding else { return }
             withAnimation(.easeInOut(duration: Self.fade)) { showsOnboarding = true }
+        }
+        // A keychain card read by the iPhone's Camera opens the app on that card. Kept
+        // until Home can show it: after the introduction, and one sheet at a time.
+        .onOpenURL { link in
+            guard link.scheme?.lowercased() == MedicationCard.scheme else { return }
+            model.pendingCardLink = link.absoluteString
         }
         // The app is black on white; the introduction is on dark wallpapers, and in the
         // dark scheme the clock above it is white.

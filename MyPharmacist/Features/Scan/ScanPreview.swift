@@ -22,7 +22,7 @@ enum ScanPreview {
         let scan = ScanFlow(store: store)
         scan.showForPreview(phase)
         scan.scanner.showForPreview(status: status, hasLight: hasLight, isLightOn: isLightOn)
-        return RootView(store: store, scan: scan)
+        return RootView(model: AppModel(store: store, pharmacy: PharmacyStore(pharmacy: .sample()), scan: scan))
     }
 
     /// The demo's made-up photo of pills.

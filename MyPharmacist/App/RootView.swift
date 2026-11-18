@@ -9,66 +9,30 @@ import SwiftUI
 /// button's black circle into the scan view; the same button then closes it.
 /// What a scan does is decided by `ScanFlow`; this view only lays out and animates.
 struct RootView: View {
-    @State private var store: MedicationStore
-    @State private var scan: ScanFlow
-    @State private var pharmacy: PharmacyStore
-    /// The pharmacy's card, over Home.
-    @State private var isShowingPharmacy = false
-    /// A keychain card's code that was just scanned, shown to be agreed to.
-    @State private var scannedCard: ScannedCard?
-    /// The camera for a keychain card's code.
-    @State private var isScanningCard = false
-    /// A code the camera read, kept until the camera has closed: one sheet at a time.
-    @State private var codeJustRead: String?
+    let model: AppModel
+    /// The sheet over Home: one at a time.
+    @State private var sheet: RootSheet?
+    /// The sheet to show once the one open now has closed: a card the camera just read.
+    @State private var nextSheet: RootSheet?
+    /// Counts the card codes read, for the feel of each.
+    @State private var codesRead = 0
     /// The pages pushed over the home screen, in order.
     @State private var path: [AppRoute] = []
     @State private var lastHintAnnouncement = Date.distantPast
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(PillCheckConsent.key) private var allowsChecking = false
-    /// Asking to allow pill checking, before the camera opens for the first time.
-    @State private var isAskingConsent = false
+
+    private var store: MedicationStore { model.store }
+    private var scan: ScanFlow { model.scan }
+    private var pharmacy: PharmacyStore { model.pharmacy }
 
     /// One of the accessibility text sizes: the instruction gets more room.
     private var largeText: Bool { typeSize.isAccessibilitySize }
 
-    /// - Parameters:
-    ///   - store: The person's medications and scans; the one saved on the device unless
-    ///     given.
-    ///   - scan: A scan already in some step, for previews; nil for a new one.
-    init(store: MedicationStore = RootView.savedStore(), scan: ScanFlow? = nil) {
-        _pharmacy = State(initialValue: RootView.savedPharmacy())
-        _store = State(initialValue: store)
-        _scan = State(initialValue: scan ?? ScanFlow(store: store))
-    }
-
-    /// The list and scans saved on the device; a new install starts with the sample
-    /// medications, as "Reset demo" leaves them. Debug demos keep their list in memory,
-    /// leaving the saved list alone: the demo medications for those that scan the made-up
-    /// photo, whose pills are theirs, and the sample list for the rest.
-    static func savedStore() -> MedicationStore {
-        #if DEBUG
-        if DemoScan.showsTaken || DemoScan.scansOK { return DemoScan.takenStore() }
-        if DemoScan.isRequested {
-            let list = DemoScan.scansDemoPhoto ? SampleMedications.demoList : SampleMedications.sampleList
-            return MedicationStore(entries: DemoScan.startsEmpty ? [] : list)
-        }
-        #endif
-        let store = MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage(),
-                                    logStorage: UserDefaultsDoseLogStorage())
-        // Photos of a medication whose adding was never finished (the app was closed).
-        store.removeUnusedPhotos()
-        return store
-    }
-
-    /// The pharmacy saved on the device; a new install starts with the sample one. Debug
-    /// demos use the sample one in memory instead.
-    static func savedPharmacy() -> PharmacyStore {
-        #if DEBUG
-        if DemoScan.isRequested { return PharmacyStore(pharmacy: .sample()) }
-        #endif
-        return PharmacyStore(pharmacy: .sample(), defaults: .standard)
-    }
+    /// The longest VoiceOver waits before saying again what to fix about the picture, so
+    /// it doesn't drown out everything else while the hand moves.
+    private static let hintAnnouncementGap: TimeInterval = 2.5
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -114,62 +78,18 @@ struct RootView: View {
             .onAppear {
                 if DemoScan.isRequested { DemoScan.run(in: scan) }
                 if let pages = DemoScan.pages { path = pages }
-                if ProcessInfo.processInfo.arguments.contains("-demoConsent") { isAskingConsent = true }
-                if DemoScan.showsPharmacy { isShowingPharmacy = true }
-                if let card = DemoScan.card { scannedCard = ScannedCard(text: card) }
+                sheet = DemoScan.sheet
             }
             #endif
             // Home has its own header instead of a navigation bar.
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $isAskingConsent) {
-                PillCheckConsentSheet(
-                    onAllow: {
-                        allowsChecking = true
-                        isAskingConsent = false
-                        setScanning(true)
-                    },
-                    onNotNow: { isAskingConsent = false }
-                )
-            }
-            .sheet(isPresented: $isShowingPharmacy) {
-                PharmacySheet(
-                    pharmacy: pharmacy.pharmacy,
-                    startsEditing: startsEditingPharmacy,
-                    onSave: { pharmacy.pharmacy = $0 },
-                    onClose: { isShowingPharmacy = false }
-                )
-            }
-            .sheet(isPresented: $isScanningCard, onDismiss: {
-                if let code = codeJustRead {
-                    codeJustRead = nil
-                    scannedCard = ScannedCard(text: code)
-                }
-            }) {
-                CardScanner(
-                    onFound: { code in
-                        codeJustRead = code
-                        isScanningCard = false
-                    },
-                    onCancel: { isScanningCard = false }
-                )
-            }
-            .sensoryFeedback(.success, trigger: codeJustRead) { _, code in code != nil }
-            // A keychain card read by the iPhone's Camera opens the app on that card.
-            .onOpenURL { link in
-                guard link.scheme?.lowercased() == MedicationCard.scheme else { return }
-                isScanningCard = false
-                scannedCard = ScannedCard(text: link.absoluteString)
-            }
-            .sheet(item: $scannedCard) { card in
-                let outcome = store.outcome(ofCard: card.text)
-                MedicationCardSheet(
-                    outcome: outcome,
-                    onConfirm: {
-                        withAnimation { store.apply(outcome) }
-                        scannedCard = nil
-                    },
-                    onClose: { scannedCard = nil }
-                )
+            .sheet(item: $sheet, onDismiss: showNextSheet, content: sheetContent)
+            .sensoryFeedback(.success, trigger: codesRead)
+            // A keychain card read by the iPhone's Camera, which opened the app on it.
+            .onChange(of: model.pendingCardLink, initial: true) { _, link in
+                guard let link, sheet == nil else { return }
+                model.pendingCardLink = nil
+                sheet = .card(ScannedCard(text: link))
             }
             // Every page pushed over the home screen is declared here, once, and opened by
             // adding to `path`. A page shown by a flag (`navigationDestination(isPresented:)`)
@@ -193,7 +113,7 @@ struct RootView: View {
 
             if !scan.isOpen {
                 HomeView(store: store, onShowMedications: showMedications, onShowPharmacy: showPharmacy, onShowAbout: showAbout,
-                         onScanCard: { isScanningCard = true },
+                         onScanCard: { sheet = .cardScanner },
                          // Back from the new page leads to the list it was added to.
                          onTypeIn: { if path.isEmpty { path = [.medications, .newMedication] } })
                     .padding(.top, 8)
@@ -241,7 +161,7 @@ struct RootView: View {
     private func page(for route: AppRoute) -> some View {
         switch route {
         case .medications:
-            MedicationsPage(store: store, onScanCard: { isScanningCard = true },
+            MedicationsPage(store: store, onScanCard: { sheet = .cardScanner },
                             onTypeIn: { if path.last == .medications { path.append(.newMedication) } })
         case .medication(let id):
             if let entry = store.entry(id) {
@@ -254,11 +174,64 @@ struct RootView: View {
         }
     }
 
+    @ViewBuilder
+    private func sheetContent(_ sheet: RootSheet) -> some View {
+        switch sheet {
+        case .consent:
+            PillCheckConsentSheet(
+                onAllow: {
+                    allowsChecking = true
+                    self.sheet = nil
+                    setScanning(true)
+                },
+                onNotNow: { self.sheet = nil }
+            )
+        case .pharmacy:
+            PharmacySheet(
+                pharmacy: pharmacy.pharmacy,
+                startsEditing: startsEditingPharmacy,
+                onSave: { pharmacy.pharmacy = $0 },
+                onClose: { self.sheet = nil }
+            )
+        case .cardScanner:
+            CardScanner(
+                onFound: { code in
+                    codesRead += 1
+                    nextSheet = .card(ScannedCard(text: code))
+                    self.sheet = nil
+                },
+                onCancel: { self.sheet = nil }
+            )
+        case .card(let card):
+            let outcome = store.outcome(ofCard: card.text)
+            MedicationCardSheet(
+                outcome: outcome,
+                onConfirm: {
+                    withAnimation { store.apply(outcome) }
+                    self.sheet = nil
+                },
+                onClose: { self.sheet = nil }
+            )
+        }
+    }
+
+    /// Once a sheet has closed: the card the camera just read, or a card link that
+    /// arrived while it was open.
+    private func showNextSheet() {
+        if let next = nextSheet {
+            nextSheet = nil
+            sheet = next
+        } else if let link = model.pendingCardLink {
+            model.pendingCardLink = nil
+            sheet = .card(ScannedCard(text: link))
+        }
+    }
+
     /// Speaks what to fix about the camera picture for VoiceOver, at most every few
     /// seconds so it doesn't drown out everything else while the hand moves.
     private func announce(_ status: QualityGate.Status) {
         guard scan.phase.step == .aiming, case .needs(let issue) = status, let text = issue.fix,
-              Date().timeIntervalSince(lastHintAnnouncement) > 2.5 else { return }
+              Date().timeIntervalSince(lastHintAnnouncement) > Self.hintAnnouncementGap else { return }
         lastHintAnnouncement = Date()
         AccessibilityNotification.Announcement(text).post()
     }
@@ -288,7 +261,7 @@ struct RootView: View {
     /// Shows the pharmacy's card; ignored while a page is open.
     private func showPharmacy() {
         guard path.isEmpty else { return }
-        isShowingPharmacy = true
+        sheet = .pharmacy
     }
 
     /// Opens or closes the camera. Opening asks first, until the person has allowed pill
@@ -296,11 +269,32 @@ struct RootView: View {
     /// with a third-party AI).
     private func setScanning(_ open: Bool) {
         if open, !allowsChecking {
-            isAskingConsent = true
+            sheet = .consent
             return
         }
         withAnimation(ScanLayout.openingAnimation) {
             scan.setOpen(open)
+        }
+    }
+}
+
+/// The sheets over Home, shown one at a time.
+enum RootSheet: Identifiable {
+    /// Asking to allow pill checking, before the camera opens for the first time.
+    case consent
+    /// The pharmacy's card.
+    case pharmacy
+    /// The camera for a keychain card's code.
+    case cardScanner
+    /// A keychain card's code, and what it would do, to be agreed to.
+    case card(ScannedCard)
+
+    var id: String {
+        switch self {
+        case .consent: "consent"
+        case .pharmacy: "pharmacy"
+        case .cardScanner: "cardScanner"
+        case .card(let card): card.id.uuidString
         }
     }
 }
@@ -312,6 +306,9 @@ struct ScannedCard: Identifiable {
     let text: String
 }
 
+#if DEBUG
 #Preview {
-    RootView()
+    RootView(model: AppModel(store: MedicationStore(entries: SampleMedications.sampleList),
+                             pharmacy: PharmacyStore(pharmacy: .sample())))
 }
+#endif
