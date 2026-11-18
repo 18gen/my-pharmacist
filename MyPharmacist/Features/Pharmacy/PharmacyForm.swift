@@ -14,8 +14,8 @@ struct PharmacyForm: View {
     @Binding var pharmacy: Pharmacy
     /// The address the map was last brought up to date for; nil until the form appears.
     @State private var locatedAddress: String?
-    /// The address typed couldn't be found on the map.
-    @State private var addressNotFound = false
+    /// Why the address typed has no place on the map; nil when it has one, or none was typed.
+    @State private var addressProblem: PharmacyLocator.Outcome?
 
     /// How long typing has to pause before the address is looked up.
     private static let pause = Duration.seconds(0.8)
@@ -43,8 +43,10 @@ struct PharmacyForm: View {
                     PharmacyMap(name: pharmacy.name, coordinate: coordinate)
                         // A new map for a new place, rather than a slide across town.
                         .id("\(coordinate.latitude),\(coordinate.longitude)")
-                } else if addressNotFound {
-                    Text("Couldn't find this address on the map. Check it, or add the city.")
+                } else if let addressProblem {
+                    Text(addressProblem == .unreachable
+                         ? "Can't reach the map to find this address now. It is looked up again when you save."
+                         : "Couldn't find this address on the map. Check it, or add the city.")
                         .font(.body)
                         .foregroundStyle(Palette.late)
                         .fixedSize(horizontal: false, vertical: true)
@@ -95,12 +97,17 @@ struct PharmacyForm: View {
         guard address != locatedAddress else { return }
         // Cancelled, and started again, by the next letter typed.
         guard (try? await Task.sleep(for: Self.pause)) != nil else { return }
-        let found = address.isEmpty ? nil : await PharmacyLocator.find(address)
+        let outcome = address.isEmpty ? nil : await PharmacyLocator.find(address)
         guard !Task.isCancelled else { return }
         locatedAddress = address
         withAnimation(.easeInOut(duration: 0.2)) {
-            pharmacy.coordinate = found
-            addressNotFound = found == nil && !address.isEmpty
+            if case .found(let latitude, let longitude) = outcome {
+                pharmacy.coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                addressProblem = nil
+            } else {
+                pharmacy.coordinate = nil
+                addressProblem = outcome
+            }
         }
     }
 

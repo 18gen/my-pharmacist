@@ -190,7 +190,7 @@ struct RootView: View {
             PharmacySheet(
                 pharmacy: pharmacy.pharmacy,
                 startsEditing: startsEditingPharmacy,
-                onSave: { pharmacy.pharmacy = $0 },
+                onSave: { pharmacy.save($0) },
                 onClose: { self.sheet = nil }
             )
         case .cardScanner:

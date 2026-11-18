@@ -120,6 +120,29 @@ struct PharmacyTests {
         #expect(PharmacyStore(defaults: defaults).pharmacy == store.pharmacy)
     }
 
+    @Test func savingAnAddressWithoutItsPinLooksItUp() async throws {
+        let store = PharmacyStore(locate: { _ in .found(latitude: 43.47, longitude: -80.54) })
+        store.save(Pharmacy(name: "Corner Drugs", address: "200 University Ave W"))
+        for _ in 0..<100 where store.pharmacy.coordinate == nil {
+            await Task.yield()
+        }
+        #expect(store.pharmacy.latitude == 43.47 && store.pharmacy.longitude == -80.54)
+    }
+
+    @Test func aLookUpForAnAddressSinceChangedIsDropped() async throws {
+        let (gate, release) = AsyncStream.makeStream(of: Void.self)
+        let store = PharmacyStore(locate: { _ in
+            for await _ in gate { break }
+            return .found(latitude: 1, longitude: 2)
+        })
+        store.save(Pharmacy(address: "Old Street 1"))
+        store.save(Pharmacy(address: "New Street 2", latitude: 43, longitude: -80))
+        release.yield()
+        release.finish()
+        for _ in 0..<50 { await Task.yield() }
+        #expect(store.pharmacy.latitude == 43)
+    }
+
     @Test func aPharmacyThatCantBeReadIsKeptAside() throws {
         let name = "PharmacyTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

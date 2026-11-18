@@ -17,19 +17,41 @@ final class PharmacyStore {
     }
 
     @ObservationIgnored private let defaults: UserDefaults?
+    /// Finds where an address is: Apple's place search unless another is given.
+    @ObservationIgnored private let locate: (String) async -> PharmacyLocator.Outcome
+    @ObservationIgnored private var lookup: Task<Void, Never>?
 
     /// - Parameters:
     ///   - pharmacy: What to start with when nothing was saved; it is saved then, unless
     ///     it is empty, so that its refill date stays the one it started with.
     ///   - defaults: Where it is saved; nil keeps it in memory only, for tests, previews
     ///     and demos.
-    init(pharmacy: Pharmacy = Pharmacy(), defaults: UserDefaults? = nil) {
+    init(pharmacy: Pharmacy = Pharmacy(), defaults: UserDefaults? = nil,
+         locate: @escaping (String) async -> PharmacyLocator.Outcome = PharmacyLocator.find) {
         self.defaults = defaults
+        self.locate = locate
         if case .value(let saved) = defaults?.saved(Pharmacy.self, forKey: Self.key) {
             self.pharmacy = saved
         } else {
             self.pharmacy = pharmacy
             if !pharmacy.isEmpty { save() }
+        }
+    }
+
+    /// Keeps the pharmacy as typed. An address without its place on the map yet (Save came
+    /// before the look-up made while typing) is looked up now, and its pin added once
+    /// found, if the address is still the same then.
+    func save(_ new: Pharmacy) {
+        lookup?.cancel()
+        pharmacy = new
+        let address = new.address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty, new.coordinate == nil else { return }
+        lookup = Task { [weak self, locate] in
+            guard case .found(let latitude, let longitude) = await locate(address), let self, !Task.isCancelled,
+                  pharmacy.address.trimmingCharacters(in: .whitespacesAndNewlines) == address,
+                  pharmacy.coordinate == nil else { return }
+            pharmacy.latitude = latitude
+            pharmacy.longitude = longitude
         }
     }
 

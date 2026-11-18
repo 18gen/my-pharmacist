@@ -155,17 +155,18 @@ struct PharmacySheet: View {
         .cardBackground()
     }
 
+    /// The next refill: when, and how long until then. A date that has passed says so
+    /// instead of passing for the next one.
     private func refill(_ date: Date) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            sectionTitle("Next refill")
+        let countdown = pharmacy.refillCountdown()
+        return VStack(alignment: .leading, spacing: 4) {
+            sectionTitle(countdown == nil ? "Refill was due" : "Next refill")
             Text(date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                 .font(.system(.title2, design: .serif, weight: .medium))
                 .foregroundStyle(Palette.textPrimary)
-            if let countdown = pharmacy.refillCountdown() {
-                Text(countdown.prefix(1).uppercased() + countdown.dropFirst())
-                    .font(.body)
-                    .foregroundStyle(Palette.textSecondary)
-            }
+            Text(countdown.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Set the next date with Edit.")
+                .font(.body)
+                .foregroundStyle(Palette.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardBackground()
