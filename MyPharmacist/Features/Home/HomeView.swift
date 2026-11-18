@@ -14,7 +14,7 @@ import SwiftUI
 /// scrolls with the cards.
 struct HomeView: View {
     let store: MedicationStore
-    /// Opens the "My Medications" page, from the "Pills" button.
+    /// Opens the "Pills" page, the list of medications.
     let onShowMedications: () -> Void
     /// Opens the pharmacy's card.
     let onShowPharmacy: () -> Void
@@ -195,7 +195,7 @@ private struct FirstStepsCard: View {
                 .font(.body)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            // The same two ways as on My Medications.
+            // The same two ways as on Pills.
             AddMedicationButtons(onScanCard: onScanCard, onTypeIn: onTypeIn)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// One medication on the "My Medications" page: picture, name, strength and what it's
+/// One medication on the "Pills" page: picture, name, strength and what it's
 /// for, and its daily times or, for one taken only when needed, when that is.
 struct MedicationRow: View {
     let medication: Medication

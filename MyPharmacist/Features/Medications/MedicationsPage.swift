@@ -5,10 +5,10 @@
 
 import SwiftUI
 
-/// "My Medications": every medication on the list with what it's for and when it's taken.
+/// "Pills": every medication on the list with what it's for and when it's taken.
 /// Tapping one opens its page to change it or remove it. Under the list, "Add a
 /// medication" has its two ways: "Scan" adds one from the code on its keychain card,
-/// and "Type" opens an empty page. Opened from Home's "My Medications" button;
+/// and "Type" opens an empty page. Opened from Home's "Pills" button;
 /// slides in from the right. A large round "‹" button (or a swipe from the left edge)
 /// goes back.
 struct MedicationsPage: View {
@@ -26,7 +26,7 @@ struct MedicationsPage: View {
                     dismiss()
                 }
 
-                Text("My Medications")
+                Text("Pills")
                     .font(Palette.pageTitle)
                     .foregroundStyle(Palette.textPrimary)
                     .accessibilityAddTraits(.isHeader)

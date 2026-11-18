@@ -21,7 +21,7 @@ import UIKit
 ///   later, to watch (or record) the button growing into the camera picture and back.
 /// - `-demoChecking` opens on the results page standing ready while the pills are
 ///   checked, and stays there.
-/// - `-demoMedications` opens My Medications, `-demoNewMedication` the page to add one,
+/// - `-demoMedications` opens Pills, `-demoNewMedication` the page to add one,
 ///   and `-demoAbout` About & privacy, with the demo medications. `-demoConsent` opens
 ///   the question asked before the first scan. `-demoHome` stays on Home, `-demoPharmacy`
 ///   opens the pharmacy's card over it and `-demoPharmacyEditor` the same card on its

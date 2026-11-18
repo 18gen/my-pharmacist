@@ -78,7 +78,7 @@ struct MedicationCardSheet: View {
     private var explanation: String {
         switch outcome {
         case .add:
-            "From the card: its name, its pill's pictures and when to take it. You can change them later in My Medications."
+            "From the card: its name, its pill's pictures and when to take it. You can change them later in Pills."
         case .changeSchedule(let entry):
             "\(entry.name) is already on your list, at other times. These are the card's."
         case .alreadyThere(let entry):

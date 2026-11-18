@@ -170,7 +170,7 @@ struct RootView: View {
             // Every page pushed over the home screen is declared here, once, and opened by
             // adding to `path`. A page shown by a flag (`navigationDestination(isPresented:)`)
             // can't share a stack with pages pushed by value: pushing a medication's page from
-            // My Medications then showed My Medications again, or an empty page.
+            // Pills then showed Pills again, or an empty page.
             .navigationDestination(for: AppRoute.self, destination: page)
         }
     }
@@ -259,7 +259,7 @@ struct RootView: View {
         AccessibilityNotification.Announcement(text).post()
     }
 
-    /// Opens My Medications; ignored if a page is already open, so a quick second tap
+    /// Opens Pills; ignored if a page is already open, so a quick second tap
     /// doesn't push it twice.
     private func showMedications() {
         guard path.isEmpty else { return }

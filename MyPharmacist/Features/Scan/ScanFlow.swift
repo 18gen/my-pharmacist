@@ -169,7 +169,7 @@ final class ScanFlow {
     }
 
     /// Pills are compared only with the medications on the list, which may have changed on
-    /// the My Medications page since the last scan: a removed one is then "Unknown".
+    /// the Pills page since the last scan: a removed one is then "Unknown".
     private func refreshAnalyzer() {
         let ids = store.medications.map(\.id)
         guard ids != analyzedMedicationIDs else { return }
