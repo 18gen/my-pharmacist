@@ -70,7 +70,7 @@ extension PillVerdict {
         case .take: .ok
         case .asNeeded: .caution
         case .unidentified: .unknown
-        case .alreadyScanned, .alreadyTaken, .missed, .tooEarly, .notScheduledToday, .extra: .dontTake
+        case .alreadyTaken, .missed, .tooEarly, .notScheduledToday, .extra: .dontTake
         }
     }
 
@@ -78,12 +78,11 @@ extension PillVerdict {
     var reason: String {
         switch self {
         case .take(let dose): "\(dose.scheduled.shortTime) dose"
-        case .alreadyScanned(_, let time, _): "Scanned at \(time.shortTime). You may have taken it."
-        case .alreadyTaken(_, let time, _): "Marked taken at \(time.shortTime)."
+        case .alreadyTaken(_, let time, _): "Already taken at \(time.shortTime)."
         case .missed(let dose, _): "Too late for the \(dose.scheduled.shortTime) dose. Ask your pharmacist."
         case .tooEarly(let next): "Next dose at \(next.scheduled.shortTime)"
         case .notScheduledToday: "Not for today"
-        case .extra: "One is enough"
+        case .extra: "One tablet per dose"
         case .unidentified: "Ask your pharmacist"
         case .asNeeded(let medication): medication.asNeeded ?? "Only when needed"
         }
@@ -109,7 +108,7 @@ extension PillVerdict {
             return ["Can be taken from \(opens(next))."]
         case .missed(let dose, let next):
             return ["It could be taken until \(closes(dose))."] + nextLine(next, after: dose)
-        case .alreadyScanned(let dose, _, let next), .alreadyTaken(let dose, _, let next):
+        case .alreadyTaken(let dose, _, let next):
             return nextLine(next, after: dose)
         case .notScheduledToday, .extra, .unidentified, .asNeeded:
             return []

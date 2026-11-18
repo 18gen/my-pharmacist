@@ -78,17 +78,18 @@ enum DemoScan {
                 entry.doseTimes = [time]
                 return entry
             }
-        let store = MedicationStore(entries: entries, storage: InMemoryDoseLogStorage())
+        let store = MedicationStore(entries: entries)
         let doses = Dictionary(uniqueKeysWithValues: store.doses(on: now).map { ($0.medication.id, $0) })
         let earlier = now.addingTimeInterval(-4 * 60)
-        store.recordScan(of: [doses["dexamethasone-4"], doses["exemestane-25"]].compactMap { $0 }, at: earlier)
-        store.markTaken([doses["dexamethasone-4"], doses["exemestane-25"]].compactMap { $0 }, at: earlier)
-        store.markTaken([doses["allopurinol-300"]].compactMap { $0 }, at: now)
         // Exemestane's pill as a scan would cut it; dexamethasone's picture is gone, as
         // after the app is closed, so it shows its own photo.
-        if let dose = doses["exemestane-25"], let crop = madeUpCrop("exemestane-25-1") {
-            store.keepScanPhoto(crop, of: dose)
+        let photos: [Dose: CGImage] = if let dose = doses["exemestane-25"], let crop = madeUpCrop("exemestane-25-1") {
+            [dose: crop]
+        } else {
+            [:]
         }
+        store.recordScan(of: [doses["dexamethasone-4"], doses["exemestane-25"]].compactMap { $0 }, at: earlier, photos: photos)
+        store.markTaken([doses["allopurinol-300"]].compactMap { $0 }, at: now)
         return store
     }
 
@@ -102,7 +103,7 @@ enum DemoScan {
             entry.doseTimes = [time]
             return entry
         }
-        let store = MedicationStore(entries: entries, storage: InMemoryDoseLogStorage())
+        let store = MedicationStore(entries: entries)
         let doses = Dictionary(uniqueKeysWithValues: store.doses(on: now).map { ($0.medication.id, $0) })
         store.markTaken([doses["allopurinol-300"]].compactMap { $0 }, at: now.addingTimeInterval(-52 * 60))
         store.markTaken([doses["dexamethasone-4"]].compactMap { $0 }, at: now.addingTimeInterval(-50 * 60))

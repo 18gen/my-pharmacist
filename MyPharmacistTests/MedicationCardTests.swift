@@ -18,7 +18,7 @@ struct MedicationCardTests {
     ]
 
     private func emptyStore() -> MedicationStore {
-        MedicationStore(storage: InMemoryDoseLogStorage())
+        MedicationStore()
     }
 
     @Test func theSampleListMakesTheKeychainsCards() {

@@ -340,12 +340,12 @@ private struct TimeRowView: View {
 #if DEBUG
 #Preview("New medication") {
     NavigationStack {
-        MedicationEditor(store: MedicationStore(storage: InMemoryDoseLogStorage()))
+        MedicationEditor(store: MedicationStore())
     }
 }
 
 #Preview("A medication on the list") {
-    let store = MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage())
+    let store = MedicationStore(entries: SampleMedications.demoList)
     NavigationStack {
         MedicationEditor(store: store, entry: store.entries[2])
     }

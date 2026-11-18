@@ -7,12 +7,12 @@ import CoreGraphics
 import Foundation
 import Observation
 
-/// The person's medications, which doses have been scanned, and which the person marked
-/// taken, saved on the device. The two are kept apart: a scan only shows a dose's pill
-/// was judged OK to take, and "taken" is the person's own word for it.
+/// The person's medications and the record of the doses they took, saved on the device.
 ///
 /// The list holds everything about each medication (`MedicationEntry`), including the
-/// photos of its tablet that scanned pills are compared with.
+/// photos of its tablet that scanned pills are compared with. The record (`DoseLog`) says
+/// which doses were taken and which of those were scanned: a scan of a pill OK to take
+/// marks its dose taken.
 @Observable
 final class MedicationStore {
     /// The person's list, in their order.
@@ -26,86 +26,78 @@ final class MedicationStore {
     /// The list as the schedule, the home screen and scanning see it.
     private(set) var medications: [Medication]
 
-    /// When each dose was scanned, keyed by `Dose.id`, e.g. "2026-10-14|metformin-500@8:00".
-    /// When a dose was marked taken is in the same record, under "taken|" and the same key.
-    private var scanLog: [String: Date] {
-        didSet { save() }
+    /// Which doses were taken and scanned.
+    private var doseLog: DoseLog {
+        didSet { logStorage.save(doseLog.entries) }
     }
 
-    private static let takenPrefix = "taken|"
+    /// The picture of each scanned pill, cut from the scan's photo. Kept in memory only,
+    /// never saved: after the app is closed a scanned dose shows its medication's own
+    /// photo instead.
+    private var scanPhotos: [DoseLog.Key: CGImage] = [:]
 
-    /// The picture of each scanned pill, cut from the scan's photo, under the same keys as
-    /// the scans. Kept in memory only, never saved: after the app is closed a scanned dose
-    /// shows its medication's own photo instead.
-    private var scanPhotos: [String: CGImage] = [:]
-
-    /// When each dose was marked taken, keyed by `Dose.id`.
-    private var takenLog: [String: Date] {
-        var taken: [String: Date] = [:]
-        for (key, time) in scanLog where key.hasPrefix(Self.takenPrefix) {
-            taken[String(key.dropFirst(Self.takenPrefix.count))] = time
-        }
-        return taken
-    }
-
-    @ObservationIgnored private let storage: any DoseLogStorage
+    @ObservationIgnored private let logStorage: any DoseLogStorage
     @ObservationIgnored private let listStorage: any MedicationListStorage
-    @ObservationIgnored private let photoStore: MedicationPhotoStore
+    @ObservationIgnored let photoStore: MedicationPhotoStore
     /// What "Reset demo" puts on the list.
     @ObservationIgnored private let sampleList: [MedicationEntry]
     @ObservationIgnored private let calendar: Calendar
-    /// Older records are dropped on launch; only today's matter.
+    /// Older records are dropped on launch; only the last few days matter.
     private static let keepDays = 14
 
     /// - Parameters:
-    ///   - entries: What a list that was never saved starts with: nothing, for a new person.
+    ///   - entries: What a list that was never saved starts with: the app gives a new
+    ///     install the sample list.
     ///   - sampleList: What "Reset demo" puts on the list.
     ///   - listStorage: In memory unless given, so tests never touch the app's saved list.
+    ///   - logStorage: In memory unless given, for the same reason.
+    ///   - calendar: Follows the phone's time zone as it changes, unless one is given.
     ///   - now: When the store is created; records older than `keepDays` before it are dropped.
     init(entries: [MedicationEntry] = [],
          sampleList: [MedicationEntry] = SampleMedications.sampleList,
          listStorage: any MedicationListStorage = InMemoryMedicationListStorage(),
-         storage: any DoseLogStorage = UserDefaultsDoseLogStorage(),
+         logStorage: any DoseLogStorage = InMemoryDoseLogStorage(),
          photoStore: MedicationPhotoStore = .standard,
-         calendar: Calendar = .current,
+         calendar: Calendar = .autoupdatingCurrent,
          now: Date = Date()) {
         let entries = (listStorage.load() ?? entries).map(\.tidied)
         self.entries = entries
         self.medications = entries.map(\.medication)
         self.sampleList = sampleList
         self.listStorage = listStorage
-        self.storage = storage
+        self.logStorage = logStorage
         self.photoStore = photoStore
         self.calendar = calendar
-        self.scanLog = Self.recent(storage.load(), now: now, calendar: calendar)
+        self.doseLog = DoseLog(saved: logStorage.load(), now: now, keepDays: Self.keepDays, calendar: calendar)
     }
 
     /// A store whose list starts with these medications, for tests and previews.
     convenience init(medications: [Medication],
                      listStorage: any MedicationListStorage = InMemoryMedicationListStorage(),
-                     storage: any DoseLogStorage = UserDefaultsDoseLogStorage(),
-                     calendar: Calendar = .current,
+                     logStorage: any DoseLogStorage = InMemoryDoseLogStorage(),
+                     calendar: Calendar = .autoupdatingCurrent,
                      now: Date = Date()) {
-        self.init(entries: medications.map(MedicationEntry.init), listStorage: listStorage, storage: storage,
+        self.init(entries: medications.map(MedicationEntry.init), listStorage: listStorage, logStorage: logStorage,
                   calendar: calendar, now: now)
     }
 
-    // MARK: Reading
+    // MARK: Today
 
     func doses(on day: Date) -> [Dose] {
         DoseSchedule.doses(for: medications, on: day, calendar: calendar)
     }
 
     /// Today's doses grouped by time of day, earliest first, each group with where it
-    /// stands. A time of day from the day before or after that is due now comes too: at
-    /// 11:30 PM the 12 AM dose is due, though it's tomorrow's.
+    /// stands. A time of day from the day before or after comes too while it is inside
+    /// its window: at 11:30 PM the 12 AM dose is due, though it's tomorrow's, and it stays
+    /// once ticked.
     func todaySlots(now: Date) -> [DoseSlot] {
-        let today = DoseSchedule.slots(doses(on: now), scannedAt: scanLog, takenAt: takenLog, now: now)
-        func dueNow(dayOffset: Int) -> [DoseSlot] {
+        func slots(dayOffset: Int) -> [DoseSlot] {
             guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now) else { return [] }
-            return DoseSchedule.slots(doses(on: day), scannedAt: scanLog, takenAt: takenLog, now: now).filter { $0.status == .now }
+            return DoseSchedule.slots(doses(on: day), scannedAt: doseLog.scans, takenAt: doseLog.takenMarks, now: now)
         }
-        return dueNow(dayOffset: -1) + today + dueNow(dayOffset: 1)
+        let inWindow = { (slot: DoseSlot) in DoseSchedule.isInWindow(slot.scheduled, now: now) }
+        return slots(dayOffset: -1).filter(inWindow) + slots(dayOffset: 0) + slots(dayOffset: 1).filter(inWindow)
     }
 
     /// Whether a time of day is due now: the scan button turns blue.
@@ -118,11 +110,6 @@ final class MedicationStore {
         medications.filter { $0.asNeeded != nil }
     }
 
-    /// Today's doses in display order (pending first, earliest on top) with their states.
-    func todayList(now: Date) -> [ScheduledDose] {
-        DoseSchedule.ordered(doses(on: now), scannedAt: scanLog, takenAt: takenLog, now: now)
-    }
-
     // MARK: The medication list
 
     func entry(_ id: String) -> MedicationEntry? {
@@ -130,148 +117,156 @@ final class MedicationStore {
     }
 
     /// Adds a medication at the end of the list. Ignored, returning false, if it isn't
-    /// valid (`MedicationEntry.isValid`) or is already on it.
+    /// valid (`MedicationEntry.isValid`), is already on it, or the list is full.
     @discardableResult
     func add(_ entry: MedicationEntry) -> Bool {
-        guard entry.isValid, self.entry(entry.id) == nil else { return false }
+        guard entry.isValid, self.entry(entry.id) == nil, canAddMore else { return false }
         entries.append(entry.tidied)
         return true
     }
 
+    /// Whether another medication fits: a scan compares pills with at most
+    /// `CheckLimits.medications` of them.
+    var canAddMore: Bool {
+        entries.count < CheckLimits.medications
+    }
+
     /// Replaces a medication on the list. Ignored if it isn't valid, so a medication never
-    /// silently stops being due. Photos it no longer has are deleted.
-    func update(_ entry: MedicationEntry) {
+    /// silently stops being due. Photos it no longer has are deleted. A dose time changed
+    /// after today's dose was taken keeps the tick: it moves to the new time.
+    func update(_ entry: MedicationEntry, now: Date = Date()) {
         guard entry.isValid, let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
         let tidied = entry.tidied
-        guard entries[index] != tidied else { return }
-        deletePhotos(entries[index].photos.filter { !tidied.photos.contains($0) })
+        let old = entries[index]
+        guard old != tidied else { return }
+        deletePhotos(old.photos.filter { !tidied.photos.contains($0) })
+        moveTodaysRecord(from: old.medication, to: tidied.medication, now: now)
         entries[index] = tidied
     }
 
-    /// Takes a medication off the list, with its photos. Its scan records stay, but
-    /// nothing reads them.
+    /// Takes a medication off the list, with its photos. What was recorded about its doses
+    /// stays until it is too old to keep: if the medication is added back today, today's
+    /// doses it was taken for are still taken.
     func remove(_ id: String) {
         guard let entry = entry(id) else { return }
         deletePhotos(entry.photos)
         entries.removeAll { $0.id == id }
     }
 
-    /// Replaces the list with the sample list, for demos and App Review. The photos of
-    /// the medications it replaces are deleted.
-    func loadSampleList() {
+    /// Replaces the list with the sample list and forgets every dose taken, for demos and
+    /// App Review. The photos of the medications it replaces are deleted.
+    func resetToSamples() {
         deletePhotos(entries.flatMap(\.photos))
         entries = sampleList.map(\.tidied)
+        doseLog.removeAll()
+        scanPhotos = [:]
+    }
+
+    /// Deletes photo files that no medication on the list uses: left behind when the app
+    /// was closed while a medication was being added, say.
+    func removeUnusedPhotos() {
+        photoStore.removeAll(except: Set(entries.flatMap(\.photos)))
     }
 
     private func deletePhotos(_ photos: [MedicationPhoto]) {
         photos.forEach(photoStore.delete)
     }
 
-    // MARK: Changing
-
-    /// Records that these doses' pills were scanned, OK to take, at `time`.
-    func recordScan(of doses: [Dose], at time: Date = Date()) {
-        for dose in doses {
-            scanLog[dose.id] = time
+    /// Today's doses whose times were changed take what was recorded about them to the new
+    /// times, removed and added times paired in order: 8:00 moved to 8:30 stays taken.
+    private func moveTodaysRecord(from old: Medication, to new: Medication, now: Date) {
+        let removed = old.doseTimes.filter { !new.doseTimes.contains($0) }.sorted()
+        let added = new.doseTimes.filter { !old.doseTimes.contains($0) }.sorted()
+        for (from, to) in zip(removed, added) {
+            let source = DoseLog.Key.dose(Dose(medication: old, time: from, day: now, calendar: calendar))
+            let destination = DoseLog.Key.dose(Dose(medication: new, time: to, day: now, calendar: calendar))
+            doseLog.move(source, to: destination)
+            scanPhotos[destination] = scanPhotos.removeValue(forKey: source)
         }
     }
 
-    func removeScans(of doses: [Dose]) {
+    // MARK: Doses taken
+
+    /// A scan found these doses' pills OK to take at `time`: they are marked taken then.
+    /// Each keeps the picture of its pill from the scan, if given.
+    func recordScan(of doses: [Dose], at time: Date = Date(), photos: [Dose: CGImage] = [:]) {
         for dose in doses {
-            scanLog[dose.id] = nil
-            scanPhotos[dose.id] = nil
+            doseLog.markScanned(.dose(dose), at: time)
+            scanPhotos[.dose(dose)] = photos[dose]
         }
     }
 
-    /// Keeps the picture of a dose's pill from its scan, to show in place of the
-    /// medication's own photo.
-    func keepScanPhoto(_ photo: CGImage, of dose: Dose) {
-        scanPhotos[dose.id] = photo
+    /// The person ticked these doses as taken, at `time`, without a scan.
+    func markTaken(_ doses: [Dose], at time: Date = Date()) {
+        for dose in doses {
+            doseLog.markTaken(.dose(dose), at: time)
+        }
+    }
+
+    /// Not taken after all: the tick, the scan and its picture go, so the next scan of the
+    /// pill says to take it.
+    func markNotTaken(_ doses: [Dose]) {
+        for dose in doses {
+            doseLog.markNotTaken(.dose(dose))
+            scanPhotos[.dose(dose)] = nil
+        }
     }
 
     /// The picture of a dose's pill from its scan; nil if it wasn't scanned since the app opened.
     func scanPhoto(of dose: Dose) -> CGImage? {
-        scanPhotos[dose.id]
+        scanPhotos[.dose(dose)]
     }
 
-    /// Records that the person took these doses, at `time`. Whether each was scanned
-    /// stays as it was.
-    func markTaken(_ doses: [Dose], at time: Date = Date()) {
-        for dose in doses {
-            scanLog[Self.takenPrefix + dose.id] = time
-        }
+    // MARK: Medications taken only when needed
+
+    /// When a medication taken only when needed was marked taken on a day; nil if it wasn't.
+    func asNeededTaken(of medication: Medication, on day: Date) -> Date? {
+        doseLog.takenAt(asNeededKey(medication, on: day))
     }
 
-    /// Takes the "taken" mark off these doses. Their scans stay.
-    func unmarkTaken(_ doses: [Dose]) {
-        for dose in doses {
-            scanLog[Self.takenPrefix + dose.id] = nil
-        }
-    }
-
-    /// When a medication taken only when needed was last scanned on a day; nil if it
-    /// wasn't. It has no doses, so its scans are kept by day, under a key of their own in
-    /// the same record as the doses': "2026-10-14|ondansetron-8@needed".
+    /// When its pill was scanned that day, which marked it taken; nil if it wasn't.
     func asNeededScan(of medication: Medication, on day: Date) -> Date? {
-        scanLog[asNeededKey(medication, on: day)]
+        doseLog.scannedAt(asNeededKey(medication, on: day))
     }
 
-    /// Records that a medication taken only when needed was scanned at `time` on `day`,
-    /// or, given nil, that it wasn't: a retake puts back what was there before.
-    func setAsNeededScan(of medication: Medication, on day: Date, to time: Date?) {
-        scanLog[asNeededKey(medication, on: day)] = time
-        if time == nil { scanPhotos[asNeededKey(medication, on: day)] = nil }
-    }
-
-    /// The picture of a medication taken only when needed from its scan on a day, or nil
-    /// to forget it.
-    func setAsNeededScanPhoto(_ photo: CGImage?, of medication: Medication, on day: Date) {
-        scanPhotos[asNeededKey(medication, on: day)] = photo
-    }
-
+    /// The picture of its pill from that scan, while the app stays open.
     func asNeededScanPhoto(of medication: Medication, on day: Date) -> CGImage? {
         scanPhotos[asNeededKey(medication, on: day)]
     }
 
-    /// When a medication taken only when needed was last marked taken on a day; nil if
-    /// it wasn't.
-    func asNeededTaken(of medication: Medication, on day: Date) -> Date? {
-        scanLog[Self.takenPrefix + asNeededKey(medication, on: day)]
+    /// A scan found its pill at `time` on `day`, which marks it taken.
+    func recordAsNeededScan(of medication: Medication, at time: Date, photo: CGImage?) {
+        let key = asNeededKey(medication, on: time)
+        doseLog.markScanned(key, at: time)
+        scanPhotos[key] = photo
     }
 
-    /// Records that a medication taken only when needed was taken at `time` on `day`,
-    /// or, given nil, takes that mark off.
-    func setAsNeededTaken(of medication: Medication, on day: Date, to time: Date?) {
-        scanLog[Self.takenPrefix + asNeededKey(medication, on: day)] = time
+    /// The person ticked it as taken on `day`, at `time`, without a scan.
+    func markAsNeededTaken(_ medication: Medication, on day: Date, at time: Date = Date()) {
+        doseLog.markTaken(asNeededKey(medication, on: day), at: time)
     }
 
-    private func asNeededKey(_ medication: Medication, on day: Date) -> String {
-        Dose.dayKey(day, calendar: calendar) + "|\(medication.id)@needed"
+    /// Not taken after all on `day`: the tick, the scan and its picture go.
+    func markAsNeededNotTaken(_ medication: Medication, on day: Date) {
+        let key = asNeededKey(medication, on: day)
+        doseLog.markNotTaken(key)
+        scanPhotos[key] = nil
     }
 
-    /// Forgets every scan and every "taken" mark, so that no dose shows as either: for
-    /// starting a demo over.
-    /// The medication list stays.
-    func clearScans() {
-        scanLog = [:]
-        scanPhotos = [:]
+    private func asNeededKey(_ medication: Medication, on day: Date) -> DoseLog.Key {
+        .asNeeded(medication.id, on: day, calendar: calendar)
     }
 
-    /// Decides which of the pills in a photo to take now, given what each was recognized as.
-    func check(_ identities: [Medication?], now: Date = Date()) -> PillSetCheck {
-        PillSetVerifier.check(identities, medications: medications,
-                              doses: DoseSchedule.doses(for: medications, around: now, calendar: calendar),
-                              scannedAt: scanLog, takenAt: takenLog, now: now)
-    }
+    // MARK: Checking pills
 
-    // MARK: Storage
-
-    private func save() {
-        storage.save(scanLog)
-    }
-
-    private static func recent(_ log: [String: Date], now: Date, calendar: Calendar) -> [String: Date] {
-        let cutoff = calendar.date(byAdding: .day, value: -keepDays, to: now) ?? .distantPast
-        return log.filter { $0.value >= cutoff }
+    /// Decides which of the pills in a photo to take now, given what each was recognized
+    /// as: one verdict per pill, in order.
+    /// - Parameter ignored: What the same scanning session recorded a moment ago, judged as
+    ///   if it hadn't been: a photo taken again shows the same pills, still to take.
+    func verdicts(for identities: [Medication?], now: Date = Date(),
+                  ignoring ignored: ScanSessionRecord = ScanSessionRecord()) -> [PillVerdict] {
+        let log = doseLog.removing(ignored.keys(calendar: calendar))
+        return PillSetVerifier.check(identities, doses: DoseSchedule.doses(for: medications, around: now, calendar: calendar),
+                                     scannedAt: log.scans, takenAt: log.takenMarks, now: now)
     }
 }

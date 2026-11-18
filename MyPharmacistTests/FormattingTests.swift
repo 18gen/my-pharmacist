@@ -33,7 +33,7 @@ struct PillVerdictPresentationTests {
 
     @Test func pillsNotToTakeNowAreRed() {
         let verdicts: [PillVerdict] = [
-            .alreadyScanned(dose, at: dose.scheduled, next: nil),
+            .alreadyTaken(dose, at: dose.scheduled, next: nil),
             .tooEarly(next: dose),
             .notScheduledToday(TestMedications.metformin),
             .extra(TestMedications.metformin),
@@ -46,9 +46,13 @@ struct PillVerdictPresentationTests {
         #expect(ResultLevel.unknown.color == Palette.danger)
     }
 
-    @Test func aPillScannedBeforeMayHaveBeenTaken() {
-        let reason = PillVerdict.alreadyScanned(dose, at: dose.scheduled, next: nil).reason
-        #expect(reason == "Scanned at \(dose.scheduled.shortTime). You may have taken it.")
+    @Test func aPillOfADoseTakenSaysWhen() {
+        let reason = PillVerdict.alreadyTaken(dose, at: dose.scheduled, next: nil).reason
+        #expect(reason == "Already taken at \(dose.scheduled.shortTime).")
+    }
+
+    @Test func aSecondTabletSaysOnePerDose() {
+        #expect(PillVerdict.extra(TestMedications.metformin).reason == "One tablet per dose")
     }
 
     @Test func anAsNeededPillIsACautionWithItsCondition() {

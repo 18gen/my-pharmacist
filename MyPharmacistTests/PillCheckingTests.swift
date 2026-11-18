@@ -9,64 +9,46 @@ import Testing
 @testable import MyPharmacist
 
 struct PillSetVerifierTests {
-    private let medications = TestMedications.all
     private let dayDoses = DoseSchedule.doses(for: TestMedications.all, on: TestClock.day, calendar: TestClock.calendar)
 
     private func dose(_ medication: Medication, at hour: Int) -> Dose {
         Dose(medication: medication, time: DoseTime(hour), day: TestClock.day, calendar: TestClock.calendar)
     }
 
-    private func check(_ identities: [Medication?], scannedAt: [String: Date] = [:], at hour: Int) -> PillSetCheck {
-        PillSetVerifier.check(identities, medications: medications, doses: dayDoses, scannedAt: scannedAt, now: TestClock.at(hour))
+    private func check(_ identities: [Medication?], scannedAt: [String: Date] = [:], takenAt: [String: Date] = [:],
+                       at hour: Int) -> [PillVerdict] {
+        PillSetVerifier.check(identities, doses: dayDoses, scannedAt: scannedAt, takenAt: takenAt, now: TestClock.at(hour))
     }
 
     @Test func theMorningPillsAreAllToTake() {
-        let result = check([TestMedications.metformin, TestMedications.lisinopril], at: 8)
-        #expect(result.verdicts == [.take(dose(TestMedications.metformin, at: 8)), .take(dose(TestMedications.lisinopril, at: 8))])
-        #expect(result.missing.isEmpty)
+        #expect(check([TestMedications.metformin, TestMedications.lisinopril], at: 8)
+                == [.take(dose(TestMedications.metformin, at: 8)), .take(dose(TestMedications.lisinopril, at: 8))])
     }
 
     @Test func aPillForLaterTodayIsNotToTake() {
-        let result = check([TestMedications.atorvastatin], at: 8)
-        #expect(result.verdicts == [.tooEarly(next: dose(TestMedications.atorvastatin, at: 21))])
+        #expect(check([TestMedications.atorvastatin], at: 8) == [.tooEarly(next: dose(TestMedications.atorvastatin, at: 21))])
     }
 
     @Test func aSecondPillOfTheSameMedicationIsExtra() {
-        let result = check([TestMedications.metformin, TestMedications.metformin], at: 8)
-        #expect(result.verdicts[1] == .extra(TestMedications.metformin))
-        #expect(result.dosesToTake.count == 1)
+        let verdicts = check([TestMedications.metformin, TestMedications.metformin], at: 8)
+        #expect(verdicts == [.take(dose(TestMedications.metformin, at: 8)), .extra(TestMedications.metformin)])
     }
 
     @Test func unrecognizedPillsAreNeverToTake() {
-        let result = check([nil], at: 8)
-        #expect(result.verdicts == [.unidentified])
-        #expect(result.dosesToTake.isEmpty)
-    }
-
-    @Test func dosesDueNowThatArentInThePhotoAreMissing() {
-        let result = check([TestMedications.metformin], at: 8)
-        #expect(result.missing == [dose(TestMedications.lisinopril, at: 8)])
+        #expect(check([nil], at: 8) == [.unidentified])
     }
 
     @Test func anAsNeededPillIsLeftToThePerson() {
-        let result = PillSetVerifier.check([TestMedications.ondansetron], medications: medications + [TestMedications.ondansetron],
-                                           doses: dayDoses, scannedAt: [:], now: TestClock.at(8))
-        #expect(result.verdicts == [.asNeeded(TestMedications.ondansetron)])
-        #expect(result.dosesToTake.isEmpty)
+        #expect(check([TestMedications.ondansetron], at: 8) == [.asNeeded(TestMedications.ondansetron)])
     }
 
-    @Test func anAsNeededMedicationIsNeverMissing() {
-        let result = PillSetVerifier.check([TestMedications.metformin, TestMedications.lisinopril],
-                                           medications: medications + [TestMedications.ondansetron],
-                                           doses: dayDoses, scannedAt: [:], now: TestClock.at(8))
-        #expect(result.missing.isEmpty)
-    }
-
-    @Test func alreadyScannedDosesAreNotMissing() {
+    @Test func aPillOfADoseScannedOrTickedIsAlreadyTaken() {
         let lisinopril = dose(TestMedications.lisinopril, at: 8)
-        let result = check([TestMedications.lisinopril], scannedAt: [lisinopril.id: TestClock.at(8)], at: 9)
-        #expect(result.verdicts == [.alreadyScanned(lisinopril, at: TestClock.at(8), next: nil)])
-        #expect(result.missing == [dose(TestMedications.metformin, at: 8)])
+        #expect(check([TestMedications.lisinopril], scannedAt: [lisinopril.id: TestClock.at(8)],
+                      takenAt: [lisinopril.id: TestClock.at(8)], at: 9)
+                == [.alreadyTaken(lisinopril, at: TestClock.at(8), next: nil)])
+        #expect(check([TestMedications.lisinopril], takenAt: [lisinopril.id: TestClock.at(8, 30)], at: 9)
+                == [.alreadyTaken(lisinopril, at: TestClock.at(8, 30), next: nil)])
     }
 }
 

@@ -69,7 +69,7 @@ struct DoseSlotCard: View {
     private var canTick: Bool {
         switch slot.status {
         case .next, .later: false
-        case .now, .notScannedYet, .done: true
+        case .now, .notTakenYet, .done: true
         }
     }
 
@@ -93,9 +93,9 @@ private struct SlotHeader: View {
     /// Nil for a card that is always open.
     let isExpanded: Bool?
 
-    /// A finished time of day while folded: when it was done.
-    private var summary: (time: Date, taken: Bool)? {
-        if isExpanded == false, case .done(let time, let taken) = slot.status { return (time, taken) }
+    /// A finished time of day while folded: when its last dose was taken.
+    private var summary: Date? {
+        if isExpanded == false, case .done(let time) = slot.status { return time }
         return nil
     }
 
@@ -140,10 +140,9 @@ private struct SlotHeader: View {
             .background(Capsule().fill(Palette.due))
     }
 
-    /// "✓ Taken 8:04 AM"; "Scanned" for doses only scanned, from before a scan counted
-    /// as taken.
-    private func summaryLabel(_ summary: (time: Date, taken: Bool)) -> some View {
-        Label("\(summary.taken ? "Taken" : "Scanned") \(summary.time.shortTime)", systemImage: "checkmark.circle.fill")
+    /// "✓ Taken 8:04 AM".
+    private func summaryLabel(_ time: Date) -> some View {
+        Label("Taken \(time.shortTime)", systemImage: "checkmark.circle.fill")
             .font(.headline)
             .monospacedDigit()
             .foregroundStyle(Palette.ok)
@@ -178,8 +177,8 @@ private struct SlotHeader: View {
                 .foregroundStyle(Palette.textTertiary)
         case .later:
             EmptyView()
-        case .notScannedYet:
-            Text("Not scanned yet")
+        case .notTakenYet:
+            Text("Not taken yet")
                 .font(.headline)
                 .foregroundStyle(Palette.late)
         case .done:
@@ -199,44 +198,26 @@ private struct SlotHeader: View {
     }
 }
 
-/// The words and symbol for a time of day, like the labels on a pill organizer.
-struct DayPeriod {
-    let name: String
-    let symbol: String
-
-    init(_ time: DoseTime) {
-        switch time.hour {
-        // Midnight and the small hours belong with the night before, not the morning.
-        case ..<5: (name, symbol) = ("Bedtime", "bed.double.fill")
-        case ..<11: (name, symbol) = ("Morning", "sunrise.fill")
-        case ..<15: (name, symbol) = ("Midday", "sun.max.fill")
-        case ..<18: (name, symbol) = ("Afternoon", "sun.min.fill")
-        case ..<22: (name, symbol) = ("Evening", "moon.fill")
-        default: (name, symbol) = ("Bedtime", "bed.double.fill")
-        }
-    }
-}
-
 #if DEBUG
 /// For the canvas: the sample morning medications at 8 AM today, in each state.
 private enum SlotPreview {
-    static func slot(_ status: DoseSlot.Status, scanned: Bool = false) -> DoseSlot {
+    static func slot(_ status: DoseSlot.Status, taken: Bool = false) -> DoseSlot {
         let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
         let medications = SampleMedications.demoList.map(\.medication).filter { $0.doseTimes.contains(DoseTime(8)) }.prefix(2)
         let items = medications.enumerated().map { index, medication in
             ScheduledDose(dose: Dose(medication: medication, time: DoseTime(8), day: morning),
-                          state: scanned ? .scanned(at: morning.addingTimeInterval(Double(index + 2) * 60)) : .due)
+                          state: taken ? .taken(at: morning.addingTimeInterval(Double(index + 2) * 60), scannedAt: nil) : .pending)
         }
         return DoseSlot(time: DoseTime(8), scheduled: morning, items: Array(items), status: status)
     }
 }
 
-#Preview("Now, then scanned") {
+#Preview("Now, then taken") {
     let now = Calendar.current.date(bySettingHour: 8, minute: 3, second: 0, of: Date()) ?? Date()
     ScrollView {
         VStack(spacing: 16) {
             DoseSlotCard(slot: SlotPreview.slot(.now), isExpanded: .constant(true), onOpened: {})
-            DoseSlotCard(slot: SlotPreview.slot(.done(at: now), scanned: true), isExpanded: .constant(true), onOpened: {})
+            DoseSlotCard(slot: SlotPreview.slot(.done(at: now), taken: true), isExpanded: .constant(true), onOpened: {})
             DoseSlotCard(slot: SlotPreview.slot(.next), isExpanded: .constant(false), onOpened: {})
         }
         .padding()

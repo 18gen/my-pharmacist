@@ -81,6 +81,6 @@ struct MedicationsPage: View {
 
 #Preview {
     NavigationStack {
-        MedicationsPage(store: MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage()))
+        MedicationsPage(store: MedicationStore(entries: SampleMedications.demoList))
     }
 }

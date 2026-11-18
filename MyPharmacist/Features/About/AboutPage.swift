@@ -88,14 +88,13 @@ struct AboutPage: View {
         .confirmationDialog("Reset the demo?", isPresented: $isConfirmingDemoReset, titleVisibility: .visible) {
             Button("Reset", role: .destructive) {
                 withAnimation {
-                    store.loadSampleList()
-                    store.clearScans()
+                    store.resetToSamples()
                     pharmacy.loadSample()
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your list becomes the four sample medications, with no dose scanned or taken, and My pharmacy becomes the Student Health Pharmacy. Your own medications and their photos are deleted.")
+            Text("Your list becomes the sample medications, with no dose taken, and My pharmacy becomes the sample pharmacy. Your own medications and their photos are deleted.")
         }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
@@ -123,7 +122,7 @@ struct AboutPage: View {
 
 #Preview {
     NavigationStack {
-        AboutPage(store: MedicationStore(entries: SampleMedications.demoList, storage: InMemoryDoseLogStorage()),
+        AboutPage(store: MedicationStore(entries: SampleMedications.demoList),
                   pharmacy: PharmacyStore(pharmacy: .sample()))
     }
 }

@@ -51,10 +51,11 @@ struct RootView: View {
         if DemoScan.showsTaken || DemoScan.scansOK { return DemoScan.takenStore() }
         if DemoScan.isRequested {
             let list = DemoScan.scansDemoPhoto ? SampleMedications.demoList : SampleMedications.sampleList
-            return MedicationStore(entries: DemoScan.startsEmpty ? [] : list, storage: InMemoryDoseLogStorage())
+            return MedicationStore(entries: DemoScan.startsEmpty ? [] : list)
         }
         #endif
-        return MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage())
+        return MedicationStore(entries: SampleMedications.sampleList, listStorage: UserDefaultsMedicationListStorage(),
+                               logStorage: UserDefaultsDoseLogStorage())
     }
 
     /// The pharmacy saved on the device; a new install starts with the sample one. Debug

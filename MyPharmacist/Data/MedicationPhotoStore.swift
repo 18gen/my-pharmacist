@@ -56,6 +56,18 @@ nonisolated struct MedicationPhotoStore: Sendable {
         try? FileManager.default.removeItem(at: url(for: name))
     }
 
+    /// Deletes every photo file except these: files no medication uses any more.
+    func removeAll(except kept: Set<MedicationPhoto>) {
+        let keptNames = Set(kept.compactMap { photo -> String? in
+            if case .file(let name) = photo { return name }
+            return nil
+        })
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        for name in files where !keptNames.contains(name) {
+            delete(.file(name))
+        }
+    }
+
     private func url(for name: String) -> URL {
         directory.appending(path: name, directoryHint: .notDirectory)
     }

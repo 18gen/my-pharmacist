@@ -118,23 +118,27 @@ struct HomeView: View {
         }
     }
 
+    /// Ticks a dose, or, once the person has said so, takes the tick off: "Not taken"
+    /// forgets its scan too, so the next scan of its pill says to take it.
     private func toggleTaken(_ item: ScheduledDose) {
         if item.state.takenAt == nil {
             store.markTaken([item.dose])
         } else {
-            store.unmarkTaken([item.dose])
+            store.markNotTaken([item.dose])
         }
     }
 
+    /// A medication taken only when needed, as on the day shown: ticking and unticking
+    /// change that day's record, the one the box shows.
     private func whenNeededItem(_ medication: Medication, on day: Date) -> MedicationLineList.Item {
         let takenAt = store.asNeededTaken(of: medication, on: day)
         return MedicationLineList.Item(medication: medication, scannedAt: store.asNeededScan(of: medication, on: day),
                                        scanPhoto: store.asNeededScanPhoto(of: medication, on: day),
                                        takenAt: takenAt) {
             if takenAt == nil {
-                store.setAsNeededTaken(of: medication, on: Date(), to: Date())
+                store.markAsNeededTaken(medication, on: day)
             } else {
-                store.setAsNeededTaken(of: medication, on: day, to: nil)
+                store.markAsNeededNotTaken(medication, on: day)
             }
         }
     }

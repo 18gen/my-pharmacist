@@ -25,30 +25,20 @@ struct DoseScheduleTests {
         #expect(dayDoses[0].scheduled == TestClock.at(8))
     }
 
-    @Test func stateFollowsTheDueWindow() {
+    @Test func aDoseIsPendingUntilTakenAndAScanCountsAsTaken() {
         let dose = dose(TestMedications.metformin, at: 8)
-        func state(at hour: Int, _ minute: Int) -> DoseState {
-            DoseSchedule.state(of: dose, scannedAt: [:], now: TestClock.at(hour, minute))
-        }
-        #expect(state(at: 7, 44) == .upcoming)
-        #expect(state(at: 7, 45) == .due)
-        #expect(state(at: 8, 15) == .due)
-        #expect(state(at: 8, 16) == .late)
-
+        #expect(DoseSchedule.state(of: dose, scannedAt: [:]) == .pending)
+        // A scan saved without a taken mark (before a scan counted as taken) still counts.
         let scannedAt = TestClock.at(8, 5)
-        #expect(DoseSchedule.state(of: dose, scannedAt: [dose.id: scannedAt], now: TestClock.at(12)) == .scanned(at: scannedAt))
+        #expect(DoseSchedule.state(of: dose, scannedAt: [dose.id: scannedAt]) == .taken(at: scannedAt, scannedAt: scannedAt))
     }
 
-    @Test func orderedPutsPendingBeforeTaken() {
-        let lisinopril = dose(TestMedications.lisinopril, at: 8)
-        let ordered = DoseSchedule.ordered(dayDoses, scannedAt: [lisinopril.id: TestClock.at(8)], now: TestClock.at(9))
-        #expect(ordered.map(\.dose.id) == [
-            "2026-10-14|metformin-500@8:00",
-            "2026-10-14|metformin-500@18:00",
-            "2026-10-14|atorvastatin-20@21:00",
-            "2026-10-14|lisinopril-10@8:00",
-        ])
-        #expect(ordered.last?.state.isScanned == true)
+    @Test func theWindowRunsFromAnHourBeforeToTwoHoursAfter() {
+        let eight = TestClock.at(8)
+        #expect(!DoseSchedule.isInWindow(eight, now: TestClock.at(6, 59)))
+        #expect(DoseSchedule.isInWindow(eight, now: TestClock.at(7)))
+        #expect(DoseSchedule.isInWindow(eight, now: TestClock.at(10)))
+        #expect(!DoseSchedule.isInWindow(eight, now: TestClock.at(10, 1)))
     }
 
     @Test func pillChecksADoseUpToAnHourEarly() {
@@ -65,7 +55,7 @@ struct DoseScheduleTests {
         let morning = dose(TestMedications.metformin, at: 8)
         let scannedAt = TestClock.at(8, 5)
         let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: [morning.id: scannedAt], now: TestClock.at(9))
-        #expect(decision == .alreadyScanned(morning, at: scannedAt, next: dose(TestMedications.metformin, at: 18)))
+        #expect(decision == .alreadyTaken(morning, at: scannedAt, next: dose(TestMedications.metformin, at: 18)))
     }
 
     @Test func pillChecksTheDoseClosestToNow() {
@@ -79,7 +69,7 @@ struct DoseScheduleTests {
         let evening = dose(TestMedications.metformin, at: 18)
         let scannedAt = [morning.id: TestClock.at(8), evening.id: TestClock.at(18)]
         let decision = DoseSchedule.decision(for: TestMedications.metformin, doses: dayDoses, scannedAt: scannedAt, now: TestClock.at(22))
-        #expect(decision == .alreadyScanned(evening, at: TestClock.at(18), next: nil))
+        #expect(decision == .alreadyTaken(evening, at: TestClock.at(18), next: nil))
     }
 
     @Test func aDoseCountsUpToTwoHoursLateThenItIsMissed() {
@@ -158,18 +148,18 @@ struct DoseSlotTests {
         #expect(slots(at: 7, 0)[0].status == .now)
         #expect(slots(at: 6, 59)[0].status == .next)
         #expect(slots(at: 10, 0)[0].status == .now)
-        #expect(slots(at: 10, 1)[0].status == .notScannedYet)
+        #expect(slots(at: 10, 1)[0].status == .notTakenYet)
     }
 
-    @Test func aTimeOfDayIsDoneOnlyWhenEveryDoseInItIsScanned() {
+    @Test func aTimeOfDayIsDoneOnlyWhenEveryDoseInItIsTaken() {
         let lisinopril = dose(TestMedications.lisinopril, at: 8)
         let metformin = dose(TestMedications.metformin, at: 8)
         let half = slots(scannedAt: [lisinopril.id: TestClock.at(8, 5)], at: 8, 10)
         #expect(half[0].status == .now)
-        #expect(half[0].items.map(\.state.isScanned) == [true, false])
+        #expect(half[0].items.map(\.state.isPending) == [false, true])
 
         let done = slots(scannedAt: [lisinopril.id: TestClock.at(8, 5), metformin.id: TestClock.at(8, 20)], at: 12)
-        // Done at the last scan.
+        // Done at the last scan, a scan being taken.
         #expect(done[0].status == .done(at: TestClock.at(8, 20)))
         #expect(done[1].status == .next)
     }
@@ -179,12 +169,12 @@ struct DoseSlotTests {
     @Test func aDoseMarkedTakenKeepsWhenItWasScanned() {
         let dose = dose(TestMedications.metformin, at: 8)
         let taken = TestClock.at(8, 10)
-        #expect(DoseSchedule.state(of: dose, scannedAt: [:], takenAt: [dose.id: taken], now: TestClock.at(9))
+        #expect(DoseSchedule.state(of: dose, scannedAt: [:], takenAt: [dose.id: taken])
                 == .taken(at: taken, scannedAt: nil))
         let scanned = TestClock.at(8, 5)
-        let both = DoseSchedule.state(of: dose, scannedAt: [dose.id: scanned], takenAt: [dose.id: taken], now: TestClock.at(9))
+        let both = DoseSchedule.state(of: dose, scannedAt: [dose.id: scanned], takenAt: [dose.id: taken])
         #expect(both == .taken(at: taken, scannedAt: scanned))
-        #expect(both.isScanned && !both.isPending)
+        #expect(both.scannedAt == scanned && !both.isPending)
     }
 
     @Test func aPillOfADoseMarkedTakenIsNotTakenAgain() {
@@ -208,20 +198,24 @@ struct DoseSlotTests {
                 == .alreadyTaken(morning, at: taken, next: dose(TestMedications.metformin, at: 18)))
         #expect(DoseSchedule.decision(for: TestMedications.metformin, doses: doses, scannedAt: [morning.id: taken],
                                       now: TestClock.at(7, 20))
-                == .alreadyScanned(morning, at: taken, next: dose(TestMedications.metformin, at: 18)))
+                == .alreadyTaken(morning, at: taken, next: dose(TestMedications.metformin, at: 18)))
     }
 
-    @Test func aTimeOfDayIsTakenOnlyWhenEveryDoseInItIs() {
+    @Test func aTimeOfDayTickedOrScannedIsDoneAtItsLastDose() {
         let lisinopril = dose(TestMedications.lisinopril, at: 8)
         let metformin = dose(TestMedications.metformin, at: 8)
-        // One ticked, the other only scanned: done, but not "taken".
+        // One ticked, the other scanned.
         let mixed = DoseSchedule.slots(dayDoses, scannedAt: [metformin.id: TestClock.at(8, 20)],
                                        takenAt: [lisinopril.id: TestClock.at(8, 5)], now: TestClock.at(12))
-        #expect(mixed[0].status == .done(at: TestClock.at(8, 20), taken: false))
+        #expect(mixed[0].status == .done(at: TestClock.at(8, 20)))
         // Both ticked, neither scanned.
         let taken = DoseSchedule.slots(dayDoses, scannedAt: [:],
                                        takenAt: [lisinopril.id: TestClock.at(8, 5), metformin.id: TestClock.at(8, 30)],
                                        now: TestClock.at(12))
-        #expect(taken[0].status == .done(at: TestClock.at(8, 30), taken: true))
+        #expect(taken[0].status == .done(at: TestClock.at(8, 30)))
+    }
+
+    @Test func aSlotIsKnownByItsDayAndTime() {
+        #expect(slots(at: 7)[0].id == "2026-10-14@8:00")
     }
 }

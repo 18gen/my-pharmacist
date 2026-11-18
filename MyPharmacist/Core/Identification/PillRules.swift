@@ -65,8 +65,8 @@ nonisolated struct PillRules: Sendable {
     /// Something that barely differs from the surface is taken for a possible pill only
     /// if it is this round: at least this wide for its length.
     var leastFaintWidth = 0.5
-    /// More areas than this is a cluttered picture, not a handful of pills.
-    var mostPills = 12
+    /// More areas than this is too many pills for one check.
+    var mostPills = CheckLimits.pills
 
     /// - Parameters:
     ///   - pictureWidth: The searched picture's width in pixels.
