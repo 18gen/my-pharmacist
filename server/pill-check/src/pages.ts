@@ -33,18 +33,19 @@ export function privacyPage(supportEmail: string): Response {
   return page(
     "Privacy Policy",
     `<h1>Privacy Policy</h1>
-<p class="muted">My Pharmacist · Effective 1 December 2026</p>
+<p class="muted">My Pharmacist · Effective 18 November 2026</p>
 
 <p>My Pharmacist helps you double-check the pills in your hand against your own list of medications before you take them. This policy explains what the app keeps, what it sends, and why.</p>
 
 <h2>What stays on your phone</h2>
-<p>Your medication list (names, strengths, what each is for, when you take it), the photos you take of each pill, and the times you scanned your doses are stored only on your phone, in the app's own storage. They are not put in your photo library, and we don't receive them unless you check pills as described below. Deleting a medication deletes its photos; deleting the app deletes everything.</p>
+<p>Your medication list (names, strengths, what each is for, when you take it), the photos you take of each pill, the times you took your doses, and the pharmacy details you enter (name, phone number, hours, address, next refill) are stored on your phone, in the app's own storage, and in your phone's backups. They are not put in your photo library, and we don't receive them unless you check pills as described below. Deleting a medication deletes its photos; deleting the app deletes everything.</p>
+<p>To show your pharmacy on a map, its address is sent to Apple's map search. If you open it in Google Maps, its name and address go to Google.</p>
 
 <h2>What is sent when you check pills</h2>
 <p>Only after you allow it in the app, each time you check pills the app sends, over an encrypted connection:</p>
 <ul>
-  <li>pictures of the pills found in the photo you just took, each cut out on its own, and one picture of them together;</li>
-  <li>for each medication on your list: its name, strength, what it's for, a short description of how it looks, and the photos of its pill.</li>
+  <li>pictures of the pills found in the photo you just took, each cut out on its own, and one picture of them together with a little of what is around them;</li>
+  <li>for each medication on your list: its name, strength, a short description of how it looks, and the photos of its pill.</li>
 </ul>
 <p>The full photo from the camera is not sent. Nothing that identifies you (such as your name, email or contacts) is sent, and the app has no accounts.</p>
 <p>These go to our server (run on Cloudflare Workers), which passes them to OpenAI to recognize which of your medications each pill is, and sends the answer back to your phone. Our server does not store them. Cloudflare keeps standard technical logs of requests (such as the time and network address) to run and protect the service, not their contents.</p>
@@ -55,7 +56,7 @@ export function privacyPage(supportEmail: string): Response {
 
 <h2>Your choices</h2>
 <ul>
-  <li>Turn off sending pictures in the app: My Medications › About &amp; privacy. Pills can't be checked while it's off.</li>
+  <li>Turn off sending pictures in the app: About &amp; privacy, at the bottom of the home screen. Pills can't be checked while it's off.</li>
   <li>Delete a medication and its photos, or delete the app to remove everything from your phone.</li>
   <li>To ask about or delete anything else, email <a href="mailto:${email}">${email}</a>.</li>
 </ul>
@@ -80,16 +81,16 @@ export function supportPage(supportEmail: string): Response {
 
 <h2>Getting started</h2>
 <ol>
-  <li>Open My Medications and add each medication: two photos of its pill (front and back, on a plain surface), its name, and when you take it.</li>
+  <li>Open Pills, beside Today on the home screen, and add each medication: two photos of its pill (front and back, on a plain surface), its name, and when you take it.</li>
   <li>When it's time, tap Scan Pills, hold the pills in an open hand or put them on a table, and keep the phone still.</li>
-  <li>Check that every pill is circled, then read the result: OK to take, don't take now, or unknown.</li>
+  <li>Check that every pill is circled, then read the result: OK to take, don't take now, or unknown. Each dose that is OK to take is ticked as taken on the home screen; tap its box to undo that.</li>
 </ol>
 
 <h2>Tips</h2>
 <ul>
   <li>Spread the pills apart so they don't touch, and keep them in the middle of the picture.</li>
   <li>Use good light; tap Light at the bottom of the camera if it's dark.</li>
-  <li>If a pill shows as unknown, check its photos in My Medications, and ask your pharmacist.</li>
+  <li>If a pill shows as unknown, check its photos in Pills, and ask your pharmacist.</li>
 </ul>
 
 <h2>Important</h2>

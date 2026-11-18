@@ -63,8 +63,15 @@ async function check(request: Request, env: Env): Promise<Response> {
     console.error(`OpenAI returned ${response.status}`);
     return failure(502, "The pill checker had a problem");
   }
+  let reply: unknown;
   try {
-    return json(checkReply(await response.json()));
+    reply = await response.json();
+  } catch {
+    console.error("OpenAI reply isn't JSON");
+    return failure(502, "The pill checker gave no usable answer");
+  }
+  try {
+    return json(checkReply(reply));
   } catch (error) {
     if (error instanceof ReplyError) {
       console.error(`OpenAI reply unusable: ${error.message}`);

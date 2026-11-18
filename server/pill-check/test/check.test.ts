@@ -37,6 +37,14 @@ describe("parseCheckRequest", () => {
     ["a candidate called none", { candidates: [{ id: "none", description: "", photos: [] }] }],
     ["the same id twice", { candidates: [{ id: "a", description: "", photos: [] }, { id: "a", description: "", photos: [] }] }],
     ["too many photos", { candidates: [{ id: "a", description: "", photos: Array(limits.photosPerCandidate + 1).fill(png) }] }],
+    ["a description that's too long", { candidates: [{ id: "a", description: "x".repeat(limits.descriptionLength + 1), photos: [] }] }],
+    [
+      "images too large together",
+      {
+        pills: Array(limits.pills).fill("A".repeat(limits.imageLength)),
+        candidates: [{ id: "a", description: "", photos: Array(limits.photosPerCandidate).fill("A".repeat(limits.imageLength)) }],
+      },
+    ],
   ])("rejects %s", (_, overrides) => {
     expect(() => parseCheckRequest(request(overrides))).toThrow(RequestError);
   });
