@@ -7,20 +7,18 @@ import SwiftUI
 
 /// Medications taken only when needed, below the day's times: they belong to no time of
 /// day, but it helps to remember they're there, and when they're for. Folded to its header
-/// line like every card that isn't due now; tapping it opens it. One that was scanned
-/// today has a tick and the time, and the header says when the last was scanned, so it
-/// shows while the card is folded too.
+/// line like every card that isn't due now; tapping it opens it. One taken today (ticked,
+/// or scanned, which ticks it) has a tick and the time, and the header says when the last
+/// was taken, so it shows while the card is folded too.
 struct WhenNeededCard: View {
-    /// Each medication with when it was last scanned and marked taken today, if it was,
-    /// and what its "taken" box does.
+    /// Each medication with when it was taken today, if it was, and what its box does.
     let items: [MedicationLineList.Item]
     @Binding var isExpanded: Bool
     /// Called once the card has finished opening.
     let onOpened: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button(action: toggle) {
+        FoldingCard(folds: true, isExpanded: $isExpanded, onOpened: onOpened) {
                 HStack(spacing: 8) {
                     Label {
                         // Never due "now", so always in the softer black of the other
@@ -36,56 +34,24 @@ struct WhenNeededCard: View {
                             .foregroundStyle(Palette.textSubtitle)
                     }
                     Spacer(minLength: 8)
-                    if let last = lastTaken ?? lastScan {
-                        // The tick and the time only: with "Scanned" or "Taken" too,
-                        // "When needed" no longer fits on one line beside it.
-                        Label(last.shortTime, systemImage: "checkmark.circle.fill")
+                    if let lastTaken {
+                        // The tick and the time only: with "Taken" too, "When needed" no
+                        // longer fits on one line beside it.
+                        Label(lastTaken.shortTime, systemImage: "checkmark.circle.fill")
                             .font(.headline)
                             .foregroundStyle(Palette.ok)
                             .lineLimit(1)
-                            .accessibilityLabel("\(lastTaken == nil ? "Scanned" : "Taken") at \(last.shortTime)")
+                            .accessibilityLabel("Taken at \(lastTaken.shortTime)")
                     }
-                    Image(systemName: "chevron.down")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Palette.textMuted)
-                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        .accessibilityHidden(true)
+                    FoldChevron(isExpanded: isExpanded)
                 }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityHint(isExpanded ? "Double tap to hide these medications" : "Double tap to show these medications")
-
-            DrawerLayout(openFraction: isExpanded ? 1 : 0) {
-                MedicationLineList(items: items)
-                    .padding(.top, 8)
-            }
-            .clipped()
-            .allowsHitTesting(isExpanded)
-            .accessibilityHidden(!isExpanded)
+        } rows: {
+            MedicationLineList(items: items)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .raisedCardBackground()
     }
 
-    /// The latest scan today of any of them.
-    private var lastScan: Date? {
-        items.compactMap(\.scannedAt).max()
-    }
-
-    /// The latest time today any of them was marked taken.
+    /// The latest time today any of them was taken.
     private var lastTaken: Date? {
         items.compactMap(\.takenAt).max()
-    }
-
-    /// Opening reports back only once the card has finished growing, so the page can
-    /// scroll to where the rows end up.
-    private func toggle() {
-        withAnimation(.spring(duration: 0.4)) {
-            isExpanded.toggle()
-        } completion: {
-            if isExpanded { onOpened() }
-        }
     }
 }

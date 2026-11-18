@@ -21,36 +21,18 @@ struct DoseSlotCard: View {
     /// Called once a folded slot has finished opening.
     let onOpened: () -> Void
 
-    private static let cornerRadius: CGFloat = 24
-
     var body: some View {
         // One build for every status, so going from "Now" to done changes what the card
         // says without rebuilding it: no jump under the finger after the last tick.
         let folds = slot.status.isFolded
-        let open = !folds || isExpanded
-        VStack(alignment: .leading, spacing: 0) {
-            Button(action: toggle) {
-                SlotHeader(slot: slot, isExpanded: folds ? isExpanded : nil)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .allowsHitTesting(folds)
-            .accessibilityRemoveTraits(folds ? [] : .isButton)
-            .accessibilityHint(!folds ? "" : isExpanded ? "Double tap to hide these medications" : "Double tap to show these medications")
-
-            // Opens like a drawer: the rows stay put and the card's edge moves.
-            DrawerLayout(openFraction: open ? 1 : 0) {
-                rows.padding(.top, 8)
-            }
-            .clipped()
-            .allowsHitTesting(open)
-            .accessibilityHidden(!open)
+        FoldingCard(folds: folds, isExpanded: $isExpanded, onOpened: onOpened) {
+            SlotHeader(slot: slot, isExpanded: folds ? isExpanded : nil)
+        } rows: {
+            rows
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .raisedCardBackground()
         .overlay {
             if slot.status == .now {
-                RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: Palette.cardCornerRadius, style: .continuous)
                     .strokeBorder(Palette.due, lineWidth: 2.5)
             }
         }
@@ -70,16 +52,6 @@ struct DoseSlotCard: View {
         switch slot.status {
         case .next, .later: false
         case .now, .notTakenYet, .done: true
-        }
-    }
-
-    /// Opening reports back only once the card has finished growing: a scroll started
-    /// mid-animation aims at where the rows were, not where they end up.
-    private func toggle() {
-        withAnimation(.spring(duration: 0.4)) {
-            isExpanded.toggle()
-        } completion: {
-            if isExpanded { onOpened() }
         }
     }
 }
@@ -189,11 +161,7 @@ private struct SlotHeader: View {
     @ViewBuilder
     private var chevron: some View {
         if let isExpanded {
-            Image(systemName: "chevron.down")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Palette.textMuted)
-                .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                .accessibilityHidden(true)
+            FoldChevron(isExpanded: isExpanded)
         }
     }
 }

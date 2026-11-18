@@ -48,7 +48,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HomeHeader(now: context.date, onShowPharmacy: onShowPharmacy)
                     .background { headerPhoto }
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Palette.cardCornerRadius, style: .continuous))
                     .padding(.horizontal, 16)
 
                 if !typeSize.isAccessibilitySize {

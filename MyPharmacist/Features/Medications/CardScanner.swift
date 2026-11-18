@@ -40,7 +40,7 @@ struct CardScanner: View {
                     .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 CodeCamera(onFound: onFound)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Palette.cardCornerRadius, style: .continuous))
                     .accessibilityLabel("Camera")
             }
 

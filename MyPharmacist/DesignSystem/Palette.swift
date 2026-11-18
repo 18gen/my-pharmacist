@@ -80,6 +80,12 @@ enum Palette {
     static let scanButton = espresso
     static let onScanButton = cream
 
+    // MARK: Shapes
+
+    /// The corners of every card, and of what lines up with them (the Now outline, Home's
+    /// clock).
+    static let cardCornerRadius: CGFloat = 24
+
     // MARK: Titles
 
     /// A page's title, in serif like the onboarding's.
