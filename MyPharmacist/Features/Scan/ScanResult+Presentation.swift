@@ -7,7 +7,7 @@ import SwiftUI
 
 /// How serious one line of the results is. The results page lists them in this order,
 /// most serious first, so a pill not to take is never below one that's fine.
-enum ResultLevel: Int, CaseIterable, Comparable, Identifiable {
+enum ResultLevel: Int, CaseIterable, Comparable {
     /// Not one of the person's medications, or not recognized.
     case unknown
     /// One of theirs, but not to take now.
@@ -16,8 +16,6 @@ enum ResultLevel: Int, CaseIterable, Comparable, Identifiable {
     /// that may hold a pill that wasn't checked.
     case caution
     case ok
-
-    var id: Int { rawValue }
 
     static func < (lhs: ResultLevel, rhs: ResultLevel) -> Bool {
         lhs.rawValue < rhs.rawValue

@@ -42,16 +42,6 @@ nonisolated struct PixelMask: Sendable, Equatable {
         pixels.reduce(0) { $0 + Int($1) }
     }
 
-    var inverted: PixelMask {
-        PixelMask(width: width, height: height, pixels: pixels.map { 1 - $0 })
-    }
-
-    /// Set where both are set. The masks must be the same size.
-    func intersection(_ other: PixelMask) -> PixelMask {
-        precondition(width == other.width && height == other.height)
-        return PixelMask(width: width, height: height, pixels: zip(pixels, other.pixels).map { $0 & $1 })
-    }
-
     /// The mask as a grey picture, white where set: for clipping a drawing to it.
     func grayImage() -> CGImage? {
         let data = Data(pixels.map { $0 != 0 ? 255 : 0 })
@@ -245,19 +235,5 @@ nonisolated struct Blob: Sendable, Equatable {
             }
         }
         return Blob(x: x - margin, y: y - margin, mask: wider)
-    }
-
-    /// The area drawn back into a clear mask of the picture's size.
-    func placed(width: Int, height: Int) -> PixelMask {
-        var whole = PixelMask(width: width, height: height)
-        for py in 0..<mask.height {
-            for px in 0..<mask.width where mask[px, py] {
-                let wx = x + px, wy = y + py
-                if wx >= 0, wy >= 0, wx < width, wy < height {
-                    whole[wx, wy] = true
-                }
-            }
-        }
-        return whole
     }
 }

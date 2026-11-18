@@ -75,7 +75,6 @@ struct BlobShapeTests {
     @Test func theOutlineOfASquareIsItsCorners() {
         let hull = BlobShape.convexHull([CGPoint(x: 0, y: 0), CGPoint(x: 2, y: 0), CGPoint(x: 1, y: 1), CGPoint(x: 2, y: 2), CGPoint(x: 0, y: 2), CGPoint(x: 1, y: 0)])
         #expect(hull.count == 4)
-        #expect(BlobShape.area(of: hull) == 4)
         #expect(BlobShape.distance(from: CGPoint(x: 1, y: 1), toSegment: CGPoint(x: 0, y: 0), CGPoint(x: 2, y: 0)) == 1)
     }
 }

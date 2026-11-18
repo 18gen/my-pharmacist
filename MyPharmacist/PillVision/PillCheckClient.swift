@@ -6,6 +6,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import os
 import UIKit
 import UniformTypeIdentifiers
 
@@ -66,12 +67,36 @@ nonisolated struct PillCheckClient: Sendable {
         /// False when the picture shows no pill, part of one, or more than one: the pill
         /// wasn't cut out right, so whatever it was matched to doesn't count.
         var showsOneWholePill = true
-        let imprint: String
+        /// The letters or numbers the checker read on it; for people reading the logs of
+        /// the server, not used by the app.
+        var imprint = ""
         let medicationID: String
         let confidence: String
         /// Which of those it is, as a `PictureShows`. A server from before it said so
         /// sends none.
         var pictureShows: String?
+
+        init(pill: Int, showsOneWholePill: Bool = true, imprint: String = "", medicationID: String, confidence: String,
+             pictureShows: String? = nil) {
+            self.pill = pill
+            self.showsOneWholePill = showsOneWholePill
+            self.imprint = imprint
+            self.medicationID = medicationID
+            self.confidence = confidence
+            self.pictureShows = pictureShows
+        }
+
+        /// Only the pill's number, the medication and the confidence must be there: a
+        /// server that leaves out the rest still gives answers the app can read.
+        init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            self.init(pill: try values.decode(Int.self, forKey: .pill),
+                      showsOneWholePill: try values.decodeIfPresent(Bool.self, forKey: .showsOneWholePill) ?? true,
+                      imprint: try values.decodeIfPresent(String.self, forKey: .imprint) ?? "",
+                      medicationID: try values.decode(String.self, forKey: .medicationID),
+                      confidence: try values.decode(String.self, forKey: .confidence),
+                      pictureShows: try values.decodeIfPresent(String.self, forKey: .pictureShows))
+        }
 
         /// What the picture shows. Nil when all that is known is that it isn't one
         /// whole pill.
@@ -94,6 +119,17 @@ nonisolated struct PillCheckClient: Sendable {
         /// number: pills the app may have missed.
         var unnumberedPillLikeObjects = 0
 
+        init(pills: [Answer], unnumberedPillLikeObjects: Int = 0) {
+            self.pills = pills
+            self.unnumberedPillLikeObjects = unnumberedPillLikeObjects
+        }
+
+        init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            self.init(pills: try values.decode([Answer].self, forKey: .pills),
+                      unnumberedPillLikeObjects: try values.decodeIfPresent(Int.self, forKey: .unnumberedPillLikeObjects) ?? 0)
+        }
+
         enum CodingKeys: String, CodingKey {
             case pills
             case unnumberedPillLikeObjects = "unnumbered_pill_like_objects"
@@ -106,6 +142,9 @@ nonisolated struct PillCheckClient: Sendable {
     let configuration: Configuration
     /// A little longer than the server waits for OpenAI.
     var timeout: TimeInterval = 35
+    /// The medications as last sent, so the same list's photos are read and encoded once,
+    /// not on every scan.
+    private let candidateCache = CandidateCache()
 
     /// - Parameters:
     ///   - pills: A JPEG of each pill, in order.
@@ -199,7 +238,7 @@ nonisolated struct PillCheckClient: Sendable {
 
     /// A JPEG no bigger than `maxSide`, with any transparency on light grey, as the
     /// reference photos' cut-outs would otherwise turn black.
-    static func jpeg(_ image: CGImage, maxSide: Int = 384) -> Data? {
+    static func jpeg(_ image: CGImage, maxSide: Int) -> Data? {
         let scale = min(1, Double(maxSide) / Double(max(image.width, image.height)))
         let width = max(1, Int(Double(image.width) * scale)), height = max(1, Int(Double(image.height) * scale))
         guard let context = CGContext.bitmap(width: width, height: height) else { return nil }
@@ -219,6 +258,20 @@ extension PillCheckClient: PillRecognizer {
         let pills = pictures.compactMap { Self.jpeg($0, maxSide: PillCropper.largestSide) }
         guard pills.count == pictures.count else { throw .unusable }
         return try await check(pills, overview: overview.flatMap { Self.jpeg($0, maxSide: PillCropper.overviewSide) },
-                               among: Self.candidates(medications))
+                               among: candidateCache.candidates(for: medications, make: Self.candidates))
+    }
+}
+
+/// The candidates made for the last list of medications, kept while the list stays the same.
+nonisolated private final class CandidateCache: Sendable {
+    private let last = OSAllocatedUnfairLock<(medications: [Medication], candidates: [PillCheckClient.Candidate])?>(initialState: nil)
+
+    func candidates(for medications: [Medication], make: ([Medication]) -> [PillCheckClient.Candidate]) -> [PillCheckClient.Candidate] {
+        if let cached = last.withLock({ $0 }), cached.medications == medications {
+            return cached.candidates
+        }
+        let made = make(medications)
+        last.withLock { $0 = (medications, made) }
+        return made
     }
 }

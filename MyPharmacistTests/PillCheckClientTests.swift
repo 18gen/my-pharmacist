@@ -42,6 +42,14 @@ struct PillCheckClientTests {
         #expect(Client.requestBody(pills: [Data([9])], overview: nil, candidates: [])["overview"] is NSNull)
     }
 
+    @Test func anAnswerWithoutTheOptionalPartsStillReads() throws {
+        let data = Data(#"{"pills": [{"pill": 1, "medication_id": "exemestane-25", "confidence": "high"}]}"#.utf8)
+        let reply = try Client.reply(in: data)
+        #expect(reply.pills == [Client.Answer(pill: 1, medicationID: "exemestane-25", confidence: "high")])
+        #expect(reply.unnumberedPillLikeObjects == 0)
+        #expect(reply.pills[0].shows == .onePill)
+    }
+
     @Test func readsTheServersAnswer() throws {
         let data = Data("""
             {"pills": [{"pill": 1, "shows_one_whole_pill": true, "imprint": "2858", "medication_id": "exemestane-25", "confidence": "high"}],

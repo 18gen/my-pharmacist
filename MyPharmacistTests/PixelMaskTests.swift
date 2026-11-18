@@ -118,15 +118,11 @@ struct PixelMaskTests {
         #expect(blobs[0].mask.count == 5)
         #expect(blobs[1].bounds == CGRect(x: 5, y: 3, width: 2, height: 2))
         #expect(two.blobs(minimumPixels: 5).count == 1)
-        #expect(blobs[1].placed(width: 7, height: 5).count == 4)
-        #expect(blobs[1].placed(width: 7, height: 5)[6, 4])
     }
 
-    @Test func countingAndCombining() {
-        let a = mask("##..", "##.."), b = mask(".##.", ".##.")
+    @Test func counting() {
+        let a = mask("##..", "##..")
         #expect(a.count == 4)
-        #expect(a.intersection(b) == mask(".#..", ".#.."))
-        #expect(a.inverted.count == 4)
         #expect(!a.contains(x: -1, y: 0))
     }
 }

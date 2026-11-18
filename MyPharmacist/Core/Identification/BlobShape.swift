@@ -144,17 +144,6 @@ nonisolated struct BlobShape: Sendable, Equatable {
         return total
     }
 
-    /// The area inside a closed outline (shoelace formula).
-    static func area(of outline: [CGPoint]) -> Double {
-        guard outline.count > 2 else { return 0 }
-        var twice = 0.0
-        for index in outline.indices {
-            let a = outline[index], b = outline[(index + 1) % outline.count]
-            twice += Double(a.x * b.y - b.x * a.y)
-        }
-        return abs(twice) / 2
-    }
-
     static func distance(from point: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> Double {
         let dx = Double(b.x - a.x), dy = Double(b.y - a.y)
         let lengthSquared = dx * dx + dy * dy
