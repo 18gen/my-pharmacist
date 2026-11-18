@@ -34,31 +34,9 @@ struct ResultPhoto: View {
         self.highlighted = highlighted
     }
 
-    init(photo: CGImage, pills: [ScannedPill], highlighted: Int? = nil) {
-        self.init(photo: photo, rings: pills.map { Ring(id: $0.id, box: $0.box, level: $0.verdict.level) },
-                  highlighted: highlighted)
-    }
-
     var body: some View {
-        GeometryReader { proxy in
-            let region = PhotoFraming.region(
-                around: rings.map(\.box),
-                imageSize: CGSize(width: photo.width, height: photo.height),
-                aspect: proxy.size.width / max(proxy.size.height, 1)
-            )
-            if let cropped = photo.cropping(to: region.integral) {
-                Image(decorative: cropped, scale: 1)
-                    .resizable()
-                    .scaledToFit()
-                    .overlay {
-                        GeometryReader { shown in
-                            ForEach(rings) { ring in
-                                self.ring(ring, region: region, shownSize: shown.size)
-                            }
-                        }
-                    }
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-            }
+        FramedPillPhoto(photo: photo, boxes: rings.map(\.box)) { index, shown in
+            ring(rings[index], shown: shown)
         }
         .frame(height: Self.height)
         .background(Color.black.opacity(0.85))
@@ -69,10 +47,8 @@ struct ResultPhoto: View {
         .accessibilityHidden(true)
     }
 
-    private func ring(_ ring: Ring, region: CGRect, shownSize: CGSize) -> some View {
-        let rect = PhotoFraming.shown(ring.box, imageSize: CGSize(width: photo.width, height: photo.height),
-                                      region: region, shownWidth: shownSize.width)
-            .insetBy(dx: -6, dy: -6)
+    private func ring(_ ring: Ring, shown: CGRect) -> some View {
+        let rect = shown.insetBy(dx: -6, dy: -6)
         let isHighlighted = highlighted == ring.id
         return ZStack {
             if let level = ring.level {

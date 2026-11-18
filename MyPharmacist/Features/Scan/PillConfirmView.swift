@@ -39,26 +39,11 @@ struct PillConfirmView: View {
     }
 
     private var picture: some View {
-        GeometryReader { proxy in
-            let imageSize = CGSize(width: found.photo.width, height: found.photo.height)
-            // Room around the pills: a pill that was missed is most likely right beside
-            // the ones that were found.
-            let region = PhotoFraming.region(around: found.boxes, imageSize: imageSize,
-                                             aspect: proxy.size.width / max(proxy.size.height, 1), margin: 0.3)
-            if let cropped = found.photo.cropping(to: region.integral) {
-                Image(decorative: cropped, scale: 1)
-                    .resizable()
-                    .scaledToFit()
-                    .overlay {
-                        GeometryReader { shown in
-                            ForEach(found.boxes.indices, id: \.self) { index in
-                                ring(PhotoFraming.shown(found.boxes[index], imageSize: imageSize, region: region, shownWidth: shown.size.width))
-                            }
-                        }
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: ScanLayout.pictureCornerRadius, style: .continuous))
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-            }
+        // Room around the pills: a pill that was missed is most likely right beside the
+        // ones that were found.
+        FramedPillPhoto(photo: found.photo, boxes: found.boxes, margin: 0.3,
+                        cornerRadius: ScanLayout.pictureCornerRadius) { _, shown in
+            ring(shown)
         }
         // The header says how many; VoiceOver can't describe where they are.
         .accessibilityHidden(true)
