@@ -44,13 +44,13 @@ enum Palette {
     static let textPrimary = espresso
     /// The "Scan Pills" hint.
     static let textProminent = Color(red: 0.18, green: 0.11, blue: 0.08)
-    /// The date above the clock.
+    /// Times of day that aren't due now, on Home.
     static let textSubtitle = Color(red: 0.28, green: 0.20, blue: 0.15)
-    /// Supporting lines inside the scan banner.
+    /// Supporting lines in cards and the results' rows.
     static let textBody = Color(red: 0.31, green: 0.23, blue: 0.18)
     /// Strength, dose times.
     static let textSecondary = Color(red: 0.35, green: 0.27, blue: 0.22)
-    /// Counts, empty states, time until a dose.
+    /// Counts, empty states and footnotes.
     static let textTertiary = Color(red: 0.39, green: 0.31, blue: 0.26)
     /// Section headers and neutral icons.
     static let textMuted = Color(red: 0.43, green: 0.35, blue: 0.30)

@@ -7,5 +7,6 @@ build/
 # macOS
 .DS_Store
 
-# The OpenAI key for demos. Copy Secrets.example.plist to this path and paste the key in.
+# The pill check server's address and app token. Copy Secrets.example.plist to this path
+# and fill them in.
 MyPharmacist/Resources/Secrets.plist

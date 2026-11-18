@@ -5,8 +5,8 @@
 
 import Foundation
 
-/// Where the record of scanned doses is kept: when each dose's pill was scanned, keyed by
-/// "<day>|<Dose.id>". `MedicationStore` decides what goes in it; this only loads and saves.
+/// Where the record of doses taken and scanned is kept, as `DoseLog` lays it out: a time
+/// under each key. `MedicationStore` decides what goes in it; this only loads and saves.
 protocol DoseLogStorage {
     func load() -> [String: Date]
     func save(_ log: [String: Date])

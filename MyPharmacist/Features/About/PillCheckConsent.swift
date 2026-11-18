@@ -34,7 +34,7 @@ struct PillCheckConsentSheet: View {
                 VStack(alignment: .leading, spacing: 14) {
                     point("photo.on.rectangle", "To recognize your pills, pictures of them and of your medications' pills, with their names, are sent to our server and to OpenAI.")
                     point("trash", "Our server keeps nothing. OpenAI may keep them up to 30 days to prevent abuse, then deletes them, and doesn't use them to train its models.")
-                    point("iphone", "Your medication list and photos otherwise stay on this phone. The camera's full photo is never sent.")
+                    point("iphone", "Only the part of the photo around the pills is sent, never the camera's full photo. Your medication list and photos otherwise stay on this phone.")
                     point("person.crop.circle.badge.questionmark", "This is a double-check, not medical advice. Always follow your pharmacist's or doctor's instructions.")
                 }
                 if let privacyURL {

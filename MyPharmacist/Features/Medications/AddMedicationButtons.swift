@@ -27,8 +27,10 @@ struct AddMedicationButtons: View {
     }
 }
 
+#if DEBUG
 #Preview {
     AddMedicationButtons(onScanCard: {}, onTypeIn: {})
         .padding()
         .background(Palette.background)
 }
+#endif

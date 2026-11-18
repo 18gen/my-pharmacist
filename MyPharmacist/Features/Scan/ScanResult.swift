@@ -26,8 +26,9 @@ struct ScannedPill: Identifiable {
     let verdict: PillVerdict
 }
 
-/// Everything found in one photo, kept in memory only while the results show. Only what
-/// was scanned: doses due now that weren't in the photo aren't part of it.
+/// Everything found in one photo. Kept in memory only, never saved: the photo while the
+/// results show, and the cut-outs of pills marked taken until the app is closed (Home shows
+/// them). Only what was scanned: doses due now that weren't in the photo aren't part of it.
 struct PillScanResult {
     let photo: CGImage
     let pills: [ScannedPill]

@@ -208,7 +208,7 @@ struct PharmacySheet: View {
                         .overlay(Color.clear.contentShape(Rectangle()))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Map")
+                .accessibilityLabel(pharmacy.name.isEmpty ? "Map of your pharmacy" : "Map of \(pharmacy.name)")
                 .accessibilityHint("Opens Apple Maps")
             }
             Button {

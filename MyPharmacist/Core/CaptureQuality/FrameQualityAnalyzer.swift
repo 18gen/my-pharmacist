@@ -8,11 +8,11 @@
 /// times a second. It remembers the previous frame (for movement) and recent sharpness
 /// (blur is judged relative to what this scene looks like when sharp).
 ///
-/// Until pills are located, the checks look at the middle of the frame, where the palm
-/// usually is. Once there is a pill detector they should look at the pill boxes instead.
+/// The checks look at the middle of the frame, where the palm usually is: the pills are
+/// only found in the photo taken once the picture is good.
 nonisolated struct FrameQualityAnalyzer {
     /// Starting points from the research report, not tuned values: adjust them on real
-    /// palm photos (the debug readout in the camera view shows the measurements).
+    /// palm photos, with what `FrameQuality.measurements` reports.
     struct Thresholds {
         var darkBelow = 0.18
         var brightAbove = 0.82

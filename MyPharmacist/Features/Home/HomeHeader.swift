@@ -15,7 +15,8 @@ struct HomeHeader: View {
     /// The time is the largest thing on screen; it still grows with the text-size setting.
     @ScaledMetric(relativeTo: .largeTitle) private var timeSize: CGFloat = 48
     /// Tap the time to switch between "6:33 AM" and "06:33"; remembered between launches.
-    @AppStorage("use24HourClock") private var use24Hour = false
+    @AppStorage(Self.use24HourKey) private var use24Hour = false
+    static let use24HourKey = "use24HourClock"
     @Environment(\.dynamicTypeSize) private var typeSize
 
     /// Larger than the system's 44pt, like the app's other round buttons.
@@ -102,7 +103,7 @@ struct HomeHeader: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("My pharmacy")
+        .accessibilityLabel("Pharmacy")
         .accessibilityHint("Shows its phone number and opening hours")
     }
 }

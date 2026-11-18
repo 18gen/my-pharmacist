@@ -44,7 +44,7 @@ struct AboutPage: View {
                 }
 
                 section("On this phone") {
-                    Text("Your medication list, its photos and when you scanned or marked your doses taken are kept only on this phone. Deleting a medication deletes its photos; deleting the app deletes everything. Your pharmacy's address is sent to Apple to show it on a map.")
+                    Text("Your medication list, its photos and when you took your doses are kept on this phone, and in its backups. Deleting a medication deletes its photos; deleting the app deletes everything. Your pharmacy's address is sent to Apple to show it on a map, and its name and address to Google if you open it in Google Maps.")
                 }
 
                 if let server {
@@ -59,7 +59,7 @@ struct AboutPage: View {
                 // accessibility text sizes, where two no longer fit in a row.
                 resetButtons {
                     // For starting a demo over, in one press: the sample medications, no
-                    // dose scanned or taken, and the sample pharmacy.
+                    // dose taken, and the sample pharmacy.
                     SecondaryButton(title: "Reset demo", fillsWidth: true) {
                         isConfirmingDemoReset = true
                     }
@@ -114,9 +114,11 @@ struct AboutPage: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         AboutPage(store: MedicationStore(entries: SampleMedications.demoList),
                   pharmacy: PharmacyStore(pharmacy: .sample()))
     }
 }
+#endif
