@@ -72,6 +72,10 @@ enum Palette {
     /// A page's main button, and the words on it.
     static let button = espresso
     static let onButton = cream
+    /// A button lifted off the page (Home's "Pills"): whiter than the page, with a thin
+    /// warm edge, so it doesn't pass for one of the flat beige cards.
+    static let raisedFill = Color(red: 1.0, green: 0.995, blue: 0.98)
+    static let raisedEdge = Color(red: 0.80, green: 0.74, blue: 0.66)
     /// The round scan button on Home, and the camera icon on it.
     static let scanButton = espresso
     static let onScanButton = cream
