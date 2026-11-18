@@ -5,11 +5,13 @@
 
 import SwiftUI
 
-/// A medication's reference photo on a white tile, so the person can see which tablet
+/// A medication's reference photo on a light tile, so the person can see which tablet
 /// it is. Falls back to a plain pill symbol if the medication has no photo.
 struct PillImage: View {
     let medication: Medication
     var size: CGFloat = 48
+    /// The tile: the page's cream on a beige card, beige on a white one.
+    var tileFill: Color = Palette.background
 
     var body: some View {
         Group {
@@ -25,7 +27,7 @@ struct PillImage: View {
             }
         }
         .frame(width: size, height: size)
-        .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(Palette.background))
+        .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(tileFill))
         .accessibilityHidden(true)
     }
 }

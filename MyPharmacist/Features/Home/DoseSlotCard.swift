@@ -46,7 +46,7 @@ struct DoseSlotCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardBackground()
+        .raisedCardBackground()
         .overlay {
             if slot.status == .now {
                 RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)

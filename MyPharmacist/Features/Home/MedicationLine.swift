@@ -37,10 +37,11 @@ struct MedicationLine: View {
             HStack(spacing: 14) {
                 // At accessibility text sizes the picture gives its room to the words.
                 if !typeSize.isAccessibilitySize {
+                    // Beige tiles: the page's cream would vanish on the white card.
                     if scannedAt != nil {
                         ScannedPillImage(medication: medication, photo: scanPhoto, size: pictureSize)
                     } else {
-                        PillImage(medication: medication, size: pictureSize)
+                        PillImage(medication: medication, size: pictureSize, tileFill: Palette.cardFill)
                     }
                 }
 
@@ -188,7 +189,7 @@ struct MedicationLineList: View {
 
 /// A scanned pill's picture: the whole picture the scan cut of the pill, or the
 /// medication's own photo when that picture is gone (the app was closed since), on the
-/// same cream square as any pill picture, inside a camera's four green corner marks.
+/// same beige square as the other pictures on Home, inside a camera's four green corner marks.
 struct ScannedPillImage: View {
     let medication: Medication
     let photo: CGImage?
@@ -216,7 +217,7 @@ struct ScannedPillImage: View {
             }
         }
         .frame(width: size, height: size)
-        .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(Palette.background))
+        .background(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous).fill(Palette.cardFill))
         .overlay(CornerMarks().stroke(Palette.ok, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
             .padding(size * 0.05))
         .accessibilityHidden(true)

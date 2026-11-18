@@ -69,7 +69,7 @@ struct HomeView: View {
                                     .font(.body)
                                     .foregroundStyle(Palette.textTertiary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .cardBackground()
+                                    .raisedCardBackground()
                             }
                             ForEach(slots) { slot in
                                 DoseSlotCard(slot: slot, onToggleTaken: toggleTaken, scanPhoto: store.scanPhoto(of:),
@@ -199,6 +199,6 @@ private struct FirstStepsCard: View {
             AddMedicationButtons(onScanCard: onScanCard, onTypeIn: onTypeIn)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardBackground()
+        .raisedCardBackground()
     }
 }

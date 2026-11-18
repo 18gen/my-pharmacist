@@ -66,7 +66,7 @@ struct WhenNeededCard: View {
             .accessibilityHidden(!isExpanded)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardBackground()
+        .raisedCardBackground()
     }
 
     /// The latest scan today of any of them.
