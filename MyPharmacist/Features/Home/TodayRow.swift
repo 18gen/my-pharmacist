@@ -26,8 +26,12 @@ struct TodayRow: View {
             : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
         layout {
             Text("Today")
-                .font(.title.bold())
+                .font(.largeTitle.bold())
                 .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+                // In line with the words inside the clock and the cards, which sit 16
+                // points in from their edges; the button lines up with the edges.
+                .padding(.leading, 16)
                 .accessibilityAddTraits(.isHeader)
             if !typeSize.isAccessibilitySize {
                 Spacer(minLength: 0)
