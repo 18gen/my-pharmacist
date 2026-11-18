@@ -6,13 +6,15 @@
 import SwiftUI
 
 /// Home screen content above the scan button: date and time with the "Pharmacy" button on
-/// a card with the onboarding's photo behind them, then one card per time of day
-/// ("Morning · 8:00 AM"), earliest first, the medications taken only when needed, and
-/// last the "My Medications" button and the way to "About & privacy". Only the time of day due now is open; the rest are
-/// folded, so what to take stands out. The header stays put; the cards scroll beneath it.
+/// a card with the onboarding's photo behind them, "Today" with the "Pills" button, then
+/// one card per time of day ("Morning · 8:00 AM"), earliest first, the medications taken
+/// only when needed, and last the way to "About & privacy". Only the time of day due now
+/// is open; the rest are folded, so what to take stands out. The header and "Today" stay
+/// put and the cards scroll beneath them; at the accessibility text sizes "Today"
+/// scrolls with the cards.
 struct HomeView: View {
     let store: MedicationStore
-    /// Opens the "My Medications" page.
+    /// Opens the "My Medications" page, from the "Pills" button.
     let onShowMedications: () -> Void
     /// Opens the pharmacy's card.
     let onShowPharmacy: () -> Void
@@ -26,6 +28,9 @@ struct HomeView: View {
     private static let fadeHeight: CGFloat = 24
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// At the accessibility text sizes "Today" and its button scroll with the cards
+    /// instead of staying put, which would leave little room for the cards.
+    @Environment(\.dynamicTypeSize) private var typeSize
     /// Folded times of day the person has opened, each with the status it was opened in:
     /// when a slot moves on (next → now → done) it goes back to how that status shows,
     /// except that the card to take now stays open once its last dose is ticked.
@@ -46,9 +51,17 @@ struct HomeView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .padding(.horizontal, 16)
 
+                if !typeSize.isAccessibilitySize {
+                    TodayRow(onShowPills: onShowMedications)
+                }
+
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 12) {
+                            if typeSize.isAccessibilitySize {
+                                TodayRow(onShowPills: onShowMedications)
+                                    .padding(.horizontal, -16)
+                            }
                             if store.medications.isEmpty {
                                 FirstStepsCard(onScanCard: onScanCard, onTypeIn: onTypeIn)
                             } else if slots.isEmpty {
@@ -75,16 +88,7 @@ struct HomeView: View {
                                                onOpened: { scrollIntoView(Self.whenNeededID, proxy) })
                                     .id(Self.whenNeededID)
                             }
-                            // The way to the list and its settings, after everything
-                            // about today. With no medications yet, the card above
-                            // already has the button.
-                            if !store.medications.isEmpty {
-                                WideButton(title: "My Medications", systemImage: "pills.fill",
-                                           action: onShowMedications)
-                                    .padding(.top, 8)
-                            }
-                            // Last of all, with or without medications: under the
-                            // button above, or under the first-steps card.
+                            // Last of all, with or without medications.
                             Button(action: onShowAbout) {
                                 Label("About & privacy", systemImage: "info.circle")
                                     .font(.body.weight(.semibold))
