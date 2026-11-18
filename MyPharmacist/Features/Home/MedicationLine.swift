@@ -72,18 +72,28 @@ struct MedicationLine: View {
 
     /// The box to tick, square as on a paper list, with words under it so it isn't only a
     /// shape: "Taken?" while empty, the time it was ticked once it is.
+    ///
+    /// Ticking changes only the box and its words, never where things are: the column is
+    /// always as wide as its widest words, the digits are all one width, and both boxes
+    /// sit in the same square.
     private func takenBox(_ toggle: @escaping () -> Void) -> some View {
         Button {
             if takenAt == nil { toggle() } else { asksToUntick = true }
         } label: {
             VStack(spacing: 2) {
                 Image(systemName: takenAt == nil ? "square" : "checkmark.square.fill")
-                    .font(.system(size: boxSize, weight: takenAt == nil ? .regular : .semibold))
+                    // One weight for both, so the empty and ticked box are the same size.
+                    .font(.system(size: boxSize, weight: .semibold))
                     .contentTransition(.symbolEffect(.replace))
-                Text(takenAt?.shortTime ?? "Taken?")
-                    .font(.footnote.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .fixedSize()
+                    .frame(width: boxSize * 1.2, height: boxSize * 1.2)
+                ZStack {
+                    Text("Taken?").hidden()
+                    Text(Self.widestTime).hidden()
+                    Text(takenAt?.shortTime ?? "Taken?")
+                }
+                .font(.footnote.weight(.semibold))
+                .monospacedDigit()
+                .fixedSize()
             }
             .foregroundStyle(takenAt == nil ? Palette.textSecondary : Palette.ok)
             .frame(minWidth: 56, minHeight: 56)
@@ -100,6 +110,13 @@ struct MedicationLine: View {
                 .presentationCompactAdaptation(.popover)
         }
     }
+
+    /// The widest a ticked time gets, "10:58 PM" or "22:58" as the phone writes times: it
+    /// keeps the box's column from growing when "Taken?" turns into a time.
+    private static let widestTime: String = {
+        let late = Calendar.current.date(bySettingHour: 22, minute: 58, second: 0, of: Date()) ?? Date()
+        return late.shortTime
+    }()
 
     /// "Mark Exemestane as not taken?", with the way to do it and the way out.
     private func untickQuestion(_ toggle: @escaping () -> Void) -> some View {
