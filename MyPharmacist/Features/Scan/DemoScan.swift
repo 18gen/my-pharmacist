@@ -183,7 +183,12 @@ enum DemoScan {
 
     static var startsEmpty: Bool { ProcessInfo.processInfo.arguments.contains("-demoEmpty") }
     /// The pharmacy's card is open over Home.
-    static var showsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacy") || editsPharmacy || showsSharing }
+    /// With a sharing demo it is too, except with `-demoAbout`, which then shows the sharing
+    /// on About & privacy.
+    static var showsPharmacy: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("-demoPharmacy") || editsPharmacy || (showsSharing && !arguments.contains("-demoAbout"))
+    }
     /// The card is open on its fields.
     static var editsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacyEditor") }
     private static var checks: Bool { ProcessInfo.processInfo.arguments.contains("-demoChecking") }

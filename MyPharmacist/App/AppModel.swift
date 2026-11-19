@@ -42,6 +42,19 @@ final class AppModel {
         reports.onChange = { [weak share] in share?.changed() }
     }
 
+    /// "Reset demo": the sample medications and the sample pharmacy, with no dose taken and
+    /// no scan, or with `sampleWeek` the sample week (`SampleWeek`). Sharing stays as it is:
+    /// when on, the pharmacy demo gets the reset a moment later.
+    func resetDemo(sampleWeek: Bool, now: Date = Date()) {
+        if sampleWeek {
+            SampleWeek.fill(store, reports: reports, now: now)
+        } else {
+            store.resetToSamples()
+            reports.removeAll()
+        }
+        pharmacy.loadSample(now: now)
+    }
+
     /// The app as saved on the device: a new install starts with the sample medications
     /// and pharmacy, as "Reset demo" leaves them. Debug demos keep everything in memory,
     /// leaving what is saved alone.

@@ -6,11 +6,11 @@
 import SwiftUI
 
 /// "About & privacy": what the app does and doesn't do, the switch for sending pill
-/// pictures to be checked, the privacy policy and support links, and, for demos, "Reset
-/// demo" and "Reset intro".
+/// pictures to be checked, what sharing with the pharmacy demo sends, the privacy policy
+/// and support links, and, for demos, "Reset demo" (with or without a sample week) and
+/// "Reset intro".
 struct AboutPage: View {
-    let store: MedicationStore
-    let pharmacy: PharmacyStore
+    let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var isConfirmingDemoReset = false
@@ -44,7 +44,16 @@ struct AboutPage: View {
                 }
 
                 section("On this phone") {
-                    Text("Your medication list, its photos and when you took your doses are kept on this phone, and in its backups. Deleting a medication deletes its photos; deleting the app deletes everything. Your pharmacy's address is sent to Apple to show it on a map, and its name and address to Google if you open it in Google Maps.")
+                    Text("Your medication list, its photos, when you took your doses and what your scans said are kept on this phone, and in its backups. Deleting a medication deletes its photos; deleting the app deletes everything. Your pharmacy's address is sent to Apple to show it on a map, and its name and address to Google if you open it in Google Maps.")
+                }
+
+                if model.share.isAvailable {
+                    section("Sharing with the pharmacy demo") {
+                        Text(sharingState)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(Palette.textPrimary)
+                        Text("Off unless you turn it on in My pharmacy. While on, the name you give, your medications and their times, when you took each dose in the last 7 days, and what each scan said are sent to the pharmacy demo's server and shown on its dashboard, which may be shown to an audience. Photos never are. Stopping sharing deletes them; so does a reset of the demo, or 14 days without updates. The pharmacy isn't alerted about anything.")
+                    }
                 }
 
                 if let server {
@@ -80,18 +89,24 @@ struct AboutPage: View {
         }
         .background(Palette.background)
         .confirmationDialog("Reset the demo?", isPresented: $isConfirmingDemoReset, titleVisibility: .visible) {
-            Button("Reset", role: .destructive) {
-                withAnimation {
-                    store.resetToSamples()
-                    pharmacy.loadSample()
-                }
+            Button("With a sample week", role: .destructive) {
+                withAnimation { model.resetDemo(sampleWeek: true) }
+            }
+            Button("With no doses taken", role: .destructive) {
+                withAnimation { model.resetDemo(sampleWeek: false) }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your list becomes the sample medications, with no dose taken, and My pharmacy becomes the sample pharmacy. Your own medications and their photos are deleted.")
+            Text("Your list becomes the sample medications and My pharmacy the sample pharmacy. Your own medications and their photos are deleted. A sample week also fills in the last 6 days and moves the times so a dose is due now. If you're sharing, the pharmacy demo sees the reset.")
         }
         .toolbar(.hidden, for: .navigationBar)
         .edgeSwipeBack()
+    }
+
+    /// "On, as Maria." or "Off."
+    private var sharingState: String {
+        if let session = model.share.session { return "On, as \(session.name)." }
+        return model.share.stoppedByDemo ? "Off: the pharmacy demo was reset." : "Off."
     }
 
     private var resetButtons: AnyLayout {
@@ -117,8 +132,9 @@ struct AboutPage: View {
 #if DEBUG
 #Preview {
     NavigationStack {
-        AboutPage(store: MedicationStore(entries: SampleMedications.demoList),
-                  pharmacy: PharmacyStore(pharmacy: .sample()))
+        AboutPage(model: AppModel(store: MedicationStore(entries: SampleMedications.demoList),
+                                  pharmacy: PharmacyStore(pharmacy: .sample()),
+                                  share: PharmacyShare(demo: DemoPharmacy())))
     }
 }
 #endif
