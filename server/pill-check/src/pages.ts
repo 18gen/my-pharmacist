@@ -33,12 +33,12 @@ export function privacyPage(supportEmail: string): Response {
   return page(
     "Privacy Policy",
     `<h1>Privacy Policy</h1>
-<p class="muted">My Pharmacist · Effective 18 November 2026</p>
+<p class="muted">My Pharmacist · Effective 19 November 2026</p>
 
 <p>My Pharmacist helps you double-check the pills in your hand against your own list of medications before you take them. This policy explains what the app keeps, what it sends, and why.</p>
 
 <h2>What stays on your phone</h2>
-<p>Your medication list (names, strengths, what each is for, when you take it), the photos you take of each pill, the times you took your doses, and the pharmacy details you enter (name, phone number, hours, address, next refill) are stored on your phone, in the app's own storage, and in your phone's backups. They are not put in your photo library, and we don't receive them unless you check pills as described below. Deleting a medication deletes its photos; deleting the app deletes everything.</p>
+<p>Your medication list (names, strengths, what each is for, when you take it), the photos you take of each pill, the times you took your doses, what each scan said about each pill (kept for 7 days), and the pharmacy details you enter (name, phone number, hours, address, next refill) are stored on your phone, in the app's own storage, and in your phone's backups. They are not put in your photo library, and we don't receive them unless you check pills or share with the pharmacy demo, as described below. Deleting a medication deletes its photos; deleting the app deletes everything.</p>
 <p>To show your pharmacy on a map, its address is sent to Apple's map search. If you open it in Google Maps, its name and address go to Google.</p>
 
 <h2>What is sent when you check pills</h2>
@@ -51,12 +51,25 @@ export function privacyPage(supportEmail: string): Response {
 <p>These go to our server (run on Cloudflare Workers), which passes them to OpenAI to recognize which of your medications each pill is, and sends the answer back to your phone. Our server does not store them. Cloudflare keeps standard technical logs of requests (such as the time and network address) to run and protect the service, not their contents.</p>
 <p>OpenAI processes them under its API terms: it does not use them to train its models, and it may keep them for up to 30 days to detect abuse before deleting them. We ask OpenAI not to store them as application state (the API's <code>store: false</code> setting).</p>
 
+<h2>Sharing with the pharmacy demo (optional)</h2>
+<p>The app can share your doses with a demonstration pharmacy dashboard, run by us for demos of the app. The pharmacy on it is fictional. Sharing is off unless you turn it on in My pharmacy and type a name. While it is on, each time something changes the app sends, over an encrypted connection:</p>
+<ul>
+  <li>the name you typed (a first name or nickname is enough);</li>
+  <li>your medication list: each medication's name, strength and the times you take it;</li>
+  <li>for the last 7 days, when you took each dose, whether it was ticked or scanned, and which doses weren't taken;</li>
+  <li>what each scan said about each pill, such as "don't take now: already taken" or "not on your list";</li>
+  <li>your phone's time zone, so times show as on your phone.</li>
+</ul>
+<p>Photos, your location, your contacts and anything else on your phone are never sent. The app gives the dashboard no other way to identify you, and the dashboard doesn't alert anyone: if you're unsure about a dose, call your pharmacist.</p>
+<p>This goes to the dashboard's server (run on Vercel, stored with Upstash) and is shown on the dashboard to the people running the demo; the dashboard may be shown to an audience. It is deleted as soon as you stop sharing, when the demo is reset, or after 14 days without updates. Vercel and Upstash keep standard technical logs of requests (such as the time and network address) to run and protect the service.</p>
+
 <h2>What we don't do</h2>
-<p>No advertising, no tracking, no analytics, and we never sell or share your information for any other purpose. Anyone we share data with for checking pills (Cloudflare and OpenAI, as above) protects it at least as this policy does.</p>
+<p>No advertising, no tracking, no analytics, and we never sell or share your information for any other purpose. Anyone we share data with for checking pills or for the pharmacy demo (Cloudflare and OpenAI, Vercel and Upstash, as above) protects it at least as this policy does.</p>
 
 <h2>Your choices</h2>
 <ul>
   <li>Turn off sending pictures in the app: About &amp; privacy, at the bottom of the home screen. Pills can't be checked while it's off.</li>
+  <li>Stop sharing with the pharmacy demo in My pharmacy: your name and records are deleted from it.</li>
   <li>Delete a medication and its photos, or delete the app to remove everything from your phone.</li>
   <li>To ask about or delete anything else, email <a href="mailto:${email}">${email}</a>.</li>
 </ul>
