@@ -50,9 +50,20 @@ struct PharmacyShareTests {
         return share
     }
 
-    /// Long enough for the short waits above to pass.
+    /// Long enough for the short waits above to pass: for checking that something didn't happen.
     private func settle() async throws {
         try await Task.sleep(for: .milliseconds(150))
+    }
+
+    /// Waits until `condition` holds, up to a few seconds: for checking that something did
+    /// happen, however busy the machine running the tests is.
+    private func eventually(_ condition: () async -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while ContinuousClock.now < deadline {
+            if await condition() { return true }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return await condition()
     }
 
     @Test func startingJoinsUnderTheNameAsTypedAndSendsAtOnce() async {
@@ -70,6 +81,7 @@ struct PharmacyShareTests {
         share.changed()
         share.changed()
         share.changed()
+        #expect(await eventually { await demo.sends.count == 2 })
         try await settle()
         #expect(await demo.sends.count == 2)
     }
@@ -87,8 +99,7 @@ struct PharmacyShareTests {
         await share.start(name: "Maria")
         await demo.failSending(with: .gone)
         share.appBecameActive()
-        try await settle()
-        #expect(share.session == nil)
+        #expect(await eventually { share.session == nil })
         #expect(share.stoppedByDemo)
         #expect(share.lastName == "Maria")
     }
@@ -98,9 +109,8 @@ struct PharmacyShareTests {
         await demo.failSending(with: .offline)
         await share.start(name: "Maria")
         #expect(share.delivery == .failed(.offline))
-        try await settle()
+        #expect(await eventually { share.delivery == .sent(sentAt) })
         #expect(await demo.sends.count == 2)
-        #expect(share.delivery == .sent(sentAt))
     }
 
     @Test func aBuildTheDemoRefusesIsNotTriedAgain() async throws {
