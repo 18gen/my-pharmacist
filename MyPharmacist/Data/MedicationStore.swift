@@ -20,6 +20,7 @@ final class MedicationStore {
         didSet {
             listStorage.save(entries)
             medications = entries.map(\.medication)
+            onChange?()
         }
     }
 
@@ -28,8 +29,15 @@ final class MedicationStore {
 
     /// Which doses were taken and scanned.
     private var doseLog: DoseLog {
-        didSet { logStorage.save(doseLog.entries) }
+        didSet {
+            logStorage.save(doseLog.entries)
+            onChange?()
+        }
     }
+
+    /// Called after the list or the record of doses changes, for whatever keeps a copy
+    /// elsewhere: sharing with the pharmacy demo sends it again.
+    @ObservationIgnored var onChange: (() -> Void)?
 
     /// The picture of each scanned pill, cut from the scan's photo. Kept in memory only,
     /// never saved: after the app is closed a scanned dose shows its medication's own
@@ -41,7 +49,8 @@ final class MedicationStore {
     @ObservationIgnored let photoStore: MedicationPhotoStore
     /// What "Reset demo" puts on the list.
     @ObservationIgnored private let sampleList: [MedicationEntry]
-    @ObservationIgnored private let calendar: Calendar
+    /// The days and times doses fall on: the phone's, following its time zone.
+    @ObservationIgnored let calendar: Calendar
     /// Older records are dropped on launch; only the last few days matter.
     private static let keepDays = 14
 
@@ -156,8 +165,15 @@ final class MedicationStore {
     /// Replaces the list with the sample list and forgets every dose taken, for demos and
     /// App Review. The photos of the medications it replaces are deleted.
     func resetToSamples() {
+        reset(to: sampleList)
+    }
+
+    /// Replaces the list with `list` and forgets every dose taken: "Reset demo", with the
+    /// sample list as it is or with its times moved for a sample week. The photos of the
+    /// medications it replaces are deleted.
+    func reset(to list: [MedicationEntry]) {
         deletePhotos(entries.flatMap(\.photos))
-        entries = sampleList.map(\.tidied)
+        entries = list.map(\.tidied)
         doseLog.removeAll()
         scanPhotos = [:]
     }
@@ -210,6 +226,14 @@ final class MedicationStore {
             doseLog.markNotTaken(.dose(dose))
             scanPhotos[.dose(dose)] = nil
         }
+    }
+
+    /// Where a dose stands in the record, on any day it keeps: taken (and when it was
+    /// scanned, if it was), or not. A scan counts as taken, as on Home.
+    func state(of dose: Dose) -> DoseState {
+        let key = DoseLog.Key.dose(dose)
+        guard let taken = doseLog.takenAt(key) ?? doseLog.scannedAt(key) else { return .pending }
+        return .taken(at: taken, scannedAt: doseLog.scannedAt(key))
     }
 
     /// The picture of a dose's pill from its scan; nil if it wasn't scanned since the app opened.
