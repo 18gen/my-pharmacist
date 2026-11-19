@@ -10,28 +10,38 @@ import SwiftUI
 /// to call, the next refill, the opening hours, and a map that opens Apple's Maps, with a
 /// button for Google Maps. Something to look at and act on, so it is a sheet to close
 /// rather than a page to come back from. "Edit" turns the same card into the fields to
-/// type it in, with Save and Cancel; nothing changes until Save.
+/// type it in, with Save and Cancel; nothing changes until Save. "Share my doses" turns it
+/// into the name to share under, the same way, with Start sharing and Cancel.
 struct PharmacySheet: View {
     let pharmacy: Pharmacy
+    /// Sharing with the pharmacy demo; its card shows only when this build can share.
+    let share: PharmacyShare
     /// Keeps the pharmacy as it was edited.
     let onSave: (Pharmacy) -> Void
     let onClose: () -> Void
 
     /// The copy being edited; nil while the card only shows the pharmacy.
     @State private var draft: Pharmacy?
+    /// The name being typed to start sharing; nil while the card shows the pharmacy.
+    @State private var sharingName: String?
+    @State private var isConfirmingStop = false
     /// Half the screen to look at; all of it to type in.
     @State private var detent: PresentationDetent
 
     @Environment(\.openURL) private var openURL
 
-    /// - Parameter startsEditing: Opens on the fields; for previews and demos.
-    init(pharmacy: Pharmacy, startsEditing: Bool = false,
+    /// - Parameters:
+    ///   - startsEditing: Opens on the fields; for previews and demos.
+    ///   - startsSharing: Opens on the name to share under; for previews and demos.
+    init(pharmacy: Pharmacy, share: PharmacyShare, startsEditing: Bool = false, startsSharing: Bool = false,
          onSave: @escaping (Pharmacy) -> Void, onClose: @escaping () -> Void) {
         self.pharmacy = pharmacy
+        self.share = share
         self.onSave = onSave
         self.onClose = onClose
         _draft = State(initialValue: startsEditing ? pharmacy : nil)
-        _detent = State(initialValue: startsEditing ? .large : .medium)
+        _sharingName = State(initialValue: startsSharing && !startsEditing ? share.lastName : nil)
+        _detent = State(initialValue: startsEditing || startsSharing ? .large : .medium)
     }
 
     var body: some View {
@@ -39,6 +49,8 @@ struct PharmacySheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 if draft != nil {
                     editing
+                } else if sharingName != nil {
+                    sharing
                 } else {
                     showing
                 }
@@ -52,8 +64,16 @@ struct PharmacySheet: View {
         .scrollDismissesKeyboard(.interactively)
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
-        // What was typed isn't lost to a slip of the finger: Save and Cancel are the ways out.
-        .interactiveDismissDisabled(draft != nil)
+        // What was typed isn't lost to a slip of the finger: the buttons are the ways out.
+        .interactiveDismissDisabled(draft != nil || sharingName != nil)
+        .confirmationDialog("Stop sharing?", isPresented: $isConfirmingStop, titleVisibility: .visible) {
+            Button("Stop sharing", role: .destructive) {
+                Task { await share.stop() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The pharmacy demo deletes your name and records.")
+        }
     }
 
     @ViewBuilder
@@ -64,6 +84,11 @@ struct PharmacySheet: View {
             empty
         } else {
             contact
+        }
+        if share.isAvailable {
+            ShareCard(share: share, onShare: startSharing, onStop: { isConfirmingStop = true })
+        }
+        if !pharmacy.isEmpty {
             if let nextRefill = pharmacy.nextRefill { refill(nextRefill) }
             if !pharmacy.hours.isEmpty { hours }
             if let urls = pharmacy.googleMapsURLs { location(opening: urls) }
@@ -77,9 +102,16 @@ struct PharmacySheet: View {
         PharmacyForm(pharmacy: Binding(get: { draft ?? pharmacy }, set: { draft = $0 }))
     }
 
-    /// Edit and Close, or Save and Cancel while editing: the dark one on the left, each
-    /// half the row. They stay at the bottom of the card while the rest scrolls, so the
-    /// way to save is never below a long form.
+    @ViewBuilder
+    private var sharing: some View {
+        title("Share with the pharmacy demo")
+
+        ShareForm(name: Binding(get: { sharingName ?? "" }, set: { sharingName = $0 }), failure: share.startFailure)
+    }
+
+    /// Edit and Close, Save and Cancel while editing, or Start sharing and Cancel: the dark
+    /// one on the left, each half the row. They stay at the bottom of the card while the
+    /// rest scrolls, so the way to save is never below a long form.
     private var buttons: some View {
         HStack(spacing: 12) {
             if draft != nil {
@@ -88,6 +120,15 @@ struct PharmacySheet: View {
                     stopEditing()
                 }
                 SecondaryButton(title: "Cancel", fillsWidth: true, action: stopEditing)
+            } else if let sharingName {
+                WideButton(title: share.isStarting ? "Starting…" : "Start sharing", systemImage: "square.and.arrow.up") {
+                    Task {
+                        await share.start(name: sharingName)
+                        if share.session != nil { stopSharingForm() }
+                    }
+                }
+                .disabled(PharmacyShare.tidied(sharingName).isEmpty || share.isStarting)
+                SecondaryButton(title: "Cancel", fillsWidth: true, action: stopSharingForm)
             } else {
                 if !pharmacy.isEmpty {
                     WideButton(title: "Edit", systemImage: "pencil", action: startEditing)
@@ -117,6 +158,19 @@ struct PharmacySheet: View {
     /// Back to showing the pharmacy: as saved, or as it was if this is Cancel.
     private func stopEditing() {
         withAnimation(.easeInOut(duration: 0.2)) { draft = nil }
+    }
+
+    /// The name to share under, starting from the one shared under before.
+    private func startSharing() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            sharingName = share.lastName
+            detent = .large
+        }
+    }
+
+    /// Back to showing the pharmacy, sharing or not.
+    private func stopSharingForm() {
+        withAnimation(.easeInOut(duration: 0.2)) { sharingName = nil }
     }
 
     /// Before a pharmacy is typed in: what this is for, and the way to add it.
@@ -264,19 +318,26 @@ struct PharmacyMap: View {
 #if DEBUG
 #Preview("A pharmacy") {
     Color.clear.sheet(isPresented: .constant(true)) {
-        PharmacySheet(pharmacy: .sample(), onSave: { _ in }, onClose: {})
+        PharmacySheet(pharmacy: .sample(), share: PharmacyShare(demo: DemoPharmacy()), onSave: { _ in }, onClose: {})
     }
 }
 
 #Preview("None yet") {
     Color.clear.sheet(isPresented: .constant(true)) {
-        PharmacySheet(pharmacy: Pharmacy(), onSave: { _ in }, onClose: {})
+        PharmacySheet(pharmacy: Pharmacy(), share: PharmacyShare(demo: nil), onSave: { _ in }, onClose: {})
     }
 }
 
 #Preview("Editing") {
     Color.clear.sheet(isPresented: .constant(true)) {
-        PharmacySheet(pharmacy: .sample(), startsEditing: true, onSave: { _ in }, onClose: {})
+        PharmacySheet(pharmacy: .sample(), share: PharmacyShare(demo: nil), startsEditing: true, onSave: { _ in }, onClose: {})
+    }
+}
+
+#Preview("Sharing: the name") {
+    Color.clear.sheet(isPresented: .constant(true)) {
+        PharmacySheet(pharmacy: .sample(), share: PharmacyShare(demo: DemoPharmacy()), startsSharing: true,
+                      onSave: { _ in }, onClose: {})
     }
 }
 #endif

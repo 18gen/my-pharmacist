@@ -62,7 +62,9 @@ struct RootView: View {
             .modifier(ScanFeedback(scan: scan))
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
-                case .active: Task { await scan.appBecameActive() }
+                case .active:
+                    Task { await scan.appBecameActive() }
+                    model.share.appBecameActive()
                 case .background: scan.appWentToBackground()
                 default: break
                 }
@@ -189,7 +191,9 @@ struct RootView: View {
         case .pharmacy:
             PharmacySheet(
                 pharmacy: pharmacy.pharmacy,
+                share: model.share,
                 startsEditing: startsEditingPharmacy,
+                startsSharing: startsSharingForm,
                 onSave: { pharmacy.save($0) },
                 onClose: { self.sheet = nil }
             )
@@ -253,6 +257,15 @@ struct RootView: View {
     private var startsEditingPharmacy: Bool {
         #if DEBUG
         DemoScan.editsPharmacy
+        #else
+        false
+        #endif
+    }
+
+    /// The pharmacy's card opens on the name to share under, for a demo of it.
+    private var startsSharingForm: Bool {
+        #if DEBUG
+        DemoScan.showsShareForm
         #else
         false
         #endif

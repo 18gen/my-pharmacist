@@ -58,8 +58,32 @@ enum DemoScan {
             let list = scansDemoPhoto ? SampleMedications.demoList : SampleMedications.sampleList
             store = MedicationStore(entries: startsEmpty ? [] : list)
         }
-        return AppModel(store: store, pharmacy: PharmacyStore(pharmacy: .sample()))
+        return AppModel(store: store, pharmacy: PharmacyStore(pharmacy: .sample()), share: demoShare())
     }
+
+    /// Sharing with the pharmacy demo as the sharing demos show it, sending nothing anywhere:
+    /// `-demoShareOff` the card before sharing, `-demoShareForm` the name to share under,
+    /// `-demoSharing` sharing as Maria, `-demoShareStopped` sharing the demo ended. Without
+    /// them, no sharing, as in a build without the demo's address.
+    private static func demoShare() -> PharmacyShare {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard showsSharing else { return PharmacyShare(demo: nil) }
+        let stopped = arguments.contains("-demoShareStopped")
+        let share = PharmacyShare(demo: DemoPharmacy(endsSharing: stopped))
+        if arguments.contains("-demoSharing") || stopped {
+            // The snapshot is wired once the model is made; it is there by the time this runs.
+            Task { await share.start(name: "Maria") }
+        }
+        return share
+    }
+
+    /// One of the sharing demos above.
+    private static var showsSharing: Bool {
+        ["-demoShareOff", "-demoShareForm", "-demoSharing", "-demoShareStopped"].contains(where: ProcessInfo.processInfo.arguments.contains)
+    }
+
+    /// The pharmacy's card opens on the name to share under.
+    static var showsShareForm: Bool { ProcessInfo.processInfo.arguments.contains("-demoShareForm") }
 
     /// The sheet to open on launch, if asked for.
     static var sheet: RootSheet? {
@@ -159,7 +183,7 @@ enum DemoScan {
 
     static var startsEmpty: Bool { ProcessInfo.processInfo.arguments.contains("-demoEmpty") }
     /// The pharmacy's card is open over Home.
-    static var showsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacy") || editsPharmacy }
+    static var showsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacy") || editsPharmacy || showsSharing }
     /// The card is open on its fields.
     static var editsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacyEditor") }
     private static var checks: Bool { ProcessInfo.processInfo.arguments.contains("-demoChecking") }
