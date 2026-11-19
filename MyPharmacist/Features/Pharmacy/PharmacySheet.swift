@@ -29,6 +29,7 @@ struct PharmacySheet: View {
     @State private var detent: PresentationDetent
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     /// - Parameters:
     ///   - startsEditing: Opens on the fields; for previews and demos.
@@ -110,10 +111,11 @@ struct PharmacySheet: View {
     }
 
     /// Edit and Close, Save and Cancel while editing, or Start sharing and Cancel: the dark
-    /// one on the left, each half the row. They stay at the bottom of the card while the
-    /// rest scrolls, so the way to save is never below a long form.
+    /// one on the left, each half the row; one above the other at the accessibility text
+    /// sizes, where "Start sharing" no longer fits half a row. They stay at the bottom of the
+    /// card while the rest scrolls, so the way to save is never below a long form.
     private var buttons: some View {
-        HStack(spacing: 12) {
+        buttonRow {
             if draft != nil {
                 WideButton(title: "Save", systemImage: "checkmark") {
                     if let draft { onSave(draft) }
@@ -139,6 +141,10 @@ struct PharmacySheet: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Palette.background)
+    }
+
+    private var buttonRow: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
     }
 
     private func title(_ text: String) -> some View {
