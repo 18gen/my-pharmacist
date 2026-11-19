@@ -82,6 +82,10 @@ final class ScanFlow {
     @ObservationIgnored private var pending: PendingCheck?
     /// What this session marked taken, so a photo taken again is judged without it.
     @ObservationIgnored private var session = ScanSessionRecord()
+    /// This session, for its report: a photo taken again replaces it.
+    @ObservationIgnored private var sessionID = UUID()
+    /// What each scan said, kept for sharing with the pharmacy demo.
+    @ObservationIgnored private let reports: ScanReports
 
     /// What recognizing the pills came to.
     typealias Identified = Result<PillIdentification, PillRecognitionFailure>
@@ -96,8 +100,9 @@ final class ScanFlow {
         var task: Task<Identified, Never>
     }
 
-    init(store: MedicationStore, scanner: ScannerModel = ScannerModel()) {
+    init(store: MedicationStore, reports: ScanReports = ScanReports(), scanner: ScannerModel = ScannerModel()) {
         self.store = store
+        self.reports = reports
         self.scanner = scanner
         self.analyzer = Self.makeAnalyzer(store.medications)
         self.analyzedMedications = store.medications
@@ -124,6 +129,7 @@ final class ScanFlow {
             refreshAnalyzer()
         }
         session = ScanSessionRecord()
+        sessionID = UUID()
         isOpen = open
     }
 
@@ -276,7 +282,9 @@ final class ScanFlow {
     /// Marks what a scan found OK to take as taken, as scanned: each dose's box on Home is
     /// ticked and shows the pill as it was scanned. A pill taken only when needed has no
     /// dose, so its medication is marked taken today, once however many of its pills there are.
+    /// What the scan said about every pill is kept too, replacing this session's earlier photo.
     private func record(_ result: PillScanResult, at time: Date) {
+        reports.record(result.report(session: sessionID, at: time), now: time)
         let photos = Dictionary(result.pills.compactMap { pill in pill.verdict.doseToTake.map { ($0, pill.crop) } },
                                 uniquingKeysWith: { first, _ in first })
         store.recordScan(of: result.dosesToTake, at: time, photos: photos)

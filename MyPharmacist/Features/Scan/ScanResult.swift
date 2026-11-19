@@ -65,6 +65,12 @@ struct PillScanResult {
         }
     }
 
+    /// What this scan said about each pill, as the record of scans keeps it.
+    func report(session: UUID, at time: Date) -> ScanReports.Report {
+        ScanReports.Report(session: session, at: time,
+                           pills: pills.map { ScanReports.Pill(medicationID: $0.medication?.id, verdict: $0.verdict) })
+    }
+
     /// The cut-out of the first pill of a medication taken only when needed.
     func firstCrop(of medication: Medication) -> CGImage? {
         pills.first { pill in
