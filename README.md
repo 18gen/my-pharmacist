@@ -28,7 +28,8 @@ in English and Japanese, and how to put a model of your own in step 2.
 | `MyPharmacist/Core` | Rules with no UI: models, schedule, verdicts, picture quality, the geometry that finds pills, address look-up. |
 | `MyPharmacist/PillVision` | Vision, cut-outs, and the `PillRecognizer` that names each pill. |
 | `MyPharmacist/Camera` | The camera session, permission and preview. |
-| `MyPharmacist/Data` | What is kept on the device: the medication list and photos, the record of doses taken (`DoseLog`), the pharmacy. |
+| `MyPharmacist/Data` | What is kept on the device: the medication list and photos, the record of doses taken (`DoseLog`), what each scan said (`ScanReports`), the pharmacy, and the demo's sample week. |
+| `MyPharmacist/Sharing` | Sharing with the pharmacy demo (optional): the snapshot sent, the client and the sharing state. |
 | `MyPharmacist/Components` | Pictures used on several screens: pill photos, the tablet icon. |
 | `MyPharmacist/DesignSystem` | Colours, card shapes and shared controls. |
 | `MyPharmacist/Resources` | Assets, the privacy manifest, and `Secrets.plist` (not in git). |
@@ -50,6 +51,12 @@ in English and Japanese, and how to put a model of your own in step 2.
 3. The camera and Vision's subject lifting need a real iPhone. In the Simulator, Debug
    builds take launch arguments instead, listed in
    `MyPharmacist/Features/Scan/DemoScan.swift` (`-demoScan`, `-demoFind -noCloud`, …).
+4. Sharing with the pharmacy demo needs its dashboard, a separate project
+   ([my-pharmacist-dashboard](https://github.com/18gen/my-pharmacist-dashboard)), and
+   `PHARMACY_URL` and `PHARMACY_TOKEN` in `Secrets.plist`. Without them the app has no
+   sharing at all. To try it with the dashboard running on this Mac (`npm run dev`), give
+   a Debug build these launch arguments (`MyPharmacist/Sharing/DebugSharing.swift`):
+   `-pharmacyURL http://localhost:3000 -pharmacyToken <its APP_TOKEN> -resetWithSampleWeek -shareAs Maria`.
 
 ## Test
 
@@ -68,3 +75,9 @@ The medication list and pill photos stay on the phone. Only after the person all
 pictures of the pills being checked, and the medications' names and pill photos, are sent
 to the server and on to OpenAI to be recognized. The server keeps nothing. Nothing is
 saved to the photo library.
+
+Sharing with the pharmacy demo is off unless the person turns it on in My pharmacy and
+types a name. Then the name, the medications and their times, the last 7 days of doses
+and what each scan said go to the demo's dashboard, which keeps them until sharing stops,
+the demo is reset, or 14 days pass without updates. Photos never go there. The pill check
+server is not involved and still keeps nothing.
