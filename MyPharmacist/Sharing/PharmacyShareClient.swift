@@ -48,6 +48,8 @@ nonisolated protocol PharmacyDemo: Sendable {
     func join(name: String) async throws(ShareFailure) -> String
     /// Replaces what the demo has for `id` with `snapshot`.
     func send(_ snapshot: ShareSnapshot, as id: String) async throws(ShareFailure)
+    /// Sends a scanned pill's picture (a JPEG, `SharePhoto`) under its ID, for `id`.
+    func sendPhoto(_ jpeg: Data, photoID: UUID, as id: String) async throws(ShareFailure)
     /// Stops sharing: the demo deletes this person.
     func leave(_ id: String) async throws(ShareFailure)
 }
@@ -121,17 +123,23 @@ nonisolated struct PharmacyShareClient: PharmacyDemo {
         _ = try await request("PUT", "api/patients/\(id)", body: body)
     }
 
+    func sendPhoto(_ jpeg: Data, photoID: UUID, as id: String) async throws(ShareFailure) {
+        _ = try await request("PUT", "api/patients/\(id)/photos/\(photoID.uuidString.lowercased())", body: jpeg,
+                              type: "image/jpeg")
+    }
+
     func leave(_ id: String) async throws(ShareFailure) {
         _ = try await request("DELETE", "api/patients/\(id)", body: nil)
     }
 
-    private func request(_ method: String, _ path: String, body: Data?) async throws(ShareFailure) -> Data {
+    private func request(_ method: String, _ path: String, body: Data?,
+                         type: String = "application/json") async throws(ShareFailure) -> Data {
         var request = URLRequest(url: configuration.baseURL.appending(path: path), timeoutInterval: timeout)
         request.httpMethod = method
         request.setValue(configuration.token, forHTTPHeaderField: "X-App-Token")
         if let body {
             request.httpBody = body
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(type, forHTTPHeaderField: "Content-Type")
         }
         let data: Data, response: URLResponse
         do {

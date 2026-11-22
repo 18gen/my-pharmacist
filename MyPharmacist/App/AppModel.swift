@@ -31,13 +31,15 @@ final class AppModel {
     }
 
     /// Sharing sends what the medications, the record of doses and the scans' reports
-    /// hold, shortly after any of them changes. Weak references, as the store and the
-    /// reports live as long as this model, which owns the sharing.
+    /// hold, with the scanned pills' pictures, shortly after any of them changes. Weak
+    /// references, as the store and the reports live as long as this model, which owns the
+    /// sharing.
     private func connectSharing() {
-        share.makeSnapshot = { [weak self] now in
+        share.makeSnapshot = { [weak self] now, sentPhotos in
             guard let self else { return nil }
-            return ShareSnapshot.make(store: store, reports: reports, now: now)
+            return ShareSnapshot.make(store: store, reports: reports, now: now, sentPhotos: sentPhotos)
         }
+        share.photosToSend = { [weak self] in self?.reports.photos ?? [:] }
         store.onChange = { [weak share] in share?.changed() }
         reports.onChange = { [weak share] in share?.changed() }
     }

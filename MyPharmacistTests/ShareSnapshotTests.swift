@@ -120,6 +120,46 @@ struct ShareSnapshotTests {
         #expect(times["2026-11-01"] == "2026-11-01T13:00:00Z")
     }
 
+    @Test func saysWhereThePhonesRecordsStart() {
+        // Yesterday's ondansetron at 8 PM is the first thing recorded.
+        #expect(snapshot().recordsSince == "2026-10-13")
+        let fresh = MedicationStore(medications: TestMedications.all, calendar: TestClock.calendar, now: now)
+        let nothing = ShareSnapshot.make(store: fresh, reports: ScanReports(calendar: TestClock.calendar, now: now), now: now)
+        #expect(nothing.recordsSince == "2026-10-14")
+    }
+
+    @Test func namesAScanPictureOnlyOnceTheDashboardHasIt() throws {
+        let (store, reports) = made()
+        let metformin = UUID(), stopped = UUID(), ondansetron = UUID()
+        reports.record(ScanReports.Report(session: UUID(), at: TestClock.at(8, 5), pills: [
+            ScanReports.Pill(medicationID: "metformin-500", outcome: .take, doseTime: DoseTime(8), photoID: metformin),
+        ]), photos: [metformin: testImage()], now: now)
+        reports.record(ScanReports.Report(session: UUID(), at: TestClock.at(20, on: yesterday), pills: [
+            ScanReports.Pill(medicationID: "ondansetron-8", outcome: .asNeeded, photoID: ondansetron),
+        ]), now: now)
+        reports.record(ScanReports.Report(session: UUID(), at: TestClock.at(8, 25), pills: [
+            ScanReports.Pill(medicationID: "metformin-500", outcome: .alreadyTaken, takenAt: TestClock.at(8, 5), photoID: stopped),
+        ]), now: now)
+
+        let unsent = ShareSnapshot.make(store: store, reports: reports, now: now)
+        #expect(unsent.doses.allSatisfy { $0.photoID == nil })
+        #expect(unsent.scans.flatMap(\.pills).allSatisfy { $0.photoID == nil })
+
+        let sent = ShareSnapshot.make(store: store, reports: reports, now: now, sentPhotos: [metformin, stopped, ondansetron])
+        let dose = try #require(sent.doses.first { $0.day == "2026-10-14" && $0.medicationID == "metformin-500" && $0.time == "08:00" })
+        #expect(dose.photoID == metformin.uuidString.lowercased())
+        let ticked = try #require(sent.doses.first { $0.day == "2026-10-14" && $0.medicationID == "lisinopril-10" })
+        #expect(ticked.photoID == nil)
+        #expect(sent.asNeeded.first?.photoID == ondansetron.uuidString.lowercased())
+        #expect(sent.scans.last?.pills.first?.photoID == stopped.uuidString.lowercased())
+
+        let json = try #require(try JSONSerialization.jsonObject(with: sent.json()) as? [String: Any])
+        let doses = try #require(json["doses"] as? [[String: Any]])
+        #expect(doses.contains { $0["photoId"] as? String == metformin.uuidString.lowercased() })
+        // A dose with no picture leaves "photoId" out.
+        #expect(doses.filter { $0["photoId"] != nil }.count == 1)
+    }
+
     @Test func leavesOutWhatTheDashboardWouldRefuse() {
         let many = (0..<14).map { DoseTime($0 + 6) }
         let store = MedicationStore(medications: [Medication(id: "many", name: "Many", strength: "", doseTimes: many)],

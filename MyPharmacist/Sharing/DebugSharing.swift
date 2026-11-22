@@ -37,6 +37,10 @@ struct DemoPharmacy: PharmacyDemo {
         if endsSharing { throw .gone }
     }
 
+    func sendPhoto(_ jpeg: Data, photoID: UUID, as id: String) async throws(ShareFailure) {
+        if endsSharing { throw .gone }
+    }
+
     func leave(_ id: String) async throws(ShareFailure) {}
 }
 #endif

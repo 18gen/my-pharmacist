@@ -3,7 +3,9 @@
 //  MyPharmacistTests
 //
 
+import CoreGraphics
 import Foundation
+import ImageIO
 import Testing
 @testable import MyPharmacist
 
@@ -12,12 +14,18 @@ private actor FakeDemo: PharmacyDemo {
     private(set) var joins: [String] = []
     private(set) var sends: [String] = []
     private(set) var leaves: [String] = []
+    /// The pictures sent, in order.
+    private(set) var photos: [UUID] = []
+    /// Everything sent, in order: "photo" or "snapshot".
+    private(set) var arrivals: [String] = []
     private var joinFailure: ShareFailure?
     /// Answered in order, one per sending; success once they run out.
     private var sendFailures: [ShareFailure] = []
+    private var photoFailures: [UUID: ShareFailure] = [:]
 
     func failJoining(with failure: ShareFailure) { joinFailure = failure }
     func failSending(with failures: ShareFailure...) { sendFailures = failures }
+    func failPhoto(_ id: UUID, with failure: ShareFailure) { photoFailures[id] = failure }
 
     func join(name: String) async throws(ShareFailure) -> String {
         joins.append(name)
@@ -27,7 +35,14 @@ private actor FakeDemo: PharmacyDemo {
 
     func send(_ snapshot: ShareSnapshot, as id: String) async throws(ShareFailure) {
         sends.append(id)
+        arrivals.append("snapshot")
         if !sendFailures.isEmpty { throw sendFailures.removeFirst() }
+    }
+
+    func sendPhoto(_ jpeg: Data, photoID: UUID, as id: String) async throws(ShareFailure) {
+        if let failure = photoFailures[photoID] { throw failure }
+        photos.append(photoID)
+        arrivals.append("photo")
     }
 
     func leave(_ id: String) async throws(ShareFailure) {
@@ -35,18 +50,28 @@ private actor FakeDemo: PharmacyDemo {
     }
 }
 
+/// The pictures each snapshot was made knowing the demo has, in order.
+@MainActor
+private final class SnapshotsMade {
+    var sentPhotos: [Set<UUID>] = []
+}
+
 @MainActor
 struct PharmacyShareTests {
     private let demo = FakeDemo()
     private let sentAt = TestClock.at(8, 30)
+    private let made = SnapshotsMade()
 
-    private func makeShare(defaults: UserDefaults? = nil) -> PharmacyShare {
+    private func makeShare(defaults: UserDefaults? = nil, photos: [UUID: CGImage] = [:]) -> PharmacyShare {
         let share = PharmacyShare(demo: demo, defaults: defaults, debounce: .milliseconds(10),
                                   retryAfter: .milliseconds(30), now: { TestClock.at(8, 30) })
-        share.makeSnapshot = { now in
-            ShareSnapshot(v: 1, sentAt: now, timeZone: "GMT", earlyWindowMinutes: 60, lateWindowMinutes: 120,
-                          days: ["2026-10-14"], medications: [], doses: [], asNeeded: [], scans: [])
+        share.makeSnapshot = { [made] now, sentPhotos in
+            made.sentPhotos.append(sentPhotos)
+            return ShareSnapshot(v: 1, sentAt: now, timeZone: "GMT", earlyWindowMinutes: 60, lateWindowMinutes: 120,
+                                 days: ["2026-10-14"], recordsSince: "2026-10-14", medications: [], doses: [],
+                                 asNeeded: [], scans: [])
         }
+        share.photosToSend = { photos }
         return share
     }
 
@@ -166,6 +191,81 @@ struct PharmacyShareTests {
 
     @Test func aNameIsCutToWhatTheDemoTakes() {
         #expect(PharmacyShare.tidied(String(repeating: "a", count: 50)).count == PharmacyShare.nameLength)
+    }
+
+    // MARK: Scan pictures
+
+    @Test func picturesGoBeforeTheSnapshotEachOnceAndItNamesThem() async {
+        let first = UUID(), second = UUID()
+        let share = makeShare(photos: [first: testImage(), second: testImage()])
+        await share.start(name: "Maria")
+        #expect(await demo.arrivals == ["photo", "photo", "snapshot"])
+        #expect(made.sentPhotos == [[first, second]])
+
+        share.changed()
+        #expect(await eventually { await demo.sends.count == 2 })
+        #expect(await demo.photos.count == 2)
+        #expect(made.sentPhotos.last == [first, second])
+    }
+
+    @Test func aPictureTheDemoRefusesIsSkippedForGood() async {
+        let refused = UUID(), taken = UUID()
+        await demo.failPhoto(refused, with: .refused)
+        let share = makeShare(photos: [refused: testImage(), taken: testImage()])
+        await share.start(name: "Maria")
+        #expect(await demo.photos == [taken])
+        #expect(made.sentPhotos == [[taken]])
+        #expect(share.delivery == .sent(sentAt))
+
+        await demo.failPhoto(refused, with: .server(status: 500))
+        share.changed()
+        #expect(await eventually { await demo.sends.count == 2 })
+        #expect(share.delivery == .sent(sentAt))
+    }
+
+    @Test func aPictureThatCantBeSentNowStopsTheSendingAndIsTriedAgain() async {
+        let photo = UUID()
+        await demo.failPhoto(photo, with: .offline)
+        let share = makeShare(photos: [photo: testImage()])
+        await share.start(name: "Maria")
+        #expect(share.delivery == .failed(.offline))
+        #expect(await demo.sends.isEmpty)
+    }
+
+    @Test func thePicturesSentAreRememberedAcrossLaunchesButNotForSomeoneNew() async {
+        let defaults = isolatedDefaults()
+        let photo = UUID()
+        await makeShare(defaults: defaults, photos: [photo: testImage()]).start(name: "Maria")
+
+        let relaunched = makeShare(defaults: defaults, photos: [photo: testImage()])
+        await relaunched.send()
+        #expect(await demo.photos == [photo])
+        #expect(made.sentPhotos.last == [photo])
+
+        await relaunched.stop()
+        await relaunched.start(name: "Maria")
+        #expect(await demo.photos == [photo, photo])
+    }
+}
+
+/// The scanned pills' pictures as the pharmacy demo takes them.
+struct SharePhotoTests {
+    @Test func aPictureIsASmallJPEG() throws {
+        let jpeg = try #require(SharePhoto.jpeg(testImage()))
+        #expect(jpeg.starts(with: [0xFF, 0xD8, 0xFF]))
+        #expect(jpeg.count < 48 * 1024)
+    }
+
+    @Test func aLargeCutOutIsScaledDownToTheLongestSideAndASmallOneIsLeftAsItIs() throws {
+        func size(of jpeg: Data) throws -> (Int, Int) {
+            let source = try #require(CGImageSourceCreateWithData(jpeg as CFData, nil))
+            let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+            return (image.width, image.height)
+        }
+        let large = try #require(SharePhoto.jpeg(testImage(width: 1200, height: 600)))
+        #expect(try size(of: large) == (SharePhoto.longestSide, SharePhoto.longestSide / 2))
+        let small = try #require(SharePhoto.jpeg(testImage(width: 80, height: 60)))
+        #expect(try size(of: small) == (80, 60))
     }
 }
 

@@ -23,6 +23,9 @@ nonisolated struct ShareSnapshot: Encodable, Equatable, Sendable {
     let lateWindowMinutes: Int
     /// "2026-11-19" for each day, oldest first, today last.
     let days: [String]
+    /// The first day this phone has any record of (a dose taken or a scan): before it,
+    /// nothing is known, so the dashboard doesn't show those days' doses as missed.
+    let recordsSince: String
     let medications: [SharedMedication]
     /// Every scheduled dose on those days, taken or not.
     let doses: [SharedDose]
@@ -48,10 +51,13 @@ nonisolated struct ShareSnapshot: Encodable, Equatable, Sendable {
         /// Left out while it isn't taken.
         let takenAt: Date?
         let scanned: Bool
+        /// The picture of the scan that took it, once sent; left out otherwise.
+        var photoID: String?
 
         enum CodingKeys: String, CodingKey {
             case day, time, scheduledAt, takenAt, scanned
             case medicationID = "medicationId"
+            case photoID = "photoId"
         }
     }
 
@@ -60,10 +66,13 @@ nonisolated struct ShareSnapshot: Encodable, Equatable, Sendable {
         let medicationID: String
         let takenAt: Date
         let scanned: Bool
+        /// The picture of the scan that took it, once sent; left out otherwise.
+        var photoID: String?
 
         enum CodingKeys: String, CodingKey {
             case day, takenAt, scanned
             case medicationID = "medicationId"
+            case photoID = "photoId"
         }
     }
 
@@ -78,10 +87,13 @@ nonisolated struct ShareSnapshot: Encodable, Equatable, Sendable {
         let outcome: ScanReports.Outcome
         let takenAt: Date?
         let doseTime: String?
+        /// The pill's picture from the scan, once sent; left out otherwise.
+        var photoID: String?
 
         enum CodingKeys: String, CodingKey {
             case outcome, takenAt, doseTime
             case medicationID = "medicationId"
+            case photoID = "photoId"
         }
 
         func encode(to encoder: any Encoder) throws {
@@ -90,6 +102,7 @@ nonisolated struct ShareSnapshot: Encodable, Equatable, Sendable {
             try container.encode(outcome, forKey: .outcome)
             try container.encodeIfPresent(takenAt, forKey: .takenAt)
             try container.encodeIfPresent(doseTime, forKey: .doseTime)
+            try container.encodeIfPresent(photoID, forKey: .photoID)
         }
     }
 
@@ -112,11 +125,29 @@ nonisolated struct ShareSnapshot: Encodable, Equatable, Sendable {
 
 extension ShareSnapshot {
     /// What `store` and `reports` hold now, for the last 7 days.
+    /// - Parameter sentPhotos: The scan pictures the dashboard already has: only these are
+    ///   named, so it never asks for one it hasn't got.
     @MainActor
-    static func make(store: MedicationStore, reports: ScanReports, now: Date) -> ShareSnapshot {
+    static func make(store: MedicationStore, reports: ScanReports, now: Date,
+                     sentPhotos: Set<UUID> = []) -> ShareSnapshot {
         let calendar = store.calendar
         let days = (-(Limits.days - 1)...0).compactMap { calendar.date(byAdding: .day, value: $0, to: now) }
         let dayKey = { (day: Date) in Dose.dayKey(day, calendar: calendar) }
+        let sent = { (id: UUID?) -> String? in
+            guard let id, sentPhotos.contains(id) else { return nil }
+            return id.uuidString.lowercased()
+        }
+        /// The picture of the latest scan on `day` that said `outcome` about this medication
+        /// (and, for a dose, its time): the scan that took it.
+        func picture(_ outcome: ScanReports.Outcome, _ medicationID: String, on day: Date, at time: DoseTime? = nil) -> String? {
+            for report in reports.reports.reversed() where calendar.isDate(report.at, inSameDayAs: day) {
+                for pill in report.pills where pill.outcome == outcome && pill.medicationID == medicationID
+                    && (time == nil || pill.doseTime == time) {
+                    if let id = sent(pill.photoID) { return id }
+                }
+            }
+            return nil
+        }
 
         let medications = Array(store.medications.prefix(Limits.medications))
         let times = Dictionary(uniqueKeysWithValues: medications.map {
@@ -127,16 +158,19 @@ extension ShareSnapshot {
             store.doses(on: day).compactMap { dose -> SharedDose? in
                 guard times[dose.medication.id]?.contains(dose.time) == true else { return nil }
                 let state = store.state(of: dose)
+                let scanned = state.scannedAt != nil
                 return SharedDose(day: dayKey(day), medicationID: dose.medication.id, time: clock(dose.time),
-                                  scheduledAt: dose.scheduled, takenAt: state.takenAt, scanned: state.scannedAt != nil)
+                                  scheduledAt: dose.scheduled, takenAt: state.takenAt, scanned: scanned,
+                                  photoID: scanned ? picture(.take, dose.medication.id, on: day, at: dose.time) : nil)
             }
         }
 
         let asNeeded = medications.filter { $0.asNeeded != nil }.flatMap { medication in
             days.compactMap { day -> SharedAsNeeded? in
                 guard let takenAt = store.asNeededTaken(of: medication, on: day) else { return nil }
-                return SharedAsNeeded(day: dayKey(day), medicationID: medication.id, takenAt: takenAt,
-                                      scanned: store.asNeededScan(of: medication, on: day) != nil)
+                let scanned = store.asNeededScan(of: medication, on: day) != nil
+                return SharedAsNeeded(day: dayKey(day), medicationID: medication.id, takenAt: takenAt, scanned: scanned,
+                                      photoID: scanned ? picture(.asNeeded, medication.id, on: day) : nil)
             }
         }
 
@@ -147,9 +181,12 @@ extension ShareSnapshot {
             .map { report in
                 SharedScan(at: report.at, pills: report.pills.prefix(Limits.pillsPerScan).map { pill in
                     SharedPill(medicationID: pill.medicationID, outcome: pill.outcome, takenAt: pill.takenAt,
-                               doseTime: pill.doseTime.map(clock))
+                               doseTime: pill.doseTime.map(clock), photoID: sent(pill.photoID))
                 })
             }
+
+        // Before the first dose taken or scan, of what the phone keeps, nothing is known.
+        let firstRecord = [store.firstRecord, reports.reports.first?.at, now].compactMap { $0 }.min() ?? now
 
         return ShareSnapshot(
             v: 1,
@@ -158,6 +195,7 @@ extension ShareSnapshot {
             earlyWindowMinutes: Int(DoseSchedule.earlyWindow / 60),
             lateWindowMinutes: Int(DoseSchedule.lateWindow / 60),
             days: days.map(dayKey),
+            recordsSince: dayKey(firstRecord),
             medications: medications.map { medication in
                 SharedMedication(id: medication.id, name: medication.name, strength: medication.strength,
                                  times: (times[medication.id] ?? []).map(clock), asNeeded: medication.asNeeded != nil)

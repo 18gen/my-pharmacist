@@ -241,6 +241,13 @@ final class MedicationStore {
         scanPhotos[.dose(dose)]
     }
 
+    /// The earliest time anything is recorded as taken or scanned, of what the record keeps;
+    /// nil when nothing is. Before it, nothing is known: sharing shows those days as "no
+    /// record yet", not as doses missed.
+    var firstRecord: Date? {
+        doseLog.entries.values.min()
+    }
+
     // MARK: Medications taken only when needed
 
     /// When a medication taken only when needed was marked taken on a day; nil if it wasn't.

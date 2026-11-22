@@ -3,6 +3,7 @@
 //  MyPharmacist
 //
 
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -13,6 +14,9 @@ import Observation
 /// a moment after anything changes, and whenever the app comes back to the screen, which is
 /// also how the phone learns that the demo was reset. No accounts: the demo knows this phone
 /// by the ID it gave it, and shows the name.
+///
+/// The pictures of the pills scanned while the app is open go first, each once, as small
+/// JPEGs (`SharePhoto`); the snapshot names only those the demo has.
 @Observable
 final class PharmacyShare {
     /// Who this phone shares as.
@@ -53,8 +57,17 @@ final class PharmacyShare {
     /// Whether this build can share at all: it knows the demo's address and token.
     var isAvailable: Bool { demo != nil }
 
-    /// What to send, made fresh each time: set by the app.
-    @ObservationIgnored var makeSnapshot: ((Date) -> ShareSnapshot?)?
+    /// What to send, made fresh each time, naming only the pictures already sent: set by the app.
+    @ObservationIgnored var makeSnapshot: ((Date, Set<UUID>) -> ShareSnapshot?)?
+    /// The scanned pills' pictures there are now, by ID (`ScanReports.photos`): set by the app.
+    @ObservationIgnored var photosToSend: (() -> [UUID: CGImage])?
+
+    /// The pictures the demo has for this session, oldest first; saved with it.
+    @ObservationIgnored private var sentPhotos: [UUID] = []
+    /// Pictures the demo refused, or that couldn't be made: not tried again.
+    @ObservationIgnored private var skippedPhotos: Set<UUID> = []
+    /// The most picture IDs remembered: more than a week of scans.
+    private static let keptPhotoIDs = 400
 
     @ObservationIgnored private let demo: (any PharmacyDemo)?
     @ObservationIgnored private let defaults: UserDefaults?
@@ -71,6 +84,8 @@ final class PharmacyShare {
     private nonisolated struct Saved: Codable {
         var session: Session?
         var lastName: String
+        /// Absent when saved before pictures were sent.
+        var sentPhotos: [UUID]?
     }
 
     /// - Parameters:
@@ -88,6 +103,7 @@ final class PharmacyShare {
         if case .value(let saved) = defaults?.saved(Saved.self, forKey: Self.key) {
             session = saved.session
             lastName = saved.lastName
+            sentPhotos = saved.sentPhotos ?? []
         }
     }
 
@@ -109,6 +125,9 @@ final class PharmacyShare {
             let id = try await demo.join(name: name)
             lastName = name
             stoppedByDemo = false
+            // Someone new to the demo: it has none of the pictures yet.
+            sentPhotos = []
+            skippedPhotos = []
             session = Session(id: id, name: name)
         } catch {
             startFailure = error
@@ -123,6 +142,7 @@ final class PharmacyShare {
         guard let session else { return }
         waiting?.cancel()
         waiting = nil
+        sentPhotos = []
         self.session = nil
         delivery = .idle
         stoppedByDemo = false
@@ -155,8 +175,9 @@ final class PharmacyShare {
         }
     }
 
-    /// Sends what there is now. One sending at a time, so an older snapshot never lands
-    /// after a newer one: a change during a sending sends again once it is done.
+    /// Sends what there is now: the pictures not sent yet, then the snapshot. One sending at
+    /// a time, so an older snapshot never lands after a newer one: a change during a sending
+    /// sends again once it is done.
     func send() async {
         guard let demo, let session else { return }
         if isSending {
@@ -170,15 +191,18 @@ final class PharmacyShare {
         }
         repeat {
             sendsAgain = false
-            guard self.session == session, let snapshot = makeSnapshot?(now()) else { return }
+            guard self.session == session else { return }
             delivery = .sending
             do throws(ShareFailure) {
+                try await sendPhotos(to: demo, as: session)
+                guard self.session == session, let snapshot = makeSnapshot?(now(), Set(sentPhotos)) else { return }
                 try await demo.send(snapshot, as: session.id)
                 delivery = .sent(now())
             } catch .gone {
                 // Reset or removed on the dashboard: this phone no longer shares.
                 if self.session == session {
                     waiting?.cancel()
+                    sentPhotos = []
                     self.session = nil
                     stoppedByDemo = true
                     delivery = .idle
@@ -192,7 +216,30 @@ final class PharmacyShare {
         } while sendsAgain
     }
 
+    /// Sends each picture the demo hasn't got, once. One it refuses (too big, not a JPEG,
+    /// as many as it keeps) is skipped for good; anything else stops this sending, as for
+    /// a snapshot.
+    private func sendPhotos(to demo: any PharmacyDemo, as session: Session) async throws(ShareFailure) {
+        let photos = photosToSend?() ?? [:]
+        let sent = Set(sentPhotos)
+        for id in photos.keys.sorted(by: { $0.uuidString < $1.uuidString })
+        where !sent.contains(id) && !skippedPhotos.contains(id) {
+            guard self.session == session else { return }
+            guard let image = photos[id], let jpeg = SharePhoto.jpeg(image) else {
+                skippedPhotos.insert(id)
+                continue
+            }
+            do throws(ShareFailure) {
+                try await demo.sendPhoto(jpeg, photoID: id, as: session.id)
+                sentPhotos = Array((sentPhotos + [id]).suffix(Self.keptPhotoIDs))
+                save()
+            } catch .refused, .full {
+                skippedPhotos.insert(id)
+            }
+        }
+    }
+
     private func save() {
-        defaults?.save(Saved(session: session, lastName: lastName), forKey: Self.key)
+        defaults?.save(Saved(session: session, lastName: lastName, sentPhotos: sentPhotos), forKey: Self.key)
     }
 }
