@@ -77,7 +77,8 @@ to the server and on to OpenAI to be recognized. The server keeps nothing. Nothi
 saved to the photo library.
 
 Sharing with the pharmacy demo is off unless the person turns it on in My pharmacy and
-types a name. Then the name, the medications and their times, the last 7 days of doses
-and what each scan said go to the demo's dashboard, which keeps them until sharing stops,
-the demo is reset, or 14 days pass without updates. Photos never go there. The pill check
-server is not involved and still keeps nothing.
+types a name. Then the name, the medications and their times, the last 7 days of doses,
+what each scan said, and small cut-outs of the pills scanned (so the dashboard shows each
+pill as the scan saw it) go to the demo's dashboard, which keeps them until sharing stops,
+the demo is reset, or 14 days pass without updates. The medications' own photos never go
+there. The pill check server is not involved and still keeps nothing.

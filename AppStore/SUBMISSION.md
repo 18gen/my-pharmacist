@@ -99,15 +99,15 @@ Choose **three** data types:
 
 | Data type | Used for | Linked to the user? | Used for tracking? |
 |---|---|---|---|
-| **Photos or Videos** (the pill pictures sent for checking) | App Functionality | **No** | **No** |
+| **Photos or Videos** (the pill pictures sent for checking; with sharing on, the pictures of the pills scanned) | App Functionality | **Yes** | **No** |
 | **Health** (the medication names and pill photos sent for checking; with sharing on, doses taken and what scans said) | App Functionality | **Yes** | **No** |
 | **Name** (only with sharing on: the name the person types for the pharmacy demo) | App Functionality | **Yes** | **No** |
 
 Why disclose at all? Our server keeps nothing, but OpenAI may keep requests for up to 30
 days to detect abuse. That is longer than "processed in real time", so Apple counts it as
 collected. Sharing with the pharmacy demo is optional, but while it is on the demo's
-dashboard keeps the name with the doses, so Health and Name are linked. These answers
-match `PrivacyInfo.xcprivacy`.
+dashboard keeps the name with the doses and the pictures of the pills scanned, so Photos,
+Health and Name are linked. These answers match `PrivacyInfo.xcprivacy`.
 
 Nothing else is collected: no accounts, no analytics, no ads, no location, no contacts.
 
@@ -243,7 +243,7 @@ DATA AND THIRD-PARTY AI (5.1.1, 5.1.2)
 
 SHARING WITH THE PHARMACY DEMO (OPTIONAL)
 - Off unless the user turns it on (My pharmacy > "Share my doses") and types a name; a nickname is enough. The screen lists what is sent and what never is before "Start sharing".
-- While on, the name, the medication list and times, the last 7 days of doses taken and what each scan said are sent to our demo dashboard (a fictional pharmacy, run by us for demonstrations). Photos are never sent. Nothing alerts anyone, and the app says so.
+- While on, the name, the medication list and times, the last 7 days of doses taken, what each scan said, and small cut-outs of the pills scanned (so the dashboard shows each pill as the scan saw it) are sent to our demo dashboard (a fictional pharmacy, run by us for demonstrations). The medications' own photos and the camera's full photo are never sent. Nothing alerts anyone, and the app says so.
 - "Stop sharing" deletes it from the dashboard at once; it is also deleted when the demo is reset, or after 14 days without updates.
 
 The recognition server is live. Results take a few seconds and need an internet connection; without one the app says "Couldn't check. Try again" and never shows a result it didn't check.
@@ -272,7 +272,7 @@ The recognition server is live. Results take a few seconds and need an internet 
 | "Is AI data sharing disclosed and consented?" (5.1.2(i)) | Yes. A sheet before the first scan names what is sent, to whom (our server, then OpenAI) and what is kept. Nothing is sent without "Allow". It can be switched off in About & privacy. |
 | "The app looks like a demo." (2.2 / 4.2) | The sample list is there so the app can be tried at once. Users add their own medications with their own pill photos (by typing them in or scanning a medication card) and remove the samples; the sample pharmacy is fictional. |
 | "Where does the privacy policy say X?" | `/privacy` on the server, also linked in the app (About & privacy, and the consent sheet). |
-| "Is health data shared, and can the user delete it?" (5.1.1, 5.1.3) | Only if the user turns on sharing with the pharmacy demo, after a screen that says exactly what is sent. It goes to our own demo dashboard, for no other purpose. "Stop sharing" deletes it at once; it is also deleted after 14 days without updates. |
+| "Is health data shared, and can the user delete it?" (5.1.1, 5.1.3) | Only if the user turns on sharing with the pharmacy demo, after a screen that says exactly what is sent, including the pictures of the pills scanned. It goes to our own demo dashboard, for no other purpose. "Stop sharing" deletes it at once, pictures too; it is also deleted after 14 days without updates. |
 
 ---
 
@@ -312,7 +312,7 @@ Please try:
 2. Tap a ticked box and choose "Not taken"; scan again: the pill should be OK to take again.
 3. Add a medication of your own (Pills > Type) with photos of a real tablet, then scan it.
 4. Try a messy photo: pills touching, at the edge, in dim light. The app should ask for another photo rather than guess.
-5. Optional: My pharmacy > Share my doses, with a nickname. Your doses and scans then show on the pharmacy demo's dashboard, which may be shown during a demo. Stop sharing deletes them.
+5. Optional: My pharmacy > Share my doses, with a nickname. Your doses and scans, with the pictures of the pills you scan, then show on the pharmacy demo's dashboard, which may be shown during a demo. Stop sharing deletes them.
 
 Tell us about anything confusing, any pill that was named wrongly, and anything hard to read or tap. About & privacy > Reset demo puts the samples back; "With a sample week" also fills in the last six days and makes a dose due now.
 ```
