@@ -65,10 +65,18 @@ struct PillScanResult {
         }
     }
 
-    /// What this scan said about each pill, as the record of scans keeps it.
-    func report(session: UUID, at time: Date) -> ScanReports.Report {
-        ScanReports.Report(session: session, at: time,
-                           pills: pills.map { ScanReports.Pill(medicationID: $0.medication?.id, verdict: $0.verdict) })
+    /// What this scan said about each pill, as the record of scans keeps it, and each
+    /// pill's cut-out under the picture ID its line in the report was given.
+    func report(session: UUID, at time: Date) -> (report: ScanReports.Report, photos: [UUID: CGImage]) {
+        var photos: [UUID: CGImage] = [:]
+        let lines = pills.map { pill in
+            var line = ScanReports.Pill(medicationID: pill.medication?.id, verdict: pill.verdict)
+            let id = UUID()
+            line.photoID = id
+            photos[id] = pill.crop
+            return line
+        }
+        return (ScanReports.Report(session: session, at: time, pills: lines), photos)
     }
 
     /// The cut-out of the first pill of a medication taken only when needed.

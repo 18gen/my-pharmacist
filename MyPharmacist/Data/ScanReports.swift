@@ -3,6 +3,7 @@
 //  MyPharmacist
 //
 
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -12,6 +13,10 @@ import Observation
 ///
 /// One report per scanning session (from opening the camera to closing it): a photo taken
 /// again replaces the session's report, so a retake is never counted twice.
+///
+/// Each pill's cut-out from the scan is kept with it in memory only, never saved, under
+/// the ID its report gives it: sharing sends it to the pharmacy demo, which shows the pill
+/// as the scan saw it. After the app is closed only the IDs remain.
 @Observable
 final class ScanReports {
     nonisolated struct Report: Codable, Equatable, Sendable {
@@ -27,8 +32,11 @@ final class ScanReports {
         let outcome: Outcome
         /// For "already taken": when the dose was taken.
         var takenAt: Date?
-        /// For "missed" and "too early": the time of the dose it was judged against.
+        /// For "missed" and "too early": the time of the dose it was judged against; for
+        /// "take", the dose it ticked.
         var doseTime: DoseTime?
+        /// The pill's cut-out from the scan, in `photos` while the app is open.
+        var photoID: UUID?
     }
 
     /// `PillVerdict` without what it carries, "unidentified" as "unknown".
@@ -40,6 +48,8 @@ final class ScanReports {
     static let keptDays = 7
     /// At most this many, the latest.
     static let keptCount = 100
+    /// At most this many cut-outs are kept in memory, the latest scans'.
+    static let keptPhotos = 60
     private static let key = "scanReports.v1"
 
     /// Oldest first.
@@ -49,6 +59,9 @@ final class ScanReports {
             onChange?()
         }
     }
+
+    /// The cut-outs of the pills in the latest reports, by their `photoID`. In memory only.
+    @ObservationIgnored private(set) var photos: [UUID: CGImage] = [:]
 
     /// Called after a report is added or they are cleared: sharing sends them again.
     @ObservationIgnored var onChange: (() -> Void)?
@@ -66,13 +79,25 @@ final class ScanReports {
         self.reports = Self.kept(saved, now: now, calendar: calendar)
     }
 
-    /// Adds a scan's report, replacing an earlier one from the same session.
-    func record(_ report: Report, now: Date = Date()) {
-        reports = Self.kept(reports.filter { $0.session != report.session } + [report], now: now, calendar: calendar)
+    /// Adds a scan's report, replacing an earlier one from the same session, with the
+    /// cut-outs of its pills by their `photoID`. A replaced report's cut-outs are forgotten.
+    func record(_ report: Report, photos added: [UUID: CGImage] = [:], now: Date = Date()) {
+        let kept = Self.kept(reports.filter { $0.session != report.session } + [report], now: now, calendar: calendar)
+        // The latest reports' pictures, up to the most kept: set before the reports, whose
+        // change sends them.
+        var wanted: [UUID] = []
+        for pill in kept.reversed().flatMap({ $0.pills.reversed() }) {
+            guard let id = pill.photoID, wanted.count < Self.keptPhotos else { continue }
+            wanted.append(id)
+        }
+        let everything = photos.merging(added) { _, new in new }
+        photos = Dictionary(uniqueKeysWithValues: wanted.compactMap { id in everything[id].map { (id, $0) } })
+        reports = kept
     }
 
-    /// Forgets every report: "Reset demo".
+    /// Forgets every report and picture: "Reset demo".
     func removeAll() {
+        photos = [:]
         reports = []
     }
 
@@ -86,8 +111,8 @@ extension ScanReports.Pill {
     /// What a verdict says about a pill recognized as `medicationID`.
     nonisolated init(medicationID: String?, verdict: PillVerdict) {
         switch verdict {
-        case .take:
-            self.init(medicationID: medicationID, outcome: .take)
+        case .take(let dose):
+            self.init(medicationID: medicationID, outcome: .take, doseTime: dose.time)
         case .alreadyTaken(_, let time, _):
             self.init(medicationID: medicationID, outcome: .alreadyTaken, takenAt: time)
         case .missed(let dose, _):

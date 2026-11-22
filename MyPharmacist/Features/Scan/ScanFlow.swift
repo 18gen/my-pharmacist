@@ -284,7 +284,8 @@ final class ScanFlow {
     /// dose, so its medication is marked taken today, once however many of its pills there are.
     /// What the scan said about every pill is kept too, replacing this session's earlier photo.
     private func record(_ result: PillScanResult, at time: Date) {
-        reports.record(result.report(session: sessionID, at: time), now: time)
+        let filed = result.report(session: sessionID, at: time)
+        reports.record(filed.report, photos: filed.photos, now: time)
         let photos = Dictionary(result.pills.compactMap { pill in pill.verdict.doseToTake.map { ($0, pill.crop) } },
                                 uniquingKeysWith: { first, _ in first })
         store.recordScan(of: result.dosesToTake, at: time, photos: photos)

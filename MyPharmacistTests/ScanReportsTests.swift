@@ -63,10 +63,53 @@ struct ScanReportsTests {
         #expect(reports.reports.isEmpty)
     }
 
+    @Test func aScansPicturesAreKeptInMemoryWithItsReportAndGoWithIt() {
+        let reports = ScanReports(calendar: TestClock.calendar, now: morning)
+        let session = UUID(), first = UUID(), retaken = UUID()
+        func pictured(_ id: UUID, at time: Date) -> ScanReports.Report {
+            ScanReports.Report(session: session, at: time, pills: [ScanReports.Pill(medicationID: "metformin-500", outcome: .take, photoID: id)])
+        }
+        reports.record(pictured(first, at: morning), photos: [first: testImage()], now: morning)
+        #expect(reports.photos.keys.sorted { $0.uuidString < $1.uuidString } == [first])
+
+        // A photo taken again replaces the report, and its picture.
+        reports.record(pictured(retaken, at: morning.addingTimeInterval(30)), photos: [retaken: testImage()], now: morning)
+        #expect(Array(reports.photos.keys) == [retaken])
+
+        reports.removeAll()
+        #expect(reports.photos.isEmpty)
+    }
+
+    @Test func onlyTheLatestPicturesAreKept() {
+        let reports = ScanReports(calendar: TestClock.calendar, now: morning)
+        var ids: [UUID] = []
+        for minute in 0..<(ScanReports.keptPhotos + 3) {
+            let id = UUID()
+            ids.append(id)
+            reports.record(ScanReports.Report(session: UUID(), at: morning.addingTimeInterval(Double(minute) * 60),
+                                              pills: [ScanReports.Pill(medicationID: nil, outcome: .unknown, photoID: id)]),
+                           photos: [id: testImage()], now: morning)
+        }
+        #expect(Set(reports.photos.keys) == Set(ids.suffix(ScanReports.keptPhotos)))
+    }
+
+    @Test func thePicturesIDsAreSavedButNotThePictures() {
+        let defaults = isolatedDefaults()
+        let id = UUID()
+        let saved = ScanReports(defaults: defaults, calendar: TestClock.calendar, now: morning)
+        saved.record(ScanReports.Report(session: UUID(), at: morning, pills: [ScanReports.Pill(medicationID: nil, outcome: .unknown, photoID: id)]),
+                     photos: [id: testImage()], now: morning)
+        let read = ScanReports(defaults: defaults, calendar: TestClock.calendar, now: morning)
+        #expect(read.reports.first?.pills.first?.photoID == id)
+        #expect(read.photos.isEmpty)
+    }
+
     @Test func eachVerdictKeepsWhatTheDashboardSays() {
         let dose = Dose(medication: TestMedications.metformin, time: DoseTime(8), day: morning, calendar: TestClock.calendar)
         let evening = Dose(medication: TestMedications.metformin, time: DoseTime(18), day: morning, calendar: TestClock.calendar)
         let id = "metformin-500"
+        #expect(ScanReports.Pill(medicationID: id, verdict: .take(dose))
+                == ScanReports.Pill(medicationID: id, outcome: .take, doseTime: DoseTime(8)))
         #expect(ScanReports.Pill(medicationID: id, verdict: .alreadyTaken(dose, at: morning, next: evening))
                 == ScanReports.Pill(medicationID: id, outcome: .alreadyTaken, takenAt: morning))
         #expect(ScanReports.Pill(medicationID: id, verdict: .missed(dose, next: evening))
@@ -97,6 +140,10 @@ struct ScanFlowReportTests {
                          photo: testImage(), now: morning)
         #expect(reports.reports.count == 1)
         #expect(reports.reports.first?.pills.map(\.outcome) == [.take, .extra, .unknown])
+        // Each pill's cut-out is kept under the picture ID its line was given.
+        let ids = reports.reports.first?.pills.compactMap(\.photoID) ?? []
+        #expect(ids.count == 3)
+        #expect(Set(reports.photos.keys) == Set(ids))
     }
 
     @Test func aRetakeReplacesTheReportAndTheNextSessionAddsOne() {
