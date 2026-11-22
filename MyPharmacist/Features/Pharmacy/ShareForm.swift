@@ -35,9 +35,10 @@ struct ShareForm: View {
                 point("checkmark", Palette.ok, "Your medications and their times")
                 point("checkmark", Palette.ok, "When you took each dose, for the last 7 days")
                 point("checkmark", Palette.ok, "What each scan said, like \u{201C}Don't take now\u{201D}")
+                point("checkmark", Palette.ok, "The pictures of the pills you scan")
                 sectionTitle("It never gets")
                     .padding(.top, 6)
-                point("xmark", Palette.danger, "Photos, your location, or anything else on this phone")
+                point("xmark", Palette.danger, "Your medications' own photos, your location, or anything else on this phone")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardBackground()

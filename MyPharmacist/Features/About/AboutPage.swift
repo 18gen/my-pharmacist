@@ -52,7 +52,7 @@ struct AboutPage: View {
                         Text(sharingState)
                             .font(.body.weight(.semibold))
                             .foregroundStyle(Palette.textPrimary)
-                        Text("Off unless you turn it on in My pharmacy. While on, the name you give, your medications and their times, when you took each dose in the last 7 days, and what each scan said are sent to the pharmacy demo's server and shown on its dashboard, which may be shown to an audience. Photos never are. Stopping sharing deletes them; so does a reset of the demo, or 14 days without updates. The pharmacy isn't alerted about anything.")
+                        Text("Off unless you turn it on in My pharmacy. While on, the name you give, your medications and their times, when you took each dose in the last 7 days, what each scan said, and the pictures of the pills you scan are sent to the pharmacy demo's server and shown on its dashboard, which may be shown to an audience. Your medications' own photos never are. Stopping sharing deletes it all; so does a reset of the demo, or 14 days without updates. The pharmacy isn't alerted about anything.")
                     }
                 }
 
