@@ -25,7 +25,7 @@ nonisolated enum DetectorReview {
         var leastConfidence: Float = 0.3
         /// A pill only the detector saw, away from other pills, is added (as doubtful)
         /// when the detector is at least this sure.
-        var sureConfidence: Float = 0.6
+        var sureConfidence: Float = 0.45
         /// Two detected pills whose boxes share more than this of the smaller box lie
         /// over each other.
         var overlapping = 0.3
