@@ -207,11 +207,19 @@ nonisolated enum PillLocator {
                 return plausible && middles.contains { judge($0) == .pill } ? .retake(.touching) : .ignored
             }
             // One middle, no larger than a pill and nearly filling its outline: one pill
-            // with a rough outline (its shadow, a shine, a score line). Anything longer
-            // is part of a hand; anything emptier is skin, a crease or a blotch.
+            // with a rough outline (its shadow, a shine, a score line).
             let isOnePill = shape.solidity >= rules.leastRoughSolidity && rules.isWide(shape)
                 && shape.length <= rules.longestPill * rules.pixelsPerMillimeter
-            return isOnePill ? .pills([candidate.blob], isRough: true) : .ignored
+            if isOnePill { return .pills([candidate.blob], isRough: true) }
+            // Longer than a pill, but as wide for its length as two pills lying against
+            // or over each other, deeply dented where they meet, and filling most of its
+            // outline: pills to spread apart. A finger is longer for its width; a fold or
+            // blotch of skin fills less, or has no such dent.
+            let dent = shape.deepestDent / max(1, shape.equivalentRadius)
+            let isPair = shape.solidity >= rules.leastJoinedSolidity && rules.isWide(shape) && dent > rules.certainDent
+                && shape.width >= rules.leastPairWidth * shape.length
+                && shape.length <= 2 * rules.longestPill * rules.pixelsPerMillimeter
+            return isPair ? .retake(.touching) : .ignored
         }
     }
 

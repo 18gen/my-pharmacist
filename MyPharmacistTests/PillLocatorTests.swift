@@ -134,6 +134,18 @@ struct PillLocatorTests {
         #expect(Set(examined.areas.map(\.outcome)) == [.retake(.touching), .pills(1), .ignored])
     }
 
+    @Test func pillsLyingOverEachOtherAskToBeSpreadApart() {
+        // A round pill partly under an oblong one: one middle and longer than any pill,
+        // but as wide for its length as two pills, and dented where they meet.
+        var pair = discs(width: width, height: height, [(150, 300, 30)])
+        let oblong = ellipse(width: width, height: height, x: 195, y: 310, a: 48, b: 20, degrees: 60)
+        for y in 0..<height {
+            for x in 0..<width where oblong[x, y] { pair[x, y] = true }
+        }
+        #expect(locate(colour: pair.blobs()) == .unclear(.touching))
+        #expect(locate(lifted: pair.blobs()) == .unclear(.touching))
+    }
+
     @Test func aPillLyingHalfOverAnotherLooksLikeOneOvalPill() {
         // A known limit: by outline alone this is one pill. The vision model is asked
         // whether each cut-out shows one whole pill, which is where this is caught.

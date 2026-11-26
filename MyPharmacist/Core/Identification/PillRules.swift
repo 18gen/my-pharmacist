@@ -59,6 +59,9 @@ nonisolated struct PillRules: Sendable {
     /// of its outline. An area has to, to be taken for one pill with a rough outline: a
     /// wedge of skin, a crease or a blotch with a tail fills less.
     var leastRoughSolidity = 0.88
+    /// Two pills lying against or over each other are at least this wide for their
+    /// length together; a finger is narrower.
+    var leastPairWidth = 0.5
     /// What joins two pills that don't touch (a shadow, a crease) is thin: narrower than
     /// this share of the area's width. Taking it off leaves the pills.
     var widestBridge = 0.3
