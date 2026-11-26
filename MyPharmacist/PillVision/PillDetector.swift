@@ -24,7 +24,10 @@ nonisolated final class PillDetector: @unchecked Sendable {
     static let bundled: PillDetector? = {
         guard let url = Bundle.main.url(forResource: "PillDetectorModel", withExtension: "mlmodelc") else { return nil }
         do {
-            return try PillDetector(model: MLModel(contentsOf: url))
+            let started = ContinuousClock.now
+            let detector = try PillDetector(model: MLModel(contentsOf: url))
+            Log.scan.info("pill detector loaded in \(ContinuousClock.now - started)")
+            return detector
         } catch {
             Log.scan.error("pill detector not loaded: \(error.localizedDescription, privacy: .public)")
             return nil

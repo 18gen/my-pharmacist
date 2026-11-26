@@ -35,8 +35,9 @@ nonisolated enum ScanPhotoKeeper {
         Log.scan.info("scan photos cleared")
     }
 
-    /// Writes the photo and what the search made of it, away from the main thread.
-    static func keep(_ photo: CapturedPhoto, search: PillSearch) {
+    /// Writes the photo, what the search made of it and how long it took, away from the
+    /// main thread.
+    static func keep(_ photo: CapturedPhoto, search: PillSearch, took: Duration) {
         guard isKeeping else { return }
         let taken = Date.now
         Task.detached(priority: .utility) {
@@ -54,6 +55,7 @@ nonisolated enum ScanPhotoKeeper {
                 "widthMillimeters": photo.widthMillimeters,
                 "app": outcome,
                 "appBoxes": foundBoxes(search).map { [$0.minX, $0.minY, $0.width, $0.height] },
+                "searchSeconds": Double(took.components.seconds) + Double(took.components.attoseconds) / 1e18,
             ]
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

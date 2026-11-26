@@ -104,9 +104,10 @@ nonisolated enum PillFinder {
 
         // The trained detector's second opinion: pills touching or missed beside others
         // are spread apart; a pill only it saw, alone, is added as doubtful.
+        let detecting = ContinuousClock.now
         if let detector, let detections = detector.detect(in: searched) {
             let review = DetectorReview.review(found: located.map(\.blob.bounds), detections: detections)
-            Log.scan.info("detector \(detections.count) seen, \(String(describing: review), privacy: .public)")
+            Log.scan.info("detector \(detections.count) seen, \(String(describing: review), privacy: .public), took \(ContinuousClock.now - detecting)")
             switch review {
             case .keep:
                 break

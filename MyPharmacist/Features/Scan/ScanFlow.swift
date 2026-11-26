@@ -173,9 +173,12 @@ final class ScanFlow {
         phase = .finding(photo)
 
         // Step 2: are there pills at all? If not, the photo stays with a Retake button.
+        #if DEBUG
+        let started = ContinuousClock.now
+        #endif
         let search = await analyzer.findPills(in: captured)
         #if DEBUG
-        ScanPhotoKeeper.keep(captured, search: search)
+        ScanPhotoKeeper.keep(captured, search: search, took: ContinuousClock.now - started)
         #endif
         guard !Task.isCancelled else { return }
         let found: [FoundPill]
