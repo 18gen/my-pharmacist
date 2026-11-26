@@ -61,7 +61,7 @@ nonisolated struct PillRules: Sendable {
     var leastRoughSolidity = 0.88
     /// Two pills lying against or over each other are at least this wide for their
     /// length together; a finger is narrower.
-    var leastPairWidth = 0.5
+    var leastPairWidth = 0.45
     /// What joins two pills that don't touch (a shadow, a crease) is thin: narrower than
     /// this share of the area's width. Taking it off leaves the pills.
     var widestBridge = 0.3

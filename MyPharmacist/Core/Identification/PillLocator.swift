@@ -220,7 +220,8 @@ nonisolated enum PillLocator {
             // outline: pills to spread apart. A finger is longer for its width; a fold or
             // blotch of skin fills less, or has no such dent.
             let dent = shape.deepestDent / max(1, shape.equivalentRadius)
-            let isPair = shape.solidity >= rules.leastJoinedSolidity && rules.isWide(shape) && dent > rules.certainDent
+            let isPair = shape.length > rules.longestPill * rules.pixelsPerMillimeter
+                && shape.solidity >= rules.leastJoinedSolidity && rules.isWide(shape) && dent > rules.certainDent
                 && shape.width >= rules.leastPairWidth * shape.length
                 && shape.length <= 2 * rules.longestPill * rules.pixelsPerMillimeter
             return isPair ? .retake(.touching) : .ignored
