@@ -55,9 +55,11 @@ nonisolated struct ExaminedArea: Sendable, Equatable {
 
 /// Brings the two ways of finding pills together and applies the rules to every area,
 /// so that each one ends up as a pill, as nothing, or as a reason to take the photo
-/// again. An area that might be a pill but can't be trusted makes the whole photo
-/// unclear; one that is probably a single pill with a rough outline is kept, as the
-/// checker is asked of every cut-out whether it shows one whole pill.
+/// again. An area that might be pills but can't be cut out as such (pills touching, or
+/// cut off by the edge) makes the whole photo unclear; one that is probably a single
+/// pill but isn't sure (a rough outline, or only faintly or darkly set off from the
+/// surface) is kept as doubtful, as the checker is asked of every cut-out whether it
+/// shows one whole pill.
 nonisolated enum PillLocator {
     /// One area and how it was found.
     private typealias Candidate = (blob: Blob, sources: LocatedPill.Sources)
@@ -127,12 +129,14 @@ nonisolated enum PillLocator {
         }
 
         // Something round and pill-sized that barely differs from the surface, where no
-        // pill was found: it may be one, and its edge can't be trusted either way.
+        // pill was found: a pill close to the surface's colour (a beige pill on a palm),
+        // or a blotch. It is kept as doubtful, as the checker says whether its cut-out
+        // shows a pill; asking for another surface would turn away every such pill.
         for area in faint where judge(area) == .pill && !pills.contains(where: { overlap($0.blob, area) }) {
             let shape = BlobShape(area)
-            if rules.isWide(shape), shape.width >= rules.leastFaintWidth * shape.length {
-                reasons.insert(.hardToSee)
-            }
+            guard rules.isWide(shape), shape.width >= rules.leastFaintWidth * shape.length else { continue }
+            pills.append(LocatedPill(blob: area, shape: shape, sources: .colour, isRough: true))
+            areas.append(ExaminedArea(sources: .colour, shape: shape, verdict: .pill, outcome: .pills(1)))
         }
         if pills.contains(where: { !rules.isReadable($0.shape) }) {
             reasons.insert(.tooFar)
@@ -142,7 +146,7 @@ nonisolated enum PillLocator {
         }
 
         // The one thing to fix first.
-        for reason in [RetakeReason.tooMany, .touching, .cutOff, .tooFar, .hardToSee] where reasons.contains(reason) {
+        for reason in [RetakeReason.tooMany, .touching, .cutOff, .tooFar] where reasons.contains(reason) {
             return (.unclear(reason), areas)
         }
         guard !pills.isEmpty else { return (.noPills, areas) }

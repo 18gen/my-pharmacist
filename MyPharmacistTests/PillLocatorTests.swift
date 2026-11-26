@@ -178,8 +178,10 @@ struct PillLocatorTests {
         #expect(pills(locate(lifted: blobs(Array(many.prefix(CheckLimits.pills))))).count == CheckLimits.pills)
     }
 
-    @Test func somethingPillShapedThatBarelyStandsOutMakesThePhotoUnclear() {
-        #expect(locate(lifted: blobs([(100, 200, 14)]), colour: [], faint: blobs([(250, 300, 14)])) == .unclear(.hardToSee))
+    @Test func somethingPillShapedThatBarelyStandsOutIsADoubtfulPill() {
+        // A pill close to the surface's colour, or a blotch: the checker says which.
+        let found = pills(locate(lifted: blobs([(100, 200, 14)]), colour: [], faint: blobs([(250, 300, 14)])))
+        #expect(found.map(\.isRough) == [false, true])
         // The faint edge of a pill that was found is nothing new.
         #expect(pills(locate(lifted: blobs([(100, 200, 14)]), colour: [], faint: blobs([(101, 200, 15)]))).count == 1)
         // A faint line is a crease.
