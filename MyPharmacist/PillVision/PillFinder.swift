@@ -54,7 +54,9 @@ nonisolated enum PillFinder {
     /// The surface's colour is learned in squares about this wide: wider than a few pills.
     static let surfaceSquareMillimeters = 20.0
 
-    static func find(in photo: CapturedPhoto) -> PillSearch {
+    /// - Parameter detector: The trained detector's second opinion (`DetectorReview`);
+    ///   nil to go by Vision and colour alone.
+    static func find(in photo: CapturedPhoto, detector: PillDetector? = PillDetector.bundled) -> PillSearch {
         let started = ContinuousClock.now
         let working = photo.working
         let size = PhotoSize.fitting(working, maxSide: searchedSide)
@@ -89,25 +91,63 @@ nonisolated enum PillFinder {
             return .unclear(.hardToSee)
         }
 
+        var located: [LocatedPill]
         switch location {
         case .unclear(let reason):
             Log.scan.info("search unclear: \(String(describing: reason))")
             return .unclear(reason)
         case .noPills:
-            // Without Vision, an empty answer from colour alone isn't "no pills".
-            return lift.ran ? .noPills : .failed
-        case .found(let located):
-            // A pill that can't be cut out fails the whole search: leaving it out would
-            // show the rest as if they were all the pills there are.
-            let pills = located.compactMap { pill in
-                cutOut(pill.blob, from: working, searchedWidth: width).map { crop in
-                    FoundPill(box: pill.blob.normalizedBounds(pictureWidth: width, pictureHeight: height),
-                              crop: crop, outline: pill.blob, shape: pill.shape,
-                              searchedSize: CGSize(width: width, height: height), sources: pill.sources, isRough: pill.isRough)
-                }
-            }
-            return pills.count == located.count ? .found(pills) : .failed
+            located = []
+        case .found(let pills):
+            located = pills
         }
+
+        // The trained detector's second opinion: pills touching or missed beside others
+        // are spread apart; a pill only it saw, alone, is added as doubtful.
+        if let detector, let detections = detector.detect(in: searched) {
+            let review = DetectorReview.review(found: located.map(\.blob.bounds), detections: detections)
+            Log.scan.info("detector \(detections.count) seen, \(String(describing: review), privacy: .public)")
+            switch review {
+            case .keep:
+                break
+            case .touching:
+                return .unclear(.touching)
+            case .add(let boxes):
+                located += boxes.compactMap { ellipse(in: $0, pictureWidth: width, pictureHeight: height) }
+                    .map { LocatedPill(blob: $0, shape: BlobShape($0), sources: .detector, isRough: true) }
+                if located.count > rules.mostPills { return .unclear(.tooMany) }
+                let boxes = located.map { $0.blob.normalizedBounds(pictureWidth: width, pictureHeight: height) }
+                located = InstanceBoxes.readingOrder(boxes).map { located[$0] }
+            }
+        }
+
+        // Without Vision, an empty answer from colour alone isn't "no pills".
+        guard !located.isEmpty else { return lift.ran ? .noPills : .failed }
+        // A pill that can't be cut out fails the whole search: leaving it out would show
+        // the rest as if they were all the pills there are.
+        let pills = located.compactMap { pill in
+            cutOut(pill.blob, from: working, searchedWidth: width).map { crop in
+                FoundPill(box: pill.blob.normalizedBounds(pictureWidth: width, pictureHeight: height),
+                          crop: crop, outline: pill.blob, shape: pill.shape,
+                          searchedSize: CGSize(width: width, height: height), sources: pill.sources, isRough: pill.isRough)
+            }
+        }
+        return pills.count == located.count ? .found(pills) : .failed
+    }
+
+    /// A pill only the detector saw: the ellipse in its box, as its outline.
+    private static func ellipse(in box: CGRect, pictureWidth: Int, pictureHeight: Int) -> Blob? {
+        let inside = box.integral.intersection(CGRect(x: 0, y: 0, width: pictureWidth, height: pictureHeight))
+        guard inside.width >= 2, inside.height >= 2 else { return nil }
+        var mask = PixelMask(width: Int(inside.width), height: Int(inside.height))
+        let middleX = box.midX - inside.minX, middleY = box.midY - inside.minY
+        for y in 0..<mask.height {
+            for x in 0..<mask.width {
+                let dx = (Double(x) + 0.5 - middleX) / (box.width / 2), dy = (Double(y) + 0.5 - middleY) / (box.height / 2)
+                if dx * dx + dy * dy <= 1 { mask[x, y] = true }
+            }
+        }
+        return Blob(x: Int(inside.minX), y: Int(inside.minY), mask: mask)
     }
 
     /// Vision's pill-sized objects. With none (the hand took the pills with it, or

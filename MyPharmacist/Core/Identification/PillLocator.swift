@@ -17,6 +17,8 @@ nonisolated struct LocatedPill: Sendable, Equatable {
         /// By being much darker than the surface, with nothing beside it to cast it as
         /// a shadow.
         static let dark = Sources(rawValue: 4)
+        /// By the trained detector alone (`DetectorReview`).
+        static let detector = Sources(rawValue: 8)
     }
 
     /// The pill's outline and place, in the searched picture's pixels.
