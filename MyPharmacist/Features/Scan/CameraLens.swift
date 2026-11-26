@@ -159,7 +159,9 @@ struct CameraLens: View {
     @ViewBuilder
     private var bar: some View {
         switch scan.phase {
-        case .aiming where model.cameraProblem == .accessDenied: openSettingsButton
+        // Camera access off: Open Settings is at the bottom of the picture instead, where
+        // the close button can't cover it.
+        case .aiming where model.cameraProblem == .accessDenied: Color.clear
         case .aiming: lightButton
         case .retake: retakeButtons
         default: Color.clear
@@ -187,6 +189,15 @@ struct CameraLens: View {
                     .font(.system(size: 44, weight: .regular))
                     .foregroundStyle(.white.opacity(0.6))
                     .accessibilityHidden(true)
+                    .transition(.opacity)
+            }
+
+            if model.cameraProblem == .accessDenied {
+                openSettingsButton
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
                     .transition(.opacity)
             }
         }
@@ -248,30 +259,27 @@ struct CameraLens: View {
         }
     }
 
-    /// Camera access is off: the one thing that helps is turning it on in Settings. The
-    /// camera starts by itself on coming back (`ScanFlow.appBecameActive`).
+    /// Camera access is off: the one thing that helps is turning it on in Settings, so it
+    /// is the one thing in the picture, cream on the black. The camera starts by itself on
+    /// coming back (`ScanFlow.appBecameActive`).
     private var openSettingsButton: some View {
-        HStack {
-            Button {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                Label("Open Settings", systemImage: "gear")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Palette.textPrimary)
-                    .frame(minHeight: 34)
-                    .padding(.horizontal, 6)
+        Button {
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .controlSize(.large)
-            .tint(Palette.textMuted)
-            .accessibilityHint("Opens this app's settings to allow the camera")
-            Spacer()
+        } label: {
+            Label("Open Settings", systemImage: "gear")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 26)
+                .frame(minHeight: 54)
+                .background(Capsule().fill(Palette.cream))
+                .contentShape(Capsule())
         }
-        .padding(.leading, 22)
-        .closeButtonRow()
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens this app's settings to allow the camera")
     }
 
     /// In place of the close button, for a photo that has to be taken again: Retake
