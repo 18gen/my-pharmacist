@@ -49,11 +49,12 @@ struct Bench {
         case "train-data" where arguments.count >= 2:
             let out = URL(filePath: arguments[1], directoryHint: .isDirectory)
             let labels = values(after: "--labels", in: arguments).map { URL(filePath: $0) }
+            let empty = values(after: "--empty", in: arguments).map { URL(filePath: $0, directoryHint: .isDirectory) }
             let crops = values(after: "--crops", in: arguments).map { URL(filePath: $0, directoryHint: .isDirectory) }
             let assets = value(after: "--assets", in: arguments).map { URL(filePath: $0, directoryHint: .isDirectory) }
             let count = value(after: "--count", in: arguments).flatMap { Int($0) } ?? 1500
             let seed = value(after: "--seed", in: arguments).flatMap { UInt64($0) } ?? 1
-            exit(TrainingData.make(labels: labels, crops: crops, assets: assets, out: out, count: count, seed: seed) ? 0 : 1)
+            exit(TrainingData.make(labels: labels, empty: empty, crops: crops, assets: assets, out: out, count: count, seed: seed) ? 0 : 1)
         default:
             print(usage)
             exit(2)

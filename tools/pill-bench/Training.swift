@@ -64,20 +64,26 @@ enum TrainingData {
         }
     }
 
+    /// What a light palm's photo is multiplied by to look like a medium, tan, brown and
+    /// dark one. Made up; real photos of other hands are better.
+    static let skinTones: [(Double, Double, Double)] = [
+        (0.88, 0.78, 0.70), (0.78, 0.64, 0.52), (0.62, 0.48, 0.38), (0.46, 0.35, 0.28),
+    ]
+
     /// The demo medications' pictures and their printed size (design/demo-pills).
     static let assetSizes: [String: Double] = [
         "exemestane-25": 6, "dexamethasone-1-5": 6, "metoclopramide-10": 8, "ondansetron-8": 13,
         "capecitabine-500": 11, "dexamethasone-4": 6, "allopurinol-300": 11,
     ]
 
-    static func make(labels: [URL], crops: [URL], assets: URL?, out: URL, count: Int, seed: UInt64) -> Bool {
+    static func make(labels: [URL], empty: [URL], crops: [URL], assets: URL?, out: URL, count: Int, seed: UInt64) -> Bool {
         do {
             try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
         } catch {
             print("Can't make \(out.path): \(error.localizedDescription)")
             return false
         }
-        let backgrounds = labels.flatMap(readBackgrounds)
+        let backgrounds = labels.flatMap(readBackgrounds) + empty.flatMap(readEmpty)
         var cutouts = crops.flatMap(readCrops)
         if let assets { cutouts += readAssets(assets) }
         guard !backgrounds.isEmpty, !cutouts.isEmpty else {
@@ -130,6 +136,17 @@ enum TrainingData {
         }
         context.draw(photo, in: CGRect(x: 0, y: 0, width: width, height: height))
         context.restoreGState()
+        // Half the time, the photo in another skin's colour: the demo's hands won't all be
+        // this one's. Pills pasted afterwards keep their own colours.
+        if Double.random(in: 0..<1, using: &random) < 0.5 {
+            let tone = skinTones[Int(random.next() % UInt64(skinTones.count))]
+            let jitter = Double.random(in: 0.94...1.06, using: &random)
+            context.saveGState()
+            context.setBlendMode(.multiply)
+            context.setFillColor(CGColor(red: min(1, tone.0 * jitter), green: min(1, tone.1 * jitter), blue: min(1, tone.2 * jitter), alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            context.restoreGState()
+        }
         var boxes = normalized.map { box in
             CGRect(x: (mirrored ? 1 - box.maxX : box.minX) * width, y: box.minY * height, width: box.width * width, height: box.height * height)
         }
@@ -256,6 +273,13 @@ enum TrainingData {
                 $0.count == 4 ? CGRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) : nil
             })
         }
+    }
+
+    /// Every photo in a folder of photos with no pills in them (an empty palm).
+    private static func readEmpty(_ folder: URL) -> [Background] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return files.filter { ["jpg", "jpeg", "png", "heic"].contains($0.pathExtension.lowercased()) }
+            .map { Background(url: $0, boxes: []) }
     }
 
     /// Cut-outs from `pill-bench run`, named `…-w<width of the picture searched>.png`.
