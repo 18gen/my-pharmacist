@@ -8,9 +8,9 @@ import CoreML
 import os
 import Vision
 
-/// The trained pill detector (tools/pill-detector, Create ML), run through Vision. It
-/// gives a second opinion on the pills Vision's subject lifting and colour found
-/// (`DetectorReview`). Without the model in the app, nothing changes.
+/// The trained pill detector (PillDetectorModel.mlmodel, from tools/pill-detector), run
+/// through Vision. It gives a second opinion on the pills Vision's subject lifting and
+/// colour found (`DetectorReview`). Without the model in the app, nothing changes.
 nonisolated final class PillDetector: @unchecked Sendable {
     // Vision's model and requests may be used from any thread; a request is made per call.
     private let model: VNCoreMLModel
@@ -19,10 +19,10 @@ nonisolated final class PillDetector: @unchecked Sendable {
         self.model = try VNCoreMLModel(for: model)
     }
 
-    /// The detector built into the app, compiled from PillDetector.mlmodel; nil when
+    /// The detector built into the app, compiled from PillDetectorModel.mlmodel; nil when
     /// the app has none or it can't be loaded.
     static let bundled: PillDetector? = {
-        guard let url = Bundle.main.url(forResource: "PillDetector", withExtension: "mlmodelc") else { return nil }
+        guard let url = Bundle.main.url(forResource: "PillDetectorModel", withExtension: "mlmodelc") else { return nil }
         do {
             return try PillDetector(model: MLModel(contentsOf: url))
         } catch {
