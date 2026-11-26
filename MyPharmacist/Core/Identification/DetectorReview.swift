@@ -32,6 +32,14 @@ nonisolated enum DetectorReview {
         /// A box this close to another, as a share of the smaller pill's width, may be
         /// touching it.
         var nearness = 0.15
+        /// A less sure box sharing more than this of itself with a surer one, its middle
+        /// inside it, is the same pill seen twice.
+        var nested = 0.6
+        /// A box covered this much by pills found, or matching one, is explained by them;
+        /// one less sure than `trusted` then says nothing more (the detector often adds
+        /// a faint box across two pills found apart).
+        var explainedCover = 0.5
+        var trusted: Float = 0.5
     }
 
     enum Outcome: Equatable {
@@ -48,7 +56,16 @@ nonisolated enum DetectorReview {
     /// - Parameter found: The boxes of the pills Vision and colour found, in the same
     ///   pixels as the detections.
     static func review(found: [CGRect], detections: [PillDetection], settings: Settings = Settings()) -> Outcome {
-        let seen = detections.filter { $0.confidence >= settings.leastConfidence }
+        // Surest first; a pill seen twice counts once.
+        var seen: [PillDetection] = []
+        for detection in detections.filter({ $0.confidence >= settings.leastConfidence }).sorted(by: { $0.confidence > $1.confidence })
+        where !seen.contains(where: { share(of: detection.box, and: $0.box) > settings.nested && $0.box.contains(middle(detection.box)) }) {
+            seen.append(detection)
+        }
+        func explained(_ detection: PillDetection) -> Bool {
+            found.contains { matches($0, detection.box) } || cover(of: detection.box, by: found) >= settings.explainedCover
+        }
+        seen.removeAll { $0.confidence < settings.trusted && explained($0) }
 
         // Two pills lying over each other.
         for (index, one) in seen.enumerated() {
@@ -63,7 +80,7 @@ nonisolated enum DetectorReview {
 
         // Pills the detector saw that nothing found matches.
         var added: [CGRect] = []
-        for detection in seen where !found.contains(where: { matches($0, detection.box) }) {
+        for detection in seen where !explained(detection) {
             let others = found + seen.filter { $0 != detection }.map(\.box)
             if others.contains(where: { near(detection.box, $0, settings: settings) }) {
                 return .touching
@@ -87,6 +104,17 @@ nonisolated enum DetectorReview {
         guard !shared.isNull, !shared.isEmpty else { return 0 }
         let smaller = min(a.width * a.height, b.width * b.height)
         return smaller > 0 ? Double(shared.width * shared.height / smaller) : 0
+    }
+
+    /// How much of a box the found pills' boxes cover, at most all of it.
+    static func cover(of box: CGRect, by found: [CGRect]) -> Double {
+        let area = box.width * box.height
+        guard area > 0 else { return 0 }
+        let covered = found.reduce(0.0) { total, pill in
+            let shared = box.intersection(pill)
+            return total + (shared.isNull ? 0 : Double(shared.width * shared.height))
+        }
+        return min(1, covered / Double(area))
     }
 
     /// Whether two boxes touch or come within `nearness` of the smaller pill's width.

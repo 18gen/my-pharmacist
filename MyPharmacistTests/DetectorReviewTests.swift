@@ -44,6 +44,21 @@ struct DetectorReviewTests {
         #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(beside, 0.4)]) == .touching)
     }
 
+    @Test func aPillSeenTwiceIsOnePill() {
+        // A smaller, less sure box inside the pill's own box.
+        let inside = CGRect(x: 110, y: 205, width: 24, height: 30)
+        #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(inside, 0.45)]) == .keep)
+    }
+
+    @Test func anUnsureBoxAcrossPillsFoundApartSaysNothing() {
+        // Two pills found apart, close together, and a faint box straddling both.
+        let upper = CGRect(x: 100, y: 200, width: 40, height: 60), lower = CGRect(x: 100, y: 264, width: 40, height: 40)
+        let across = CGRect(x: 100, y: 240, width: 40, height: 40)
+        #expect(DetectorReview.review(found: [upper, lower], detections: [seen(upper), seen(lower), seen(across, 0.45)]) == .keep)
+        // Sure of it, though, it may be a third pill between them.
+        #expect(DetectorReview.review(found: [upper, lower], detections: [seen(upper), seen(lower), seen(across, 0.8)]) == .touching)
+    }
+
     @Test func aPillOnlyTheDetectorSawAloneIsAddedWhenItIsSure() {
         let alone = CGRect(x: 200, y: 500, width: 40, height: 40)
         #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(alone)]) == .add([alone]))
