@@ -205,6 +205,8 @@ struct Label {
     /// A retake for this reason is the right answer (pills made to touch, or cut off).
     var expectRetake: String?
     var note: String?
+    /// What the app on the phone found in it, for photos the app kept (`ScanPhotoKeeper`).
+    var app: String?
 
     private struct Sidecar: Decodable {
         var widthMillimeters: Double?
@@ -213,6 +215,7 @@ struct Label {
         var boxes: [[Double]]?
         var expectRetake: String?
         var note: String?
+        var app: String?
     }
 
     /// From `<photo>.json` beside the photo, if there is one.
@@ -223,7 +226,7 @@ struct Label {
         }
         let boxes = (sidecar.boxes ?? []).compactMap { $0.count == 4 ? CGRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) : nil }
         return Label(widthMillimeters: sidecar.widthMillimeters, pills: sidecar.pills ?? (boxes.isEmpty ? nil : boxes.count),
-                     surface: sidecar.surface, boxes: boxes, expectRetake: sidecar.expectRetake, note: sidecar.note)
+                     surface: sidecar.surface, boxes: boxes, expectRetake: sidecar.expectRetake, note: sidecar.note, app: sidecar.app)
     }
 
     /// truth.csv: `file,pills,surface,note`, one photo a line, the first line the heading.
@@ -321,6 +324,9 @@ struct Row {
         let specks = diagnosis.areas.count - sized.count
         if specks > 0 { details.append("\(specks) more areas not pill-sized") }
         if !agrees { details.append("NOTE: the step-by-step run came to something else than the app's run (Vision varied)") }
+        if let app = label.app {
+            details.append(app == outcome ? "the phone found the same" : "NOTE: the phone found something else: \(app)")
+        }
         if let note = label.note { details.append("note: \(note)") }
         self.details = details
     }
