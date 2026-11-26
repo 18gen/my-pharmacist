@@ -371,6 +371,17 @@ struct Row {
         }
 
         var details = [diagnosis.visionLine, diagnosis.colourLine]
+        // For tuning the detector's review away from the bench: what Vision and colour
+        // came to, and every detection, in the searched picture's pixels.
+        if let detections = diagnosis.detections {
+            let located: String = switch diagnosis.location {
+            case .found(let pills): pills.map { Row.box($0.blob.bounds) }.joined(separator: ";")
+            case .noPills: ""
+            case .unclear(let reason): "unclear \(reason)"
+            }
+            details.append("located: " + located)
+            details.append("detections: " + detections.map { Row.box($0.box) + String(format: ",%.3f", $0.confidence) }.joined(separator: ";"))
+        }
         let sized = diagnosis.areas.enumerated().filter { $0.element.verdict != .notAPill }
         details += sized.map { "A\($0.offset + 1) " + diagnosis.describe($0.element) }
         let specks = diagnosis.areas.count - sized.count
@@ -381,6 +392,10 @@ struct Row {
         }
         if let note = label.note { details.append("note: \(note)") }
         self.details = details
+    }
+
+    private static func box(_ rect: CGRect) -> String {
+        String(format: "%.0f,%.0f,%.0f,%.0f", rect.minX, rect.minY, rect.width, rect.height)
     }
 
     var summaryLine: String {
