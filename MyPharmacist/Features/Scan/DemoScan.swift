@@ -19,6 +19,9 @@ import UIKit
 ///   again: the camera view with its moving picture, and Retake and Cancel.
 /// - `-demoOpenClose` opens the camera a second after launch and closes it 2.5 seconds
 ///   later, to watch (or record) the button growing into the camera picture and back.
+/// - `-demoOpenCamera` opens the real camera a second after launch, with the saved list,
+///   as a tap on the button would: in the Simulator, with camera access taken away
+///   (`xcrun simctl privacy booted revoke camera <bundle id>`), the page that asks for it.
 /// - `-demoChecking` opens on the results page standing ready while the pills are
 ///   checked, and stays there.
 /// - `-demoMedications` opens Pills, `-demoNewMedication` the page to add one,
@@ -193,6 +196,8 @@ enum DemoScan {
     static var editsPharmacy: Bool { ProcessInfo.processInfo.arguments.contains("-demoPharmacyEditor") }
     private static var checks: Bool { ProcessInfo.processInfo.arguments.contains("-demoChecking") }
     private static var opensAndCloses: Bool { ProcessInfo.processInfo.arguments.contains("-demoOpenClose") }
+    /// Not a demo of its own (`isRequested` stays false), so the camera starts as usual.
+    static var opensCamera: Bool { ProcessInfo.processInfo.arguments.contains("-demoOpenCamera") }
     private static var showsResults: Bool { ProcessInfo.processInfo.arguments.contains("-demoScan") || scansOK }
     static var scansOK: Bool { ProcessInfo.processInfo.arguments.contains("-demoScanOK") }
 

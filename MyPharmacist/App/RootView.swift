@@ -79,6 +79,12 @@ struct RootView: View {
             #if DEBUG
             .onAppear {
                 if DemoScan.isRequested { DemoScan.run(in: scan) }
+                if DemoScan.opensCamera {
+                    Task {
+                        try? await Task.sleep(for: .seconds(1))
+                        withAnimation(ScanLayout.openingAnimation) { scan.setOpen(true) }
+                    }
+                }
                 if let pages = DemoScan.pages { path = pages }
                 sheet = DemoScan.sheet
             }
