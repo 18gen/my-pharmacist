@@ -5,7 +5,8 @@
 //  A picture of what the search saw in one photo, at the size it searched:
 //  - blue: the surface (Vision's large object: a hand, a plate)
 //  - cyan outline: Vision's pill-sized objects
-//  - magenta: what clearly differs from the surface by colour; yellow: what differs faintly
+//  - magenta: what clearly differs from the surface by colour; yellow: what differs faintly;
+//    orange: what is much darker with the surface's colour (a deep shadow, or a grey pill)
 //  - ellipses: each pill-sized area, green if kept, grey if ignored, orange if it asked
 //    for a retake, labelled A1, A2… as in the results
 //  - green boxes: the pills the app would circle, numbered
@@ -51,6 +52,7 @@ enum Overlay {
                 for x in 0..<width where surface[x, y] { tint(y * width + x, (40, 110, 255), 0.22) }
             }
         }
+        diagnosis.colour.dark.forEach { paint($0, (255, 120, 0), 0.5) }
         diagnosis.colour.faint.forEach { paint($0, (255, 220, 0), 0.45) }
         diagnosis.colour.blobs.forEach { paint($0, (255, 0, 200), 0.45) }
         diagnosis.lift.objects.forEach { paint($0, (0, 240, 255), 1, edgeOnly: true) }

@@ -80,7 +80,7 @@ enum Report {
             figcaption { padding: 10px 12px; font-size: 12.5px } ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted) }
             </style></head><body>
             <h1>Pill finding bench</h1>
-            <p class="legend">Blue: the surface Vision found. Cyan outline: Vision's pill-sized objects. Magenta: clearly a different colour from the surface; yellow: faintly. Ellipses: pill-sized areas (green kept, grey dashed ignored, orange asked for a retake). Green boxes: what the app circles. Red dashed rings: real pills not circled.</p>
+            <p class="legend">Blue: the surface Vision found. Cyan outline: Vision's pill-sized objects. Magenta: clearly a different colour from the surface; yellow: faintly; orange: much darker with the surface's colour. Ellipses: pill-sized areas (green kept, grey dashed ignored, orange asked for a retake). Green boxes: what the app circles. Red dashed rings: real pills not circled.</p>
             <pre>\(escaped(summary(rows)))</pre>
             <div class="grid">
             \(cards)

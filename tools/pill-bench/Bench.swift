@@ -168,7 +168,8 @@ struct Diagnosis {
     func describe(_ area: ExaminedArea) -> String {
         let perMillimeter = rules.pixelsPerMillimeter
         let dent = area.shape.deepestDent / max(1, area.shape.equivalentRadius)
-        let way = area.sources == [.lifted, .colour] ? "both" : area.sources.contains(.lifted) ? "vision" : "colour"
+        let way = area.sources == [.lifted, .colour] ? "both" : area.sources.contains(.lifted) ? "vision"
+            : area.sources.contains(.dark) ? "darkness" : "colour"
         let outcome: String = switch area.outcome {
         case .pills(let count): count == 1 ? "kept" : "kept as \(count)"
         case .ignored: "IGNORED"
@@ -187,8 +188,8 @@ struct Diagnosis {
     }
 
     var colourLine: String {
-        String(format: "colour: %d clear, %d faint, %@, %.1f%% of the surface stands out in %d areas",
-               colour.blobs.count, colour.faint.count, colour.isReliable ? "trusted" : "NOT TRUSTED (patterned)",
+        String(format: "colour: %d clear, %d faint, %d dark, %@, %.1f%% of the surface stands out in %d areas",
+               colour.blobs.count, colour.faint.count, colour.dark.count, colour.isReliable ? "trusted" : "NOT TRUSTED (patterned)",
                colour.shareStandingOut * 100, colour.areas)
     }
 }
