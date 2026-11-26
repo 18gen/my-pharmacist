@@ -245,6 +245,12 @@ struct PillLocatorTests {
         #expect(pills(locate(lifted: blobs([(250, 200, 14)]), dark: gap)).count == 1)
     }
 
+    @Test func aSpotOnTheSkinTooSmallForAPillIsNotCircled() {
+        // About 3 mm across: a mole or a red spot, which colour alone finds.
+        #expect(locate(lifted: blobs([(250, 200, 14)]), colour: blobs([(100, 400, 6)])) == locate(lifted: blobs([(250, 200, 14)])))
+        #expect(locate(colour: blobs([(100, 400, 6)])) == .noPills)
+    }
+
     @Test func colourOnAPatternedSurfaceIsIgnored() {
         let found = pills(locate(lifted: blobs([(100, 200, 14)]), colour: blobs([(250, 300, 14), (180, 480, 14)]), reliable: false))
         #expect(found.count == 1)

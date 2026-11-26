@@ -134,7 +134,7 @@ nonisolated enum PillLocator {
         // shows a pill; asking for another surface would turn away every such pill.
         for area in faint where judge(area) == .pill && !pills.contains(where: { overlap($0.blob, area) }) {
             let shape = BlobShape(area)
-            guard rules.isWide(shape), shape.width >= rules.leastFaintWidth * shape.length else { continue }
+            guard rules.isWide(shape), rules.isLongEnoughForColour(shape), shape.width >= rules.leastFaintWidth * shape.length else { continue }
             pills.append(LocatedPill(blob: area, shape: shape, sources: .colour, isRough: true))
             areas.append(ExaminedArea(sources: .colour, shape: shape, verdict: .pill, outcome: .pills(1)))
         }
@@ -186,6 +186,9 @@ nonisolated enum PillLocator {
         func wideEnough(_ parts: [Blob]) -> Bool {
             !byColourAlone || parts.allSatisfy { rules.isWide(BlobShape($0)) }
         }
+        // A spot on the skin, too small to be a pill. Pieces cut from a larger area are
+        // let be: a pill's piece circled still shows that something is there.
+        if byColourAlone, !rules.isLongEnoughForColour(shape) { return .ignored }
         switch verdict {
         case .notAPill:
             return .ignored
@@ -213,6 +216,7 @@ nonisolated enum PillLocator {
             // One middle, no larger than a pill and nearly filling its outline: one pill
             // with a rough outline (its shadow, a shine, a score line).
             let isOnePill = shape.solidity >= rules.leastRoughSolidity && rules.isWide(shape)
+                && (!byColourAlone || rules.isLongEnoughForColour(shape))
                 && shape.length <= rules.longestPill * rules.pixelsPerMillimeter
             if isOnePill { return .pills([candidate.blob], isRough: true) }
             // Longer than a pill, but as wide for its length as two pills lying against

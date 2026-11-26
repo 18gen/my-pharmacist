@@ -68,6 +68,9 @@ nonisolated struct PillRules: Sendable {
     /// Something that barely differs from the surface is taken for a possible pill only
     /// if it is this round: at least this wide for its length.
     var leastFaintWidth = 0.5
+    /// What colour alone finds must be at least this long, in millimetres: a mole or a
+    /// red spot on a palm is smaller than any pill the camera frames.
+    var leastColourLength = 4.0
     /// Something found only by being much darker than the surface is taken for a pill
     /// only if it is this wide for its length: the gap at a paper's edge or between
     /// fingers is long and narrow.
@@ -116,5 +119,10 @@ nonisolated struct PillRules: Sendable {
     /// has to be, as creases and the gaps between fingers are long but narrow.
     func isWide(_ shape: BlobShape) -> Bool {
         shape.width * capturedPixelsPerPixel >= leastCapturedLength
+    }
+
+    /// Whether what colour alone found is long enough to be a pill, not a spot on the skin.
+    func isLongEnoughForColour(_ shape: BlobShape) -> Bool {
+        shape.length >= leastColourLength * pixelsPerMillimeter
     }
 }
