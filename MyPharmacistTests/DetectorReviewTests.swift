@@ -37,11 +37,21 @@ struct DetectorReviewTests {
     }
 
     @Test func aPillMissedBesideAnotherIsToBeSpreadApart() {
-        // Beside the found pill, 2 pixels away: perhaps touching it.
+        // Reaching into the found pill's box: perhaps lying against it.
+        let against = left.offsetBy(dx: 32, dy: 0)
+        #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(against)]) == .touching)
+        // Beside it, 2 pixels away, when the detector isn't sure.
         let beside = left.offsetBy(dx: 42, dy: 0)
-        #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(beside)]) == .touching)
-        // Even when the detector isn't sure.
         #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(beside, 0.4)]) == .touching)
+    }
+
+    @Test func aSurePillCloseBesideAnotherIsAdded() {
+        // 2 pixels away, the boxes not reaching into each other.
+        let beside = left.offsetBy(dx: 42, dy: 0)
+        #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(beside)]) == .add([beside]))
+        // Reaching a little into it: still beside.
+        let close = left.offsetBy(dx: 38, dy: 0)
+        #expect(DetectorReview.review(found: [left], detections: [seen(left), seen(close, 0.6)]) == .add([close]))
     }
 
     @Test func aPillSeenTwiceIsOnePill() {

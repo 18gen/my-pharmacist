@@ -40,13 +40,19 @@ nonisolated enum DetectorReview {
         /// a faint box across two pills found apart).
         var explainedCover = 0.5
         var trusted: Float = 0.5
+        /// A pill only the detector saw, close beside others, is added (as doubtful) when
+        /// the detector is at least this sure and its box shares no more than
+        /// `besideShare` with theirs: a pill lying close by, not on them. Pills the colour
+        /// of the hand, which colour misses, often lie so.
+        var besideConfidence: Float = 0.5
+        var besideShare = 0.1
     }
 
     enum Outcome: Equatable {
         /// The detector agrees, or has nothing to add.
         case keep
-        /// Pills only the detector saw, each away from others: added as doubtful, for
-        /// the checker to confirm.
+        /// Pills only the detector saw, each away from others or surely beside them:
+        /// added as doubtful, for the checker to confirm.
         case add([CGRect])
         /// Pills lying against or over each other, or a pill missed beside another: the
         /// pills have to be spread apart.
@@ -83,6 +89,11 @@ nonisolated enum DetectorReview {
         for detection in seen where !explained(detection) {
             let others = found + seen.filter { $0 != detection }.map(\.box)
             if others.contains(where: { near(detection.box, $0, settings: settings) }) {
+                if detection.confidence >= settings.besideConfidence,
+                   others.allSatisfy({ share(of: detection.box, and: $0) <= settings.besideShare }) {
+                    added.append(detection.box)
+                    continue
+                }
                 return .touching
             }
             if detection.confidence >= settings.sureConfidence {
