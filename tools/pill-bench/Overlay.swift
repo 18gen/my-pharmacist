@@ -103,6 +103,21 @@ enum Overlay {
                  colour: CGColor(red: 0.2, green: 1, blue: 0.3, alpha: 1), bold: true, in: context)
         }
 
+        // What the trained detector saw, dashed blue, with how sure it is.
+        for detection in row.detections ?? [] {
+            let box = detection.box
+            let rect = CGRect(x: box.minX * Double(width), y: box.minY * Double(height) + top,
+                              width: box.width * Double(width), height: box.height * Double(height)).insetBy(dx: -2, dy: -2)
+            let blue = CGColor(red: 0.25, green: 0.6, blue: 1, alpha: 1)
+            context.setStrokeColor(blue)
+            context.setLineWidth(2)
+            context.setLineDash(phase: 0, lengths: [6, 3])
+            context.stroke(rect)
+            context.setLineDash(phase: 0, lengths: [])
+            text(String(format: "%.0f%%", detection.confidence * 100), at: CGPoint(x: rect.maxX - 30, y: rect.maxY + 14),
+                 size: 12, colour: blue, bold: true, in: context)
+        }
+
         // Real pills that weren't circled.
         for box in label.boxes where !diagnosis.foundBoxes.contains(where: { $0.contains(CGPoint(x: box.midX, y: box.midY)) }) {
             let across = box.width * Double(width), down = box.height * Double(height)

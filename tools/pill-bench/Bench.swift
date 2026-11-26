@@ -33,13 +33,27 @@ struct Bench {
             let photos = URL(filePath: arguments[1], directoryHint: .isDirectory)
             let out = value(after: "--out", in: arguments).map { URL(filePath: $0, directoryHint: .isDirectory) }
                 ?? photos.appending(path: "bench", directoryHint: .isDirectory)
-            exit(run(photos: photos, out: out) ? 0 : 1)
+            var detector: PillDetectorModel?
+            if let path = value(after: "--detector", in: arguments) {
+                guard let model = PillDetectorModel(url: URL(filePath: path)) else { exit(1) }
+                detector = model
+            }
+            let threshold = value(after: "--threshold", in: arguments).flatMap { Float($0) } ?? 0.5
+            exit(run(photos: photos, out: out, detector: detector, threshold: threshold) ? 0 : 1)
         case "synth" where arguments.count >= 2:
             let out = URL(filePath: arguments[1], directoryHint: .isDirectory)
             let pills = URL(filePath: value(after: "--pills", in: arguments) ?? "MyPharmacist/Resources/Assets.xcassets/Pills",
                             directoryHint: .isDirectory)
             let seed = value(after: "--seed", in: arguments).flatMap { UInt64($0) } ?? 1
             exit(Synthetic.make(into: out, pills: pills, seed: seed) ? 0 : 1)
+        case "train-data" where arguments.count >= 2:
+            let out = URL(filePath: arguments[1], directoryHint: .isDirectory)
+            let labels = values(after: "--labels", in: arguments).map { URL(filePath: $0) }
+            let crops = values(after: "--crops", in: arguments).map { URL(filePath: $0, directoryHint: .isDirectory) }
+            let assets = value(after: "--assets", in: arguments).map { URL(filePath: $0, directoryHint: .isDirectory) }
+            let count = value(after: "--count", in: arguments).flatMap { Int($0) } ?? 1500
+            let seed = value(after: "--seed", in: arguments).flatMap { UInt64($0) } ?? 1
+            exit(TrainingData.make(labels: labels, crops: crops, assets: assets, out: out, count: count, seed: seed) ? 0 : 1)
         default:
             print(usage)
             exit(2)
@@ -51,7 +65,12 @@ struct Bench {
         return arguments[index + 1]
     }
 
-    static func run(photos: URL, out: URL) -> Bool {
+    /// Every value given after `flag`, which may come more than once.
+    private static func values(after flag: String, in arguments: [String]) -> [String] {
+        arguments.indices.filter { arguments[$0] == flag && $0 + 1 < arguments.count }.map { arguments[$0 + 1] }
+    }
+
+    static func run(photos: URL, out: URL, detector: PillDetectorModel? = nil, threshold: Float = 0.5) -> Bool {
         let files = (try? FileManager.default.contentsOfDirectory(at: photos, includingPropertiesForKeys: nil)) ?? []
         let images = files
             .filter { ["jpg", "jpeg", "png", "heic"].contains($0.pathExtension.lowercased()) }
@@ -68,6 +87,12 @@ struct Bench {
             return false
         }
         let truth = Label.truthTable(at: photos.appending(path: "truth.csv"))
+        // Photos where every pill was circled and nothing else: their boxes are the
+        // whole truth, and their cut-outs are pills, for training the detector.
+        let training = out.appending(path: "training", directoryHint: .isDirectory)
+        let crops = training.appending(path: "crops", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: crops, withIntermediateDirectories: true)
+        var labelled: [[String: Any]] = []
 
         var rows: [Row] = []
         for file in images {
@@ -80,12 +105,26 @@ struct Bench {
                 print("\(name): can't be read")
                 continue
             }
-            let row = Row(file: name, label: label, diagnosis: diagnosis)
+            var row = Row(file: name, label: label, diagnosis: diagnosis)
+            if let detector {
+                row.detections = detector.detect(in: photo.working).filter { $0.confidence >= threshold }
+            }
             if let picture = Overlay.draw(diagnosis, row: row, label: label) {
                 _ = Picture.writePNG(picture, to: overlays.appending(path: row.overlayName))
             }
             print(row.summaryLine)
             rows.append(row)
+            if row.status == .right, case .found(let pills) = diagnosis.search {
+                labelled.append(["file": file.path, "width": photo.working.width, "height": photo.working.height,
+                                 "boxes": pills.map { [$0.box.minX, $0.box.minY, $0.box.width, $0.box.height] }])
+                for (number, pill) in pills.enumerated() where !pill.isRough {
+                    let stem = (name as NSString).deletingPathExtension
+                    _ = Picture.writePNG(pill.crop, to: crops.appending(path: "\(stem)-\(number + 1)-w\(photo.working.width).png"))
+                }
+            }
+        }
+        if let json = try? JSONSerialization.data(withJSONObject: labelled, options: [.prettyPrinted]) {
+            try? json.write(to: training.appending(path: "labels.json"))
         }
         Report.write(rows, to: out)
         print("")
@@ -282,6 +321,8 @@ struct Row {
     let milliseconds: Double
     let agrees: Bool
     let details: [String]
+    /// What the trained detector saw at or above its threshold, when one was given.
+    var detections: [PillDetectorModel.Detection]?
 
     var overlayName: String { (file as NSString).deletingPathExtension + ".png" }
 
@@ -337,8 +378,9 @@ struct Row {
             text.count >= width ? text + " " : text.padding(toLength: width, withPad: " ", startingAt: 0)
         }
         let truthText = truth.map { "of \($0)" } ?? ""
+        let detector = detections.map { "  detector \($0.count)" } ?? ""
         return padded(file, 30) + padded(surface, 7) + padded(outcome, 20) + padded(truthText, 7)
-            + padded(status.rawValue, 17) + String(format: "%5.0f ms", milliseconds)
+            + padded(status.rawValue, 17) + String(format: "%5.0f ms", milliseconds) + detector
     }
 }
 

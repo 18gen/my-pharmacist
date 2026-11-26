@@ -38,6 +38,23 @@ enum Report {
                           String(format: "%6d", count(.extra)), String(format: "%7d", count(.failed)), "  " + share]
                 .joined(separator: " "))
         }
+        // The trained detector, when one was run: how often it counts the pills right.
+        let detected = rows.filter { $0.detections != nil && $0.truth != nil }
+        if !detected.isEmpty {
+            lines.append("")
+            lines.append("detector  photos  counted right  too few  too many  pills seen")
+            for surface in surfaces + ["all"] {
+                let group = surface == "all" ? detected : detected.filter { $0.surface == surface }
+                guard !group.isEmpty else { continue }
+                let counts = group.map { ($0.detections?.count ?? 0, $0.truth ?? 0) }
+                let real = counts.reduce(0) { $0 + $1.1 }, seen = counts.reduce(0) { $0 + min($1.0, $1.1) }
+                lines.append([surface.padding(toLength: 8, withPad: " ", startingAt: 0), String(format: "%7d", group.count),
+                              String(format: "%14d", counts.filter { $0.0 == $0.1 }.count),
+                              String(format: "%8d", counts.filter { $0.0 < $0.1 }.count),
+                              String(format: "%9d", counts.filter { $0.0 > $0.1 }.count),
+                              String(format: "  %d/%d", seen, real)].joined(separator: " "))
+            }
+        }
         let times = rows.map(\.milliseconds).sorted()
         if !times.isEmpty {
             lines.append(String(format: "search time on this Mac: median %.0f ms, slowest %.0f ms", times[times.count / 2], times.last ?? 0))

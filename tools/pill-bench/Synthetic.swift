@@ -76,7 +76,7 @@ enum Synthetic {
                 for variant in 1...2 {
                     for item in scene.placed where pictures[item.tablet.asset] == nil {
                         let url = pills.appending(path: "\(item.tablet.asset).imageset/\(item.tablet.asset).png")
-                        guard let picture = trimmed(url) else {
+                        guard let picture = trimmedPicture(url) else {
                             print("Can't read \(url.path)")
                             return false
                         }
@@ -211,7 +211,7 @@ enum Synthetic {
     }
 
     /// The tablet's picture cut down to the tablet (what isn't see-through).
-    private static func trimmed(_ url: URL) -> CGImage? {
+    static func trimmedPicture(_ url: URL) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
         let width = image.width, height = image.height
