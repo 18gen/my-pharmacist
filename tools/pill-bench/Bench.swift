@@ -8,6 +8,7 @@
 //
 
 import CoreGraphics
+import CoreML
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -33,12 +34,19 @@ struct Bench {
             let photos = URL(filePath: arguments[1], directoryHint: .isDirectory)
             let out = value(after: "--out", in: arguments).map { URL(filePath: $0, directoryHint: .isDirectory) }
                 ?? photos.appending(path: "bench", directoryHint: .isDirectory)
-            var detector: PillDetectorModel?
+            var detector: PillDetector?
             if let path = value(after: "--detector", in: arguments) {
-                guard let model = PillDetectorModel(url: URL(filePath: path)) else { exit(1) }
-                detector = model
+                let url = URL(filePath: path)
+                do {
+                    let compiled = url.pathExtension == "mlmodelc" ? url : try MLModel.compileModel(at: url)
+                    detector = try PillDetector(model: MLModel(contentsOf: compiled))
+                } catch {
+                    print("Can't load the detector \(path): \(error.localizedDescription)")
+                    exit(1)
+                }
             }
-            let threshold = value(after: "--threshold", in: arguments).flatMap { Float($0) } ?? 0.5
+            // Only for counting what the detector sees; the app goes by `DetectorReview`.
+            let threshold = value(after: "--threshold", in: arguments).flatMap { Float($0) } ?? DetectorReview.Settings().leastConfidence
             exit(run(photos: photos, out: out, detector: detector, threshold: threshold) ? 0 : 1)
         case "synth" where arguments.count >= 2:
             let out = URL(filePath: arguments[1], directoryHint: .isDirectory)
@@ -71,7 +79,7 @@ struct Bench {
         arguments.indices.filter { arguments[$0] == flag && $0 + 1 < arguments.count }.map { arguments[$0 + 1] }
     }
 
-    static func run(photos: URL, out: URL, detector: PillDetectorModel? = nil, threshold: Float = 0.5) -> Bool {
+    static func run(photos: URL, out: URL, detector: PillDetector? = nil, threshold: Float = 0.3) -> Bool {
         let files = (try? FileManager.default.contentsOfDirectory(at: photos, includingPropertiesForKeys: nil)) ?? []
         let images = files
             .filter { ["jpg", "jpeg", "png", "heic"].contains($0.pathExtension.lowercased()) }
@@ -102,14 +110,12 @@ struct Bench {
             if let line = truth[name] { label.merge(line) }
             guard let image = Picture.upright(file),
                   let photo = CapturedPhoto(image: image, widthMillimeters: label.widthMillimeters ?? CapturedPhoto.assumedWidthMillimeters),
-                  let diagnosis = Diagnosis(photo) else {
+                  let diagnosis = Diagnosis(photo, detector: detector) else {
                 print("\(name): can't be read")
                 continue
             }
             var row = Row(file: name, label: label, diagnosis: diagnosis)
-            if let detector {
-                row.detections = detector.detect(in: photo.working).filter { $0.confidence >= threshold }
-            }
+            row.detections = diagnosis.detections?.filter { $0.confidence >= threshold }
             if let picture = Overlay.draw(diagnosis, row: row, label: label) {
                 _ = Picture.writePNG(picture, to: overlays.appending(path: row.overlayName))
             }
@@ -152,11 +158,13 @@ struct Diagnosis {
     let areas: [ExaminedArea]
     /// The full-size photo's width, as the rules count it.
     let capturedWidth: Int
+    /// What the trained detector saw in the searched picture, when one was given.
+    let detections: [PillDetection]?
 
-    init?(_ photo: CapturedPhoto) {
+    init?(_ photo: CapturedPhoto, detector: PillDetector?) {
         let clock = ContinuousClock()
         let started = clock.now
-        search = PillFinder.find(in: photo)
+        search = PillFinder.find(in: photo, detector: detector)
         let took = clock.now - started
         milliseconds = Double(took.components.seconds) * 1000 + Double(took.components.attoseconds) / 1e15
 
@@ -178,6 +186,7 @@ struct Diagnosis {
         let colour = SurfaceOutliers.find(in: picture, within: lift.surface, settings: settings)
         let examined = PillLocator.examine(lifted: lift.objects, colour: colour, rules: rules,
                                            pictureWidth: size.width, pictureHeight: size.height)
+        detections = detector?.detect(in: searched)
         self.picture = picture
         self.rules = rules
         self.lift = lift
@@ -323,7 +332,7 @@ struct Row {
     let agrees: Bool
     let details: [String]
     /// What the trained detector saw at or above its threshold, when one was given.
-    var detections: [PillDetectorModel.Detection]?
+    var detections: [PillDetection]?
 
     var overlayName: String { (file as NSString).deletingPathExtension + ".png" }
 

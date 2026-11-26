@@ -105,9 +105,8 @@ enum Overlay {
 
         // What the trained detector saw, dashed blue, with how sure it is.
         for detection in row.detections ?? [] {
-            let box = detection.box
-            let rect = CGRect(x: box.minX * Double(width), y: box.minY * Double(height) + top,
-                              width: box.width * Double(width), height: box.height * Double(height)).insetBy(dx: -2, dy: -2)
+            // Already in the searched picture's pixels, which this picture is.
+            let rect = detection.box.offsetBy(dx: 0, dy: top).insetBy(dx: -2, dy: -2)
             let blue = CGColor(red: 0.25, green: 0.6, blue: 1, alpha: 1)
             context.setStrokeColor(blue)
             context.setLineWidth(2)

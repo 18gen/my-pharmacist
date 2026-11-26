@@ -22,6 +22,7 @@ xcrun swiftc -O -parse-as-library -swift-version 6 \
     "$app/PillVision/PillFinder.swift" \
     "$app/PillVision/PillFinder+Vision.swift" \
     "$app/PillVision/SubjectMask.swift" \
+    "$app/PillVision/PillDetector.swift" \
     "$app"/Core/Identification/*.swift \
     "$app/Core/Capture/BitmapContext.swift" \
     "$app/Core/Capture/CameraFraming.swift" \
