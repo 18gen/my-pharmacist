@@ -14,6 +14,9 @@ nonisolated struct LocatedPill: Sendable, Equatable {
         static let lifted = Sources(rawValue: 1)
         /// By its colour against the surface.
         static let colour = Sources(rawValue: 2)
+        /// By being much darker than the surface, with nothing beside it to cast it as
+        /// a shadow.
+        static let dark = Sources(rawValue: 4)
     }
 
     /// The pill's outline and place, in the searched picture's pixels.
@@ -97,6 +100,32 @@ nonisolated enum PillLocator {
             areas.append(ExaminedArea(sources: candidate.sources, shape: shape, verdict: verdict, outcome: outcome))
         }
 
+        // Much darker than the surface, with its colour: a shadow, unless it is shaped
+        // like a pill and nothing beside it could cast it (a pill, or anything Vision
+        // lifted). Then it is a grey or dark pill on a light surface, which Vision may not
+        // lift when it lifts the others. It is kept as doubtful, as the checker says
+        // whether its cut-out shows a pill at all.
+        let dark = colour.flatMap { $0.isReliable ? $0.dark : nil } ?? []
+        let casters = lifted + pills.map(\.blob)
+        for area in dark where !pills.contains(where: { overlap($0.blob, area) }) {
+            let shape = BlobShape(area)
+            let verdict = judge(area)
+            guard verdict != .notAPill, rules.isWide(shape), shape.width >= rules.leastDarkWidth * shape.length,
+                  !casters.contains(where: { near($0, area, within: max(2, Int(0.2 * shape.width))) }) else { continue }
+            // Settled as what colour alone found, so dark pills touching are cut apart.
+            // Darkness alone never turns the photo away: part of a pill in shade, or a
+            // fold of skin, can look like pills touching.
+            let outcome: ExaminedArea.Outcome
+            switch settle((area, .dark), shape: shape, verdict: verdict, rules: rules, judge: judge) {
+            case .pills(let parts, _):
+                pills += parts.map { LocatedPill(blob: $0, shape: BlobShape($0), sources: .dark, isRough: true) }
+                outcome = .pills(parts.count)
+            case .ignored, .retake:
+                outcome = .ignored
+            }
+            areas.append(ExaminedArea(sources: .dark, shape: shape, verdict: verdict, outcome: outcome))
+        }
+
         // Something round and pill-sized that barely differs from the surface, where no
         // pill was found: it may be one, and its edge can't be trusted either way.
         for area in faint where judge(area) == .pill && !pills.contains(where: { overlap($0.blob, area) }) {
@@ -145,11 +174,11 @@ nonisolated enum PillLocator {
     }
 
     /// What one area is. Skin has creases, shadows and blotches that differ from the
-    /// skin around them too, so what colour alone found has more to prove than what
-    /// Vision lifted: it must be as wide as a readable pill, and whole.
+    /// skin around them too, so what colour alone found (or darkness alone) has more to
+    /// prove than what Vision lifted: it must be as wide as a readable pill, and whole.
     private static func settle(_ candidate: Candidate, shape: BlobShape, verdict: PillRules.Verdict, rules: PillRules,
                                judge: (Blob) -> PillRules.Verdict) -> Settled {
-        let byColourAlone = candidate.sources == .colour
+        let byColourAlone = !candidate.sources.contains(.lifted)
         func wideEnough(_ parts: [Blob]) -> Bool {
             !byColourAlone || parts.allSatisfy { rules.isWide(BlobShape($0)) }
         }
@@ -238,5 +267,19 @@ nonisolated enum PillLocator {
             }
         }
         return Double(count) > 0.3 * Double(min(a.mask.count, b.mask.count))
+    }
+
+    /// Whether two areas touch, or come within `distance` pixels of each other.
+    static func near(_ a: Blob, _ b: Blob, within distance: Int) -> Bool {
+        let padded = a.padded(by: distance)
+        let reach = Blob(x: padded.x, y: padded.y, mask: padded.mask.dilated(by: distance))
+        let shared = reach.bounds.intersection(b.bounds)
+        guard !shared.isNull, shared.width > 0, shared.height > 0 else { return false }
+        for y in Int(shared.minY)..<Int(shared.maxY) {
+            for x in Int(shared.minX)..<Int(shared.maxX) where reach.mask[x - reach.x, y - reach.y] && b.mask[x - b.x, y - b.y] {
+                return true
+            }
+        }
+        return false
     }
 }

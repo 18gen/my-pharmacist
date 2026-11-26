@@ -90,6 +90,19 @@ struct SurfaceOutliersTests {
         #expect(result.faint.isEmpty)
     }
 
+    @Test func aGreyPillOnWhitePaperIsOnlyMuchDarker() {
+        // Grey has the paper's own colour: it is only darker, as a shadow is, but far more.
+        let paper: RGB = (0.90, 0.90, 0.88), grey: RGB = (0.45, 0.45, 0.44)
+        let result = SurfaceOutliers.find(in: surfacePicture(colour: paper, light: (0.95, 1.0), discs: [
+            TestDisc(x: 180, y: 300, radius: 20, colour: grey),
+            // A soft shadow.
+            TestDisc(x: 100, y: 500, radius: 25, light: 0.9),
+        ]))
+        #expect(result.blobs.isEmpty)
+        #expect(result.faint.isEmpty)
+        #expect(middles(result.dark) == [CGPoint(x: 180, y: 300)])
+    }
+
     @Test func aPillCloseToTheSurfacesColourIsOnlyFaint() {
         let nearlySkin: RGB = (0.80, 0.68, 0.58)
         let result = SurfaceOutliers.find(in: surfacePicture(discs: [TestDisc(x: 180, y: 300, radius: 25, colour: nearlySkin)]))

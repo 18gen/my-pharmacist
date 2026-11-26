@@ -65,6 +65,10 @@ nonisolated struct PillRules: Sendable {
     /// Something that barely differs from the surface is taken for a possible pill only
     /// if it is this round: at least this wide for its length.
     var leastFaintWidth = 0.5
+    /// Something found only by being much darker than the surface is taken for a pill
+    /// only if it is this wide for its length: the gap at a paper's edge or between
+    /// fingers is long and narrow.
+    var leastDarkWidth = 0.35
     /// More areas than this is too many pills for one check.
     var mostPills = CheckLimits.pills
 

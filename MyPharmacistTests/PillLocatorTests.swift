@@ -17,9 +17,10 @@ struct PillLocatorTests {
         MyPharmacistTests.discs(width: width, height: height, discs).blobs()
     }
 
-    private func locate(lifted: [Blob] = [], colour: [Blob]? = nil, faint: [Blob] = [], reliable: Bool = true) -> PillLocation {
-        let result = colour.map { SurfaceOutliers.Result(blobs: $0, faint: faint, isReliable: reliable) }
-            ?? (faint.isEmpty ? nil : SurfaceOutliers.Result(blobs: [], faint: faint, isReliable: reliable))
+    private func locate(lifted: [Blob] = [], colour: [Blob]? = nil, faint: [Blob] = [], dark: [Blob] = [],
+                        reliable: Bool = true) -> PillLocation {
+        let result = colour.map { SurfaceOutliers.Result(blobs: $0, faint: faint, isReliable: reliable, dark: dark) }
+            ?? (faint.isEmpty && dark.isEmpty ? nil : SurfaceOutliers.Result(blobs: [], faint: faint, isReliable: reliable, dark: dark))
         return PillLocator.locate(lifted: lifted, colour: result, rules: rules, pictureWidth: width, pictureHeight: height)
     }
 
@@ -203,6 +204,31 @@ struct PillLocatorTests {
         // The shadow is a small piece beside the pill that isn't a pill by itself.
         let found = pills(locate(colour: blobs([(100, 200, 16), (122, 206, 5)])))
         #expect(found.count == 1)
+    }
+
+    @Test func aGreyPillOnWhitePaperIsFoundByBeingDarker() {
+        // Vision lifted the other two; the grey pill differs from the paper only by being
+        // darker, and nothing beside it casts it. The checker says whether it is a pill.
+        let found = pills(locate(lifted: blobs([(100, 200, 14), (250, 200, 14)]), dark: blobs([(180, 400, 12)])))
+        #expect(found.count == 3)
+        #expect(found.filter { $0.sources == .dark }.map(\.isRough) == [true])
+    }
+
+    @Test func aShadowBesideAPillIsNotAPill() {
+        // Dark and pill-shaped, but against the pill that casts it.
+        let found = pills(locate(lifted: blobs([(100, 200, 14)]), dark: blobs([(125, 200, 10)])))
+        #expect(found.count == 1)
+        #expect(found.allSatisfy { $0.sources == .lifted })
+    }
+
+    @Test func darknessAloneNeverTurnsThePhotoAway() {
+        // Dark areas joined like pills touching, beside a real pill: perhaps a fold of
+        // skin in shade, so nothing is asked of the person because of them.
+        let found = pills(locate(lifted: blobs([(250, 200, 14)]), dark: blobs([(100, 400, 16), (122, 400, 16)])))
+        #expect(found.count == 1)
+        // A long, thin dark area (the gap at a paper's edge) isn't a pill.
+        let gap = ellipse(width: width, height: height, x: 180, y: 500, a: 40, b: 9).blobs()
+        #expect(pills(locate(lifted: blobs([(250, 200, 14)]), dark: gap)).count == 1)
     }
 
     @Test func colourOnAPatternedSurfaceIsIgnored() {

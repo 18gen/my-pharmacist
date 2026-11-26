@@ -76,7 +76,7 @@ nonisolated enum PillFinder {
             search \(width)x\(height) at \(rules.pixelsPerMillimeter, format: .fixed(precision: 1)) px/mm: \
             vision \(lift.ran ? "ran" : "failed") mask \(lift.maskWidth)x\(lift.maskHeight), \
             objects \(lift.shares.map { String(format: "%.2f%%", $0 * 100) }), surface \(lift.surface != nil), \
-            tiles \(usedTiles), lifted \(lift.objects.count), colour \(colour.blobs.count) clear \(colour.faint.count) faint \
+            tiles \(usedTiles), lifted \(lift.objects.count), colour \(colour.blobs.count) clear \(colour.faint.count) faint \(colour.dark.count) dark \
             reliable \(colour.isReliable) spread \(colour.spread) standing out \(colour.shareStandingOut, format: .fixed(precision: 3)) \
             in \(colour.areas), took \(ContinuousClock.now - started)
             """)

@@ -26,6 +26,10 @@ nonisolated enum SurfaceOutliers {
         /// ones are a blotch or a soft shadow, and are reported apart.
         var clearlyDifferent = 6.0
         var clearShare = 0.3
+        /// Darker than this, with the surface's own colour, is darker than a pill's soft
+        /// shadow: a grey or dark pill on a light surface, or a deep shadow. Such areas
+        /// are reported apart, as only their shape and place can tell which.
+        var clearlyDarker = 4.0
         /// The least spread assumed, so a very even surface doesn't make noise stand
         /// out: in colour, and in lightness.
         var leastColourSpread: Float = 1.5
@@ -53,6 +57,9 @@ nonisolated enum SurfaceOutliers {
         var spread: [Float] = []
         var shareStandingOut = 0.0
         var areas = 0
+        /// Areas much darker than the surface but of its colour (`clearlyDarker`): deep
+        /// shadows, and grey or dark pills, which differ from the surface only that way.
+        var dark: [Blob] = []
     }
 
     /// - Parameter region: Where the surface is (a hand, say); nil for the whole picture.
@@ -112,13 +119,16 @@ nonisolated enum SurfaceOutliers {
         let blueYellowSpread = max(settings.leastColourSpread, spread(blueYellowOff, inside: inside))
 
         var differs = [UInt8](repeating: 0, count: width * height)
+        var darker = [UInt8](repeating: 0, count: width * height)
         var clearly = [Bool](repeating: false, count: width * height)
         let differentLimit = Float(settings.different), clearLimit = Float(settings.clearlyDifferent)
+        let darkLimit = Float(settings.clearlyDarker)
         inside.withUnsafeBufferPointer { inside in
         lightnessOff.withUnsafeBufferPointer { lightnessOff in
         greenRedOff.withUnsafeBufferPointer { greenRedOff in
         blueYellowOff.withUnsafeBufferPointer { blueYellowOff in
         differs.withUnsafeMutableBufferPointer { differs in
+        darker.withUnsafeMutableBufferPointer { darker in
         clearly.withUnsafeMutableBufferPointer { clearly in
             for index in 0..<(width * height) where inside[index] {
                 let a = greenRedOff[index] / greenRedSpread, b = blueYellowOff[index] / blueYellowSpread
@@ -129,24 +139,30 @@ nonisolated enum SurfaceOutliers {
                 let score = max(colour, lighter)
                 // Darker than the surface and only somewhat off in colour is a shadow,
                 // such as the one a pill casts beside itself. A dark pill is clearly off.
-                if lighter < -1, colour <= clearLimit { continue }
+                // Much darker is kept apart: a grey pill on white paper differs only so.
+                if lighter < -1, colour <= clearLimit {
+                    if lighter < -darkLimit { darker[index] = 1 }
+                    continue
+                }
                 if score > differentLimit {
                     differs[index] = 1
                     clearly[index] = score > clearLimit
                 }
             }
-        }}}}}}
-        let different = PixelMask(width: width, height: height, pixels: differs)
+        }}}}}}}
 
         // Tidied one area at a time, each in a small picture of its own: tidying the
         // whole picture costs far more and would join neighbours.
         let margin = settings.open + settings.close + 1
-        let all = different.blobs(minimumPixels: settings.minimumPixels).flatMap { rough -> [Blob] in
-            let padded = rough.padded(by: margin)
-            return padded.mask.opened(by: settings.open).closed(by: settings.close).fillingHoles()
-                .blobs(minimumPixels: settings.minimumPixels)
-                .map { Blob(x: padded.x + $0.x, y: padded.y + $0.y, mask: $0.mask) }
+        func tidied(_ mask: PixelMask) -> [Blob] {
+            mask.blobs(minimumPixels: settings.minimumPixels).flatMap { rough -> [Blob] in
+                let padded = rough.padded(by: margin)
+                return padded.mask.opened(by: settings.open).closed(by: settings.close).fillingHoles()
+                    .blobs(minimumPixels: settings.minimumPixels)
+                    .map { Blob(x: padded.x + $0.x, y: padded.y + $0.y, mask: $0.mask) }
+            }
         }
+        let all = tidied(PixelMask(width: width, height: height, pixels: differs))
         var blobs: [Blob] = [], faint: [Blob] = []
         var standingOut = 0
         for blob in all {
@@ -167,7 +183,8 @@ nonisolated enum SurfaceOutliers {
         let isReliable = Double(standingOut) <= settings.mostShare * Double(insideCount) && all.count <= settings.mostAreas
         return Result(blobs: blobs, faint: faint, isReliable: isReliable,
                       spread: [lightnessSpread, greenRedSpread, blueYellowSpread],
-                      shareStandingOut: Double(standingOut) / Double(insideCount), areas: all.count)
+                      shareStandingOut: Double(standingOut) / Double(insideCount), areas: all.count,
+                      dark: tidied(PixelMask(width: width, height: height, pixels: darker)))
     }
 
     /// A spread that a few far-off values don't change: 1.4826 × the middle absolute
