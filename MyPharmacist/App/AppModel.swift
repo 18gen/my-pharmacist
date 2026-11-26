@@ -74,6 +74,7 @@ final class AppModel {
                              share: PharmacyShare(demo: demo, defaults: .standard))
         #if DEBUG
         DebugSharing.apply(to: model)
+        ScanPhotoKeeper.clearIfAsked()
         #endif
         // What changed while the app was closed, and whether the demo was reset meanwhile.
         model.share.appBecameActive()

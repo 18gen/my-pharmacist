@@ -174,6 +174,9 @@ final class ScanFlow {
 
         // Step 2: are there pills at all? If not, the photo stays with a Retake button.
         let search = await analyzer.findPills(in: captured)
+        #if DEBUG
+        ScanPhotoKeeper.keep(captured, search: search)
+        #endif
         guard !Task.isCancelled else { return }
         let found: [FoundPill]
         switch search {
